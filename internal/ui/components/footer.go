@@ -5,7 +5,7 @@ import (
 )
 
 // RenderFooter shows key hints and mode status.
-func RenderFooter(mode, view string) string {
+func RenderFooter(mode, view string, width int) string {
 	hints := []string{
 		BadgeInfo.Render("1/b:board"),
 		BadgeInfo.Render("2/t:table"),
@@ -19,5 +19,10 @@ func RenderFooter(mode, view string) string {
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top, hints...)
 	status := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ca3af")).Render("view:" + view + " | mode:" + mode)
-	return FooterStyle.Render(row + InlineGap() + status)
+	content := row + InlineGap() + status
+	style := FooterStyle
+	if width > 0 {
+		style = style.Width(width)
+	}
+	return style.Render(content)
 }

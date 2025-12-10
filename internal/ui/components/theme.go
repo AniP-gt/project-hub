@@ -27,8 +27,7 @@ var (
 	FrameStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(colorMuted).
-			Padding(1, 2).
-			Width(96)
+			Padding(1, 2)
 
 	BadgeActive = lipgloss.NewStyle().
 			Background(colorAccent).

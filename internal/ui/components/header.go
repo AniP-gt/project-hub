@@ -7,7 +7,7 @@ import (
 )
 
 // RenderHeader shows project name, view, and active filter/mode hints with badges.
-func RenderHeader(project state.Project, view state.ViewContext) string {
+func RenderHeader(project state.Project, view state.ViewContext, width int) string {
 	filter := view.Filter.Query
 	filterStatus := BadgeMuted.Render("filter:off")
 	if filter != "" {
@@ -20,7 +20,12 @@ func RenderHeader(project state.Project, view state.ViewContext) string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e5e7eb")).Render(project.Name)
 
 	segments := []string{title, InlineGap() + viewBadge, InlineGap() + modeBadge, InlineGap() + filterStatus, InlineGap() + filter}
-	return HeaderStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, segments...))
+	content := lipgloss.JoinHorizontal(lipgloss.Top, segments...)
+	style := HeaderStyle
+	if width > 0 {
+		style = style.Width(width)
+	}
+	return style.Render(content)
 }
 
 func badgeForView(v state.ViewType) string {

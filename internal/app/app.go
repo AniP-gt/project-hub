@@ -36,6 +36,10 @@ func (a App) Init() tea.Cmd {
 // Update routes incoming messages to state transitions.
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
+	case tea.WindowSizeMsg:
+		a.state.Width = m.Width
+		a.state.Height = m.Height
+		return a, nil
 	case tea.KeyMsg:
 		return a.handleKey(m)
 	case SwitchViewMsg:
@@ -94,7 +98,11 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // View renders the current UI.
 func (a App) View() string {
-	header := components.RenderHeader(a.state.Project, a.state.View)
+	width := a.state.Width
+	if width == 0 {
+		width = 100
+	}
+	header := components.RenderHeader(a.state.Project, a.state.View, width)
 	items := applyFilter(a.state.Items, a.state.View.Filter)
 	body := ""
 	switch a.state.View.CurrentView {
@@ -105,8 +113,12 @@ func (a App) View() string {
 	default:
 		body = board.Render(items, a.state.View.FocusedItemID)
 	}
-	framed := components.FrameStyle.Render(body)
-	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView))
+	frame := components.FrameStyle
+	if width > 0 {
+		frame = frame.Width(width)
+	}
+	framed := frame.Render(body)
+	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
 }

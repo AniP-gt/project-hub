@@ -92,4 +92,6 @@ type Model struct {
 	Items         []Item
 	View          ViewContext
 	Notifications []Notification
+	Width         int
+	Height        int
 }
