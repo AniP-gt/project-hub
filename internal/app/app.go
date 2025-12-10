@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"project-hub/internal/github"
 	"project-hub/internal/state"
@@ -104,6 +105,7 @@ func (a App) View() string {
 	}
 	header := components.RenderHeader(a.state.Project, a.state.View, width)
 	items := applyFilter(a.state.Items, a.state.View.Filter)
+
 	body := ""
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
@@ -113,11 +115,18 @@ func (a App) View() string {
 	default:
 		body = board.Render(items, a.state.View.FocusedItemID)
 	}
-	frame := components.FrameStyle
-	if width > 0 {
-		frame = frame.Width(width)
+
+	frameWidth := width
+	if frameWidth <= 0 {
+		frameWidth = 100
 	}
-	framed := frame.Render(body)
+	innerWidth := frameWidth - components.FrameStyle.GetHorizontalFrameSize()
+	if innerWidth < 40 {
+		innerWidth = 40
+	}
+	bodyRendered := lipgloss.NewStyle().Width(innerWidth).Render(body)
+	framed := components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
