@@ -48,7 +48,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "warning: gh fetch failed, using sample data:", err)
 	}
 
-	p := tea.NewProgram(app.New(initial, client))
+	p := tea.NewProgram(app.New(initial, client), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "failed to start program:", err)
 		os.Exit(1)
