@@ -19,6 +19,11 @@ func Render(items []state.Item, focusedID string) string {
 		b.WriteString(it.Status)
 		b.WriteString("] ")
 		b.WriteString(it.Title)
+		if it.Repository != "" {
+			b.WriteString("  (")
+			b.WriteString(it.Repository)
+			b.WriteString(")")
+		}
 		b.WriteString("\n")
 	}
 	return strings.TrimRight(b.String(), "\n")

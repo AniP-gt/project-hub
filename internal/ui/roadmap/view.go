@@ -20,7 +20,8 @@ func Render(timelines []state.Timeline, items []state.Item, focusedID string) st
 			if it.ID == focusedID {
 				marker = ">"
 			}
-			b.WriteString(fmt.Sprintf("  %s %s (%s)\n", marker, it.Title, it.Status))
+			repo := it.Repository
+			b.WriteString(fmt.Sprintf("  %s %s (%s) %s\n", marker, it.Title, it.Status, repo))
 		}
 	}
 	// Unscheduled items
@@ -37,7 +38,8 @@ func Render(timelines []state.Timeline, items []state.Item, focusedID string) st
 			if it.ID == focusedID {
 				marker = ">"
 			}
-			b.WriteString(fmt.Sprintf("  %s %s (%s)\n", marker, it.Title, it.Status))
+			repo := it.Repository
+			b.WriteString(fmt.Sprintf("  %s %s (%s) %s\n", marker, it.Title, it.Status, repo))
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")

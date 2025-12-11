@@ -15,7 +15,8 @@ func Render(items []state.Item, focusedID string) string {
 		if it.ID == focusedID {
 			marker = ">"
 		}
-		b.WriteString(fmt.Sprintf("%s %-15s | %-10s | %s\n", marker, it.Title, it.Status, strings.Join(it.Labels, ",")))
+		repo := it.Repository
+		b.WriteString(fmt.Sprintf("%s %-20s | %-10s | %-20s | %s\n", marker, it.Title, it.Status, repo, strings.Join(it.Labels, ",")))
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

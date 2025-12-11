@@ -49,6 +49,7 @@ type Item struct {
 	Title       string
 	Description string
 	Status      string
+	Repository  string
 	Assignees   []string
 	Labels      []string
 	CreatedAt   *time.Time
