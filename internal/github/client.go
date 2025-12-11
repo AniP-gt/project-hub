@@ -22,12 +22,12 @@ const (
 
 // Client defines the operations needed from gh CLI for Projects.
 type Client interface {
-	FetchProject(ctx context.Context, projectID string) (state.Project, []state.Item, error)
-	FetchItems(ctx context.Context, projectID string, filter string) ([]state.Item, error)
-	UpdateStatus(ctx context.Context, projectID string, itemID string, direction Direction) (state.Item, error)
-	UpdateAssignees(ctx context.Context, projectID string, itemID string, assigneeIDs []string) (state.Item, error)
-	UpdateItem(ctx context.Context, projectID string, itemID string, title string, description string) (state.Item, error)
-	FetchRoadmap(ctx context.Context, projectID string) ([]state.Timeline, []state.Item, error)
+	FetchProject(ctx context.Context, projectID string, owner string) (state.Project, []state.Item, error)
+	FetchItems(ctx context.Context, projectID string, owner string, filter string) ([]state.Item, error)
+	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, direction Direction) (state.Item, error)
+	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeIDs []string) (state.Item, error)
+	UpdateItem(ctx context.Context, projectID string, owner string, itemID string, title string, description string) (state.Item, error)
+	FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error)
 }
 
 // CLIClient is a thin wrapper intended to call `gh` and parse JSON.
@@ -39,8 +39,12 @@ func NewCLIClient() *CLIClient {
 }
 
 // FetchProject calls `gh project view <projectID> --format json` and extracts basic fields.
-func (c *CLIClient) FetchProject(ctx context.Context, projectID string) (state.Project, []state.Item, error) {
-	out, err := runGh(ctx, "project", "view", projectID, "--format", "json")
+func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner string) (state.Project, []state.Item, error) {
+	args := []string{"project", "view", projectID, "--format", "json"}
+	if owner != "" {
+		args = append(args, "--owner", owner)
+	}
+	out, err := runGh(ctx, args...)
 	if err != nil {
 		return state.Project{}, nil, fmt.Errorf("gh project view failed: %w", err)
 	}
@@ -65,32 +69,37 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string) (state.P
 	return proj, items, nil
 }
 
-func (c *CLIClient) FetchItems(ctx context.Context, projectID string, filter string) ([]state.Item, error) {
+func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner string, filter string) ([]state.Item, error) {
 	_ = filter
+	_ = owner
 	return nil, errors.New("FetchItems not implemented yet")
 }
 
-func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, itemID string, direction Direction) (state.Item, error) {
+func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, direction Direction) (state.Item, error) {
 	_ = projectID
+	_ = owner
 	_ = itemID
 	_ = direction
 	return state.Item{}, errors.New("UpdateStatus not implemented yet")
 }
 
-func (c *CLIClient) UpdateAssignees(ctx context.Context, projectID string, itemID string, assigneeIDs []string) (state.Item, error) {
+func (c *CLIClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeIDs []string) (state.Item, error) {
 	_ = projectID
+	_ = owner
 	_ = itemID
 	_ = assigneeIDs
 	return state.Item{}, errors.New("UpdateAssignees not implemented yet")
 }
 
-func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, itemID string, title string, description string) (state.Item, error) {
+func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, owner string, itemID string, title string, description string) (state.Item, error) {
+	_ = owner
 	// TODO: call `gh project item-edit` or equivalent once wiring is added.
 	return state.Item{ID: itemID, Title: title, Description: description}, nil
 }
 
-func (c *CLIClient) FetchRoadmap(ctx context.Context, projectID string) ([]state.Timeline, []state.Item, error) {
+func (c *CLIClient) FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error) {
 	_ = projectID
+	_ = owner
 	return nil, nil, errors.New("FetchRoadmap not implemented yet")
 }
 

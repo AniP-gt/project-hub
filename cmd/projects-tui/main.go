@@ -4,7 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -14,18 +16,28 @@ import (
 )
 
 func main() {
-	projectID := flag.String("project", "", "GitHub Project ID")
+	projectArg := flag.String("project", "", "GitHub Project ID or URL")
+	ownerFlag := flag.String("owner", "", "Owner (org/user) for the project")
 	flag.Parse()
 
-	if *projectID == "" {
+	if *projectArg == "" {
 		fmt.Fprintln(os.Stderr, "--project is required")
 		flag.Usage()
 		os.Exit(1)
 	}
 
+	projID, urlOwner := parseProjectArg(*projectArg)
+	owner := *ownerFlag
+	if owner == "" {
+		owner = urlOwner
+	}
+	if projID == "" {
+		projID = *projectArg
+	}
+
 	client := github.NewCLIClient()
 	initial := state.Model{
-		Project: state.Project{ID: *projectID, Name: "GitHub Projects TUI"},
+		Project: state.Project{ID: projID, Name: "GitHub Projects TUI"},
 		Items: []state.Item{
 			{ID: "1", Title: "Design board", Status: "Backlog", Labels: []string{"design"}},
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},
@@ -35,7 +47,7 @@ func main() {
 	}
 
 	// Try to load real project data via gh; fallback to sample on error.
-	if proj, items, err := client.FetchProject(context.Background(), *projectID); err == nil {
+	if proj, items, err := client.FetchProject(context.Background(), projID, owner); err == nil {
 		if proj.Name != "" {
 			initial.Project = proj
 		}
@@ -53,4 +65,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, "failed to start program:", err)
 		os.Exit(1)
 	}
+}
+
+func parseProjectArg(arg string) (projectID string, owner string) {
+	u, err := url.Parse(arg)
+	if err == nil && u.Scheme != "" {
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+		for i := 0; i < len(parts); i++ {
+			if parts[i] == "projects" && i > 0 && i+1 < len(parts) {
+				return parts[i+1], parts[i-1]
+			}
+		}
+	}
+	return arg, ""
 }

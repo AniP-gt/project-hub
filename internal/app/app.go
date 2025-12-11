@@ -133,8 +133,8 @@ func (a App) View() string {
 }
 
 // LoadInitialState is a helper to fetch project data using the gh client.
-func (a *App) LoadInitialState(ctx context.Context, projectID string) error {
-	project, items, err := a.gh.FetchProject(ctx, projectID)
+func (a *App) LoadInitialState(ctx context.Context, projectID string, owner string) error {
+	project, items, err := a.gh.FetchProject(ctx, projectID, owner)
 	if err != nil {
 		return err
 	}
