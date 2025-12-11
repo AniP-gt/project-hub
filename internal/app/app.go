@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -78,6 +79,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleSwitchView(SwitchViewMsg{View: state.ViewTable})
 	case "3", "r":
 		return a.handleSwitchView(SwitchViewMsg{View: state.ViewRoadmap})
+	case "R", "ctrl+r":
+		return a.handleReload()
 	case "j":
 		return a.handleMoveFocus(MoveFocusMsg{Delta: 1})
 	case "k":
@@ -95,6 +98,35 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		return a, nil
 	}
+}
+
+func (a App) handleReload() (tea.Model, tea.Cmd) {
+	ctx := context.Background()
+	projID := a.state.Project.ID
+	owner := a.state.Project.Owner
+	proj, items, err := a.gh.FetchProject(ctx, projID, owner)
+	if err != nil {
+		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Reload failed: %v", err), Level: "error", At: time.Now()})
+		return a, nil
+	}
+	if proj.Name != "" {
+		a.state.Project.Name = proj.Name
+	}
+	if proj.Owner != "" {
+		a.state.Project.Owner = proj.Owner
+	}
+	if len(items) > 0 {
+		a.state.Items = items
+		a.state.View.FocusedIndex = 0
+		a.state.View.FocusedItemID = items[0].ID
+		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Reloaded %d items", len(items)), Level: "info", At: time.Now()})
+	} else {
+		a.state.Items = items
+		a.state.View.FocusedIndex = -1
+		a.state.View.FocusedItemID = ""
+		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: "Reloaded: 0 items", Level: "warn", At: time.Now()})
+	}
+	return a, nil
 }
 
 // View renders the current UI.

@@ -52,7 +52,12 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner st
 	if err := json.Unmarshal(out, &raw); err != nil {
 		return state.Project{}, nil, fmt.Errorf("parse gh project view json: %w", err)
 	}
-	proj := state.Project{ID: projectID}
+	proj := state.Project{ID: projectID, Owner: owner}
+	if own, ok := raw["owner"].(map[string]any); ok {
+		if login, ok := own["login"].(string); ok && login != "" {
+			proj.Owner = login
+		}
+	}
 	if name, ok := raw["title"].(string); ok {
 		proj.Name = name
 	}

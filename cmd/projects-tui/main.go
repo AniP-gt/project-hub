@@ -38,7 +38,7 @@ func main() {
 
 	client := github.NewCLIClient()
 	initial := state.Model{
-		Project: state.Project{ID: projID, Name: "GitHub Projects TUI"},
+		Project: state.Project{ID: projID, Owner: owner, Name: "GitHub Projects TUI"},
 		Items: []state.Item{
 			{ID: "1", Title: "Design board", Status: "Backlog", Labels: []string{"design"}},
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},

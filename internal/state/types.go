@@ -62,6 +62,7 @@ type Item struct {
 // Project metadata and available capabilities.
 type Project struct {
 	ID         string
+	Owner      string
 	Name       string
 	Views      []ViewType
 	Filters    []string
