@@ -190,23 +190,21 @@ func parseItemMap(r any) (state.Item, bool) {
 		if body, ok := content["body"].(string); ok {
 			item.Description = body
 		}
-	}
-	if desc, ok := m["body"].(string); ok && item.Description == "" {
-		item.Description = desc
-	}
-	if repo, ok := m["repository"].(string); ok {
-		item.Repository = repo
-	}
-	if status, ok := m["status"].(string); ok {
-		item.Status = status
-	}
-	if content, ok := m["content"].(map[string]any); ok {
 		if st, ok := content["state"].(string); ok && item.Status == "" {
 			item.Status = st
 		}
 		if repo, ok := content["repository"].(string); ok && item.Repository == "" {
 			item.Repository = repo
 		}
+	}
+	if desc, ok := m["body"].(string); ok && item.Description == "" {
+		item.Description = desc
+	}
+	if repo, ok := m["repository"].(string); ok && item.Repository == "" {
+		item.Repository = repo
+	}
+	if status, ok := m["status"].(string); ok {
+		item.Status = status
 	}
 	if item.Status == "" {
 		item.Status = "Unknown"
