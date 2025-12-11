@@ -19,6 +19,8 @@ import (
 func main() {
 	projectArg := flag.String("project", "", "GitHub Project ID or URL")
 	ownerFlag := flag.String("owner", "", "Owner (org/user) for the project")
+	ghPathFlag := flag.String("gh-path", "", "Path to the gh CLI executable (default: \"gh\")")
+	itemLimitFlag := flag.Int("item-limit", 100, "Maximum number of items to fetch (default: 100)")
 	flag.Parse()
 
 	if *projectArg == "" {
@@ -36,7 +38,7 @@ func main() {
 		projID = *projectArg
 	}
 
-	client := github.NewCLIClient()
+	client := github.NewCLIClient(*ghPathFlag)
 	initial := state.Model{
 		Project: state.Project{ID: projID, Owner: owner, Name: "GitHub Projects TUI"},
 		Items: []state.Item{
@@ -44,11 +46,12 @@ func main() {
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},
 			{ID: "3", Title: "Roadmap draft", Status: "Review", Labels: []string{"roadmap"}},
 		},
-		View: state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
+		View:      state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
+		ItemLimit: *itemLimitFlag,
 	}
 
 	// Try to load real project data via gh; fallback to sample on error.
-	if proj, items, err := client.FetchProject(context.Background(), projID, owner); err == nil {
+	if proj, items, err := client.FetchProject(context.Background(), projID, owner, *itemLimitFlag); err == nil {
 		if proj.Name != "" {
 			initial.Project = proj
 		}
@@ -64,7 +67,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "warning: gh fetch failed, using sample data:", err)
 	}
 
-	p := tea.NewProgram(app.New(initial, client), tea.WithAltScreen())
+	p := tea.NewProgram(app.New(initial, client, *itemLimitFlag), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "failed to start program:", err)
 		os.Exit(1)

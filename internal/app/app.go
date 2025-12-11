@@ -18,13 +18,14 @@ import (
 
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
-	state state.Model
-	gh    github.Client
+	state     state.Model
+	gh        github.Client
+	itemLimit int // Added
 }
 
 // New creates an App with an optional preloaded state.
-func New(initial state.Model, client github.Client) App {
-	return App{state: initial, gh: client}
+func New(initial state.Model, client github.Client, itemLimit int) App {
+	return App{state: initial, gh: client, itemLimit: itemLimit}
 }
 
 // Init loads initial project data (placeholder until gh wiring is added).
@@ -104,7 +105,7 @@ func (a App) handleReload() (tea.Model, tea.Cmd) {
 	ctx := context.Background()
 	projID := a.state.Project.ID
 	owner := a.state.Project.Owner
-	proj, items, err := a.gh.FetchProject(ctx, projID, owner)
+	proj, items, err := a.gh.FetchProject(ctx, projID, owner, a.itemLimit)
 	if err != nil {
 		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Reload failed: %v", err), Level: "error", At: time.Now()})
 		return a, nil
@@ -119,14 +120,29 @@ func (a App) handleReload() (tea.Model, tea.Cmd) {
 		a.state.Items = items
 		a.state.View.FocusedIndex = 0
 		a.state.View.FocusedItemID = items[0].ID
-		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Reloaded %d items", len(items)), Level: "info", At: time.Now()})
+		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items", len(items)), Level: "info", At: time.Now()})
 	} else {
 		a.state.Items = items
 		a.state.View.FocusedIndex = -1
 		a.state.View.FocusedItemID = ""
-		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: "Reloaded: 0 items", Level: "warn", At: time.Now()})
+		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: "Loaded: 0 items", Level: "warn", At: time.Now()})
 	}
 	return a, nil
+}
+
+// LoadInitialState is a helper to fetch project data using the gh client.
+func (a *App) LoadInitialState(ctx context.Context, projectID string, owner string) error {
+	project, items, err := a.gh.FetchProject(ctx, projectID, owner, a.itemLimit)
+	if err != nil {
+		return err
+	}
+	a.state.Project = project
+	a.state.Items = items
+	if a.state.View.CurrentView == "" {
+		a.state.View.CurrentView = state.ViewBoard
+		a.state.View.Mode = state.ModeNormal
+	}
+	return nil
 }
 
 // View renders the current UI.
@@ -162,21 +178,6 @@ func (a App) View() string {
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
-}
-
-// LoadInitialState is a helper to fetch project data using the gh client.
-func (a *App) LoadInitialState(ctx context.Context, projectID string, owner string) error {
-	project, items, err := a.gh.FetchProject(ctx, projectID, owner)
-	if err != nil {
-		return err
-	}
-	a.state.Project = project
-	a.state.Items = items
-	if a.state.View.CurrentView == "" {
-		a.state.View.CurrentView = state.ViewBoard
-		a.state.View.Mode = state.ModeNormal
-	}
-	return nil
 }
 
 func applyFilter(items []state.Item, fs state.FilterState) []state.Item {

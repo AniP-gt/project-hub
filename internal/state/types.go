@@ -96,4 +96,5 @@ type Model struct {
 	Notifications []Notification
 	Width         int
 	Height        int
+	ItemLimit     int // Added
 }

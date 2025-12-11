@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv" // Added
 	"strings"
 	"time"
 
@@ -22,8 +23,8 @@ const (
 
 // Client defines the operations needed from gh CLI for Projects.
 type Client interface {
-	FetchProject(ctx context.Context, projectID string, owner string) (state.Project, []state.Item, error)
-	FetchItems(ctx context.Context, projectID string, owner string, filter string) ([]state.Item, error)
+	FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error)
+	FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error)
 	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, direction Direction) (state.Item, error)
 	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeIDs []string) (state.Item, error)
 	UpdateItem(ctx context.Context, projectID string, owner string, itemID string, title string, description string) (state.Item, error)
@@ -31,20 +32,25 @@ type Client interface {
 }
 
 // CLIClient is a thin wrapper intended to call `gh` and parse JSON.
-type CLIClient struct{}
+type CLIClient struct {
+	GhPath string
+}
 
 // NewCLIClient constructs a default CLI client.
-func NewCLIClient() *CLIClient {
-	return &CLIClient{}
+func NewCLIClient(ghPath string) *CLIClient {
+	if ghPath == "" {
+		ghPath = "gh"
+	}
+	return &CLIClient{GhPath: ghPath}
 }
 
 // FetchProject calls `gh project view ...` for metadata and `gh project item-list ...` for items.
-func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner string) (state.Project, []state.Item, error) {
+func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error) {
 	viewArgs := []string{"project", "view", projectID, "--format", "json"}
 	if owner != "" {
 		viewArgs = append(viewArgs, "--owner", owner)
 	}
-	out, err := runGh(ctx, viewArgs...)
+	out, err := c.runGh(ctx, viewArgs...)
 	if err != nil {
 		return state.Project{}, nil, fmt.Errorf("gh project view failed: %w", err)
 	}
@@ -71,22 +77,23 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner st
 		}
 	}
 
-	items, err := c.FetchItems(ctx, projectID, owner, "")
+	items, err := c.FetchItems(ctx, projectID, owner, "", limit)
 	if err != nil {
 		return proj, nil, err
 	}
 	return proj, items, nil
 }
 
-func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner string, filter string) ([]state.Item, error) {
-	args := []string{"project", "item-list", projectID, "--format", "json", "--limit", "100"}
+func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error) {
+	limitStr := strconv.Itoa(limit)
+	args := []string{"project", "item-list", projectID, "--format", "json", "--limit", limitStr}
 	if owner != "" {
 		args = append(args, "--owner", owner)
 	}
 	if filter != "" {
 		args = append(args, "--search", filter)
 	}
-	out, err := runGh(ctx, args...)
+	out, err := c.runGh(ctx, args...)
 	if err != nil {
 		return nil, fmt.Errorf("gh project item-list failed: %w", err)
 	}
@@ -125,8 +132,8 @@ func (c *CLIClient) FetchRoadmap(ctx context.Context, projectID string, owner st
 	return nil, nil, errors.New("FetchRoadmap not implemented yet")
 }
 
-func runGh(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "gh", args...)
+func (c *CLIClient) runGh(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, c.GhPath, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
