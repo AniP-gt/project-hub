@@ -40,7 +40,7 @@ func NewCLIClient() *CLIClient {
 
 // FetchProject calls `gh project view ...` for metadata and `gh project item-list ...` for items.
 func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner string) (state.Project, []state.Item, error) {
-	viewArgs := []string{"project", "view", projectID, "--format", "json", "--fields", "title,views,number,owner,public,shortDescription"}
+	viewArgs := []string{"project", "view", projectID, "--format", "json"}
 	if owner != "" {
 		viewArgs = append(viewArgs, "--owner", owner)
 	}
@@ -52,7 +52,7 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner st
 	if err := json.Unmarshal(out, &raw); err != nil {
 		return state.Project{}, nil, fmt.Errorf("parse gh project view json: %w", err)
 	}
-	proj := state.Project{ID: projectID, Owner: owner}
+	proj := state.Project{ID: projectID}
 	if own, ok := raw["owner"].(map[string]any); ok {
 		if login, ok := own["login"].(string); ok && login != "" {
 			proj.Owner = login
@@ -132,20 +132,6 @@ func runGh(ctx context.Context, args ...string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return out, nil
-}
-
-func extractItems(raw map[string]any) []state.Item {
-	var items []state.Item
-	rawItems, ok := raw["items"].([]any)
-	if !ok {
-		return items
-	}
-	for _, r := range rawItems {
-		if it, ok := parseItemMap(r); ok {
-			items = append(items, it)
-		}
-	}
-	return items
 }
 
 func parseItemList(out []byte) ([]state.Item, error) {
