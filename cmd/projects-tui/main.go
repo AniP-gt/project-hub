@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -55,6 +56,9 @@ func main() {
 			initial.Items = items
 			initial.View.FocusedIndex = 0
 			initial.View.FocusedItemID = items[0].ID
+			initial.Notifications = append(initial.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items from project", len(items)), Level: "info", At: time.Now()})
+		} else {
+			initial.Notifications = append(initial.Notifications, state.Notification{Message: "No items fetched (gh returned 0)", Level: "warn", At: time.Now()})
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "warning: gh fetch failed, using sample data:", err)
