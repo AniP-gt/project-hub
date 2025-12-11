@@ -144,17 +144,26 @@ func extractItems(raw map[string]any) []state.Item {
 }
 
 func parseItemList(out []byte) ([]state.Item, error) {
-	var rawItems []any
-	if err := json.Unmarshal(out, &rawItems); err != nil {
-		return nil, fmt.Errorf("parse item-list json: %w", err)
-	}
-	var items []state.Item
-	for _, r := range rawItems {
-		if it, ok := parseItemMap(r); ok {
-			items = append(items, it)
+	var items []any
+	// item-list returns either an array or an object with "items" field.
+	if err := json.Unmarshal(out, &items); err != nil {
+		var obj map[string]any
+		if err2 := json.Unmarshal(out, &obj); err2 != nil {
+			return nil, fmt.Errorf("parse item-list json: %w", err)
+		}
+		if arr, ok := obj["items"].([]any); ok {
+			items = arr
+		} else {
+			return nil, fmt.Errorf("parse item-list json: items not found")
 		}
 	}
-	return items, nil
+	var result []state.Item
+	for _, r := range items {
+		if it, ok := parseItemMap(r); ok {
+			result = append(result, it)
+		}
+	}
+	return result, nil
 }
 
 func parseItemMap(r any) (state.Item, bool) {
