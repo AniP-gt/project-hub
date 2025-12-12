@@ -35,8 +35,15 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 		// Calculate column width based on available screen width and desired number of visible columns
-		// Assume 3 visible columns for now, adjust as needed.
-		m.ColumnWidth = (m.Width - components.FrameStyle.GetHorizontalFrameSize() - (3 * components.ColumnContainerStyle.GetMarginRight())) / 3
+		numVisibleColumns := 4 // Default to 4 visible columns
+		if len(m.Columns) < numVisibleColumns {
+			numVisibleColumns = len(m.Columns)
+		}
+		if numVisibleColumns == 0 {
+			numVisibleColumns = 1 // Avoid division by zero if no columns
+		}
+
+		m.ColumnWidth = (m.Width - components.FrameStyle.GetHorizontalFrameSize() - (numVisibleColumns * components.ColumnContainerStyle.GetMarginRight())) / numVisibleColumns
 		if m.ColumnWidth < 20 { // Minimum width
 			m.ColumnWidth = 20
 		}
@@ -55,13 +62,14 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "l", "right":
+			numVisibleColumns := 4 // Must match the value used in WindowSizeMsg
 			if m.FocusedColumnIndex < len(m.Columns)-1 {
 				m.FocusedColumnIndex++
 				m.FocusedCardIndex = 0 // Reset card focus
 				m.CardOffset = 0       // Reset card offset
 				// Adjust offset for scrolling
-				if m.FocusedColumnIndex >= m.ColumnOffset+3 { // Assuming 3 visible columns
-					m.ColumnOffset = m.FocusedColumnIndex - 2 // Show focused column and two after it
+				if m.FocusedColumnIndex >= m.ColumnOffset+numVisibleColumns {
+					m.ColumnOffset = m.FocusedColumnIndex - (numVisibleColumns - 1)
 				}
 			}
 		case "j", "down":
@@ -126,12 +134,13 @@ func (m BoardModel) View() string {
 	// Height is managed in app.go, no need for local availableHeight
 
 	// Determine visible columns for horizontal scrolling
+	numVisibleColumns := 4 // Must match the value used in WindowSizeMsg
 	startCol := m.ColumnOffset
-	endCol := startCol + 3 // Assuming 3 columns visible at a time
+	endCol := startCol + numVisibleColumns
 	if endCol > len(m.Columns) {
 		endCol = len(m.Columns)
 	}
-	if startCol > endCol { // Handle case where there are fewer than 3 columns
+	if startCol > endCol { // Handle case where there are fewer than numVisibleColumns
 		startCol = 0
 	}
 
@@ -356,7 +365,7 @@ func groupItemsByStatus(items []state.Item) []state.Column {
 	}
 
 	// Define column order (Backlog, In Progress, Review, Done)
-	columnOrder := []string{"Backlog", "In Progress", "Review", "Done"}
+	columnOrder := []string{"Todo", "In Progress", "In_Review", "Done", "Unknown"}
 	var columns []state.Column
 	for _, status := range columnOrder {
 		if cards, exists := statusCardMap[status]; exists {

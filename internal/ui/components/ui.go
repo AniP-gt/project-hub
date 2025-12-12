@@ -113,7 +113,7 @@ var (
 
 	ColumnContainerStyle = lipgloss.NewStyle().
 				Width(24).     // w-64 (approx 24 chars in monospaced font)
-				MarginRight(1) // gap-2 (reduced from 2 to make columns closer)
+				MarginRight(0) // gap-2 (reduced from 2 to make columns closer)
 
 	// Table Styles
 	TableBorderStyle = lipgloss.NewStyle().
