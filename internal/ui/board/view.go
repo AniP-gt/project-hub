@@ -19,6 +19,7 @@ type BoardModel struct {
 	Height             int
 	ColumnWidth        int
 	ColumnOffset       int
+	CardOffset         int // Vertical scroll offset for cards in the focused column
 }
 
 // Init initializes the board model.
@@ -46,6 +47,7 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.FocusedColumnIndex > 0 {
 				m.FocusedColumnIndex--
 				m.FocusedCardIndex = 0 // Reset card focus when changing columns
+				m.CardOffset = 0       // Reset card offset
 				// Adjust offset for scrolling
 				if m.FocusedColumnIndex < m.ColumnOffset {
 					m.ColumnOffset = m.FocusedColumnIndex
@@ -55,6 +57,7 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.FocusedColumnIndex < len(m.Columns)-1 {
 				m.FocusedColumnIndex++
 				m.FocusedCardIndex = 0 // Reset card focus
+				m.CardOffset = 0       // Reset card offset
 				// Adjust offset for scrolling
 				if m.FocusedColumnIndex >= m.ColumnOffset+3 { // Assuming 3 visible columns
 					m.ColumnOffset = m.FocusedColumnIndex - 2 // Show focused column and two after it
@@ -63,14 +66,23 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "j", "down":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
 				currentColumn := m.Columns[m.FocusedColumnIndex]
+				maxVisibleCards := m.calculateMaxVisibleCards()
 				if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
 					m.FocusedCardIndex++
+					// Adjust offset if focused card is below visible area
+					if m.FocusedCardIndex >= m.CardOffset+maxVisibleCards {
+						m.CardOffset = m.FocusedCardIndex - maxVisibleCards + 1
+					}
 				}
 			}
 		case "k", "up":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
 				if m.FocusedCardIndex > 0 {
 					m.FocusedCardIndex--
+					// Adjust offset if focused card is above visible area
+					if m.FocusedCardIndex < m.CardOffset {
+						m.CardOffset = m.FocusedCardIndex
+					}
 				}
 			}
 		}
@@ -104,11 +116,31 @@ func (m BoardModel) View() string {
 		header := headerStyle.Render(col.Name + " (" + fmt.Sprintf("%d", len(col.Cards)) + ")")
 		columnContent = append(columnContent, header)
 
-		// Render cards
-		for j, card := range col.Cards {
+		// Render cards with vertical scrolling
+		maxVisibleCards := m.calculateMaxVisibleCards()
+		startCard := 0
+		if i == m.FocusedColumnIndex {
+			startCard = m.CardOffset
+		}
+		endCard := startCard + maxVisibleCards
+		if endCard > len(col.Cards) {
+			endCard = len(col.Cards)
+		}
+
+		for j := startCard; j < endCard; j++ {
 			isCardSelected := i == m.FocusedColumnIndex && j == m.FocusedCardIndex
-			cardView := m.renderCard(card, isCardSelected)
+			cardView := m.renderCard(col.Cards[j], isCardSelected)
 			columnContent = append(columnContent, cardView)
+		}
+
+		// Add scroll indicators if needed
+		if i == m.FocusedColumnIndex {
+			if m.CardOffset > 0 {
+				columnContent = append([]string{"↑"}, columnContent...)
+			}
+			if endCard < len(col.Cards) {
+				columnContent = append(columnContent, "↓")
+			}
 		}
 
 		// Apply column style
@@ -166,6 +198,16 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 	return style.Render(content)
 }
 
+// calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
+func (m BoardModel) calculateMaxVisibleCards() int {
+	// Reserve space for header and some padding
+	availableHeight := m.Height - 5 // Adjust as needed
+	if availableHeight < 1 {
+		availableHeight = 1
+	}
+	return availableHeight
+}
+
 // NewBoardModel creates a new BoardModel from items and filter state.
 func NewBoardModel(items []state.Item, filter state.FilterState) BoardModel {
 	// Apply global filter
@@ -179,6 +221,7 @@ func NewBoardModel(items []state.Item, filter state.FilterState) BoardModel {
 		FocusedColumnIndex: 0,
 		FocusedCardIndex:   0,
 		ColumnOffset:       0,
+		CardOffset:         0,
 	}
 }
 
