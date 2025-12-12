@@ -115,9 +115,9 @@ func (m BoardModel) View() string {
 	var renderedColumns []string
 
 	// Calculate available height for columns (reserve space for header and footer)
-	availableHeight := m.Height - 10 // Adjust as needed for header/footer
-	if availableHeight < 5 {
-		availableHeight = 5
+	availableHeight := m.Height - 15 // Adjust to match app.go
+	if availableHeight < 10 {
+		availableHeight = 10
 	}
 
 	// Determine visible columns for horizontal scrolling

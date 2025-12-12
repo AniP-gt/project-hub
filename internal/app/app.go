@@ -198,9 +198,9 @@ func (a App) View() string {
 	// For board view, limit height to prevent header from scrolling out
 	var framed string
 	if a.state.View.CurrentView == state.ViewBoard {
-		maxHeight := a.state.Height - 15 // Reserve space for header, footer, and margins
-		if maxHeight < 10 {
-			maxHeight = 10
+		maxHeight := a.state.Height - 25 // Reserve more space for header, footer, and margins
+		if maxHeight < 15 {
+			maxHeight = 15
 		}
 		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
