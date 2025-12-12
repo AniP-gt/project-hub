@@ -194,8 +194,20 @@ func (a App) View() string {
 	if innerWidth < 40 {
 		innerWidth = 40
 	}
-	bodyRendered := lipgloss.NewStyle().Width(innerWidth).Render(body)
-	framed := components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+
+	// For board view, limit height to prevent header from scrolling out
+	var framed string
+	if a.state.View.CurrentView == state.ViewBoard {
+		maxHeight := a.state.Height - 15 // Reserve space for header, footer, and margins
+		if maxHeight < 10 {
+			maxHeight = 10
+		}
+		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
+		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+	} else {
+		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Render(body)
+		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+	}
 
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
