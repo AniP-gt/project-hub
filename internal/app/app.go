@@ -10,7 +10,7 @@ import (
 
 	"project-hub/internal/github"
 	"project-hub/internal/state"
-	"project-hub/internal/ui/board"
+	boardPkg "project-hub/internal/ui/board"
 	"project-hub/internal/ui/components"
 	"project-hub/internal/ui/roadmap"
 	"project-hub/internal/ui/table"
@@ -18,14 +18,16 @@ import (
 
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
-	state     state.Model
-	gh        github.Client
-	itemLimit int // Added
+	state      state.Model
+	gh         github.Client
+	itemLimit  int // Added
+	boardModel boardPkg.BoardModel
 }
 
 // New creates an App with an optional preloaded state.
 func New(initial state.Model, client github.Client, itemLimit int) App {
-	return App{state: initial, gh: client, itemLimit: itemLimit}
+	boardModel := boardPkg.NewBoardModel(initial.Items, initial.View.Filter)
+	return App{state: initial, gh: client, itemLimit: itemLimit, boardModel: boardModel}
 }
 
 // Init loads initial project data (placeholder until gh wiring is added).
@@ -42,6 +44,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.state.Width = m.Width
 		a.state.Height = m.Height
+		if a.state.View.CurrentView == state.ViewBoard {
+			var cmd tea.Cmd
+			model, cmd := a.boardModel.Update(msg)
+			a.boardModel = model.(boardPkg.BoardModel)
+			return a, cmd
+		}
 		return a, nil
 	case tea.KeyMsg:
 		return a.handleKey(m)
@@ -71,6 +79,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if a.state.View.CurrentView == state.ViewBoard {
+		switch k.String() {
+		case "j", "k", "h", "l":
+			model, cmd := a.boardModel.Update(k)
+			a.boardModel = model.(boardPkg.BoardModel)
+			return a, cmd
+		case "/":
+			return a.handleEnterFilterMode(EnterFilterModeMsg{})
+		case "i":
+			return a.handleEnterEditMode(EnterEditModeMsg{})
+		}
+	}
 	switch k.String() {
 	case "ctrl+c", "q":
 		return a, tea.Quit
@@ -120,11 +140,13 @@ func (a App) handleReload() (tea.Model, tea.Cmd) {
 		a.state.Items = items
 		a.state.View.FocusedIndex = 0
 		a.state.View.FocusedItemID = items[0].ID
+		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter)
 		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items", len(items)), Level: "info", At: time.Now()})
 	} else {
 		a.state.Items = items
 		a.state.View.FocusedIndex = -1
 		a.state.View.FocusedItemID = ""
+		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter)
 		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: "Loaded: 0 items", Level: "warn", At: time.Now()})
 	}
 	return a, nil
@@ -161,7 +183,7 @@ func (a App) View() string {
 	case state.ViewRoadmap:
 		body = roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID)
 	default:
-		body = board.Render(items, a.state.View.FocusedItemID)
+		body = a.boardModel.View()
 	}
 
 	frameWidth := width

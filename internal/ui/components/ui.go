@@ -99,6 +99,9 @@ var (
 	CardAssigneeStyle = lipgloss.NewStyle().
 				Foreground(ColorPurple400)
 
+	CardTitleStyle = lipgloss.NewStyle().
+			Foreground(ColorGray200)
+
 	// Column Styles (Kanban)
 	ColumnHeaderStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
@@ -153,6 +156,9 @@ var (
 
 	TableCellPriorityLowStyle = lipgloss.NewStyle().
 					Foreground(ColorGreen400)
+
+	CardPriorityStyle = lipgloss.NewStyle().
+				Foreground(ColorYellow400) // Default for medium, can be overridden
 
 	TableCellUpdatedStyle = lipgloss.NewStyle().
 				Foreground(ColorGray500)

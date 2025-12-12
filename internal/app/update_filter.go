@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"project-hub/internal/state"
+	boardPkg "project-hub/internal/ui/board"
 )
 
 // EnterFilterModeMsg switches mode to filtering.
@@ -25,6 +26,7 @@ func (a App) handleEnterFilterMode(msg EnterFilterModeMsg) (tea.Model, tea.Cmd) 
 func (a App) handleApplyFilter(msg ApplyFilterMsg) (tea.Model, tea.Cmd) {
 	fs := state.ParseFilter(msg.Query)
 	a.state.View.Filter = fs
+	a.boardModel = boardPkg.NewBoardModel(a.state.Items, fs)
 	if fs.Query == "" {
 		a.state.View.Mode = state.ModeNormal
 	}
@@ -33,6 +35,7 @@ func (a App) handleApplyFilter(msg ApplyFilterMsg) (tea.Model, tea.Cmd) {
 
 func (a App) handleClearFilter(msg ClearFilterMsg) (tea.Model, tea.Cmd) {
 	a.state.View.Filter = state.FilterState{}
+	a.boardModel = boardPkg.NewBoardModel(a.state.Items, state.FilterState{})
 	if a.state.View.Mode == state.ModeFiltering {
 		a.state.View.Mode = state.ModeNormal
 	}
