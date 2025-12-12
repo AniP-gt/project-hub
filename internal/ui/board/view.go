@@ -67,21 +67,41 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
 				currentColumn := m.Columns[m.FocusedColumnIndex]
 				maxVisibleCards := m.calculateMaxVisibleCards()
-				if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
-					m.FocusedCardIndex++
-					// Adjust offset if focused card is below visible area
-					if m.FocusedCardIndex >= m.CardOffset+maxVisibleCards {
-						m.CardOffset = m.FocusedCardIndex - maxVisibleCards + 1
+				if len(currentColumn.Cards) > maxVisibleCards {
+					// Use relative index for scrolling
+					visibleCardIndex := m.FocusedCardIndex - m.CardOffset
+					if visibleCardIndex < maxVisibleCards-1 && m.FocusedCardIndex < len(currentColumn.Cards)-1 {
+						m.FocusedCardIndex++
+					} else if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
+						// Scroll down
+						m.CardOffset++
+						m.FocusedCardIndex++
+					}
+				} else {
+					// No scrolling needed
+					if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
+						m.FocusedCardIndex++
 					}
 				}
 			}
 		case "k", "up":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
-				if m.FocusedCardIndex > 0 {
-					m.FocusedCardIndex--
-					// Adjust offset if focused card is above visible area
-					if m.FocusedCardIndex < m.CardOffset {
-						m.CardOffset = m.FocusedCardIndex
+				maxVisibleCards := m.calculateMaxVisibleCards()
+				currentColumn := m.Columns[m.FocusedColumnIndex]
+				if len(currentColumn.Cards) > maxVisibleCards {
+					// Use relative index for scrolling
+					visibleCardIndex := m.FocusedCardIndex - m.CardOffset
+					if visibleCardIndex > 0 && m.FocusedCardIndex > 0 {
+						m.FocusedCardIndex--
+					} else if m.FocusedCardIndex > 0 {
+						// Scroll up
+						m.CardOffset--
+						m.FocusedCardIndex--
+					}
+				} else {
+					// No scrolling needed
+					if m.FocusedCardIndex > 0 {
+						m.FocusedCardIndex--
 					}
 				}
 			}
@@ -119,12 +139,18 @@ func (m BoardModel) View() string {
 		// Render cards with vertical scrolling
 		maxVisibleCards := m.calculateMaxVisibleCards()
 		startCard := 0
-		if i == m.FocusedColumnIndex {
-			startCard = m.CardOffset
-		}
-		endCard := startCard + maxVisibleCards
-		if endCard > len(col.Cards) {
-			endCard = len(col.Cards)
+		endCard := len(col.Cards)
+		if len(col.Cards) > maxVisibleCards {
+			if i == m.FocusedColumnIndex {
+				startCard = m.CardOffset
+				endCard = startCard + maxVisibleCards
+				if endCard > len(col.Cards) {
+					endCard = len(col.Cards)
+				}
+			} else {
+				// For non-focused columns, show first maxVisibleCards
+				endCard = maxVisibleCards
+			}
 		}
 
 		for j := startCard; j < endCard; j++ {
@@ -134,12 +160,19 @@ func (m BoardModel) View() string {
 		}
 
 		// Add scroll indicators if needed
-		if i == m.FocusedColumnIndex {
-			if m.CardOffset > 0 {
-				columnContent = append([]string{"↑"}, columnContent...)
-			}
-			if endCard < len(col.Cards) {
-				columnContent = append(columnContent, "↓")
+		if len(col.Cards) > maxVisibleCards {
+			if i == m.FocusedColumnIndex {
+				if m.CardOffset > 0 {
+					columnContent = append([]string{"↑"}, columnContent...)
+				}
+				if endCard < len(col.Cards) {
+					columnContent = append(columnContent, "↓")
+				}
+			} else {
+				// For non-focused columns, show "..." if there are more cards
+				if len(col.Cards) > maxVisibleCards {
+					columnContent = append(columnContent, "...")
+				}
 			}
 		}
 
@@ -200,12 +233,8 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 
 // calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
 func (m BoardModel) calculateMaxVisibleCards() int {
-	// Reserve space for header and some padding
-	availableHeight := m.Height - 5 // Adjust as needed
-	if availableHeight < 1 {
-		availableHeight = 1
-	}
-	return availableHeight
+	// For now, use a fixed number for testing
+	return 5 // Show 5 cards per column
 }
 
 // NewBoardModel creates a new BoardModel from items and filter state.
