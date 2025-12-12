@@ -2,6 +2,7 @@ package board
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -83,6 +84,10 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.FocusedCardIndex++
 					}
 				}
+				// Ensure focused card is within bounds
+				if m.FocusedCardIndex >= len(currentColumn.Cards) {
+					m.FocusedCardIndex = len(currentColumn.Cards) - 1
+				}
 			}
 		case "k", "up":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
@@ -104,6 +109,10 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.FocusedCardIndex--
 					}
 				}
+				// Ensure focused card is within bounds
+				if m.FocusedCardIndex < 0 {
+					m.FocusedCardIndex = 0
+				}
 			}
 		}
 	}
@@ -114,11 +123,7 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m BoardModel) View() string {
 	var renderedColumns []string
 
-	// Calculate available height for columns (reserve space for header and footer)
-	availableHeight := m.Height - 15 // Adjust to match app.go
-	if availableHeight < 10 {
-		availableHeight = 10
-	}
+	// Height is managed in app.go, no need for local availableHeight
 
 	// Determine visible columns for horizontal scrolling
 	startCol := m.ColumnOffset
@@ -239,22 +244,50 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 
 // calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
 func (m BoardModel) calculateMaxVisibleCards() int {
-	// For now, use a fixed number for testing
-	return 5 // Show 5 cards per column
+	// Calculate available height for cards (reserve space for header and scroll indicators)
+	availableHeight := m.Height - 15 - 1 // -1 for header
+	if availableHeight < 10 {
+		availableHeight = 10
+	}
+	// Estimate card height: ~7 lines (id, title, assignee, labels, priority + padding)
+	// But since app.go limits the total height, use a conservative estimate
+	// Assume ~6 lines per card to fit more
+	estimatedCardHeight := 6
+	maxCards := availableHeight / estimatedCardHeight
+	if maxCards < 1 {
+		maxCards = 1
+	}
+	if maxCards > 10 { // Cap at reasonable number
+		maxCards = 10
+	}
+	return maxCards
 }
 
 // NewBoardModel creates a new BoardModel from items and filter state.
-func NewBoardModel(items []state.Item, filter state.FilterState) BoardModel {
+func NewBoardModel(items []state.Item, filter state.FilterState, focusedItemID string) BoardModel {
 	// Apply global filter
 	filteredItems := applyFilter(items, filter)
 
 	// Group items into columns by status
 	columns := groupItemsByStatus(filteredItems)
 
+	// Find the focused item and set initial focus
+	focusedColumnIndex := 0
+	focusedCardIndex := 0
+	for colIdx, col := range columns {
+		for cardIdx, card := range col.Cards {
+			if card.ID == focusedItemID {
+				focusedColumnIndex = colIdx
+				focusedCardIndex = cardIdx
+				break
+			}
+		}
+	}
+
 	return BoardModel{
 		Columns:            columns,
-		FocusedColumnIndex: 0,
-		FocusedCardIndex:   0,
+		FocusedColumnIndex: focusedColumnIndex,
+		FocusedCardIndex:   focusedCardIndex,
 		ColumnOffset:       0,
 		CardOffset:         0,
 	}
@@ -298,39 +331,55 @@ func containsAny(haystack []string, needles []string) bool {
 
 // groupItemsByStatus groups items into columns by status.
 func groupItemsByStatus(items []state.Item) []state.Column {
-	statusMap := make(map[string][]state.Card)
+	statusMap := make(map[string][]state.Item)
 	for _, item := range items {
-		assignee := ""
-		if len(item.Assignees) > 0 {
-			assignee = item.Assignees[0] // Take first assignee
+		statusMap[item.Status] = append(statusMap[item.Status], item)
+	}
+
+	// Sort items by Position within each status
+	for status, items := range statusMap {
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].Position < items[j].Position
+		})
+		statusMap[status] = items
+	}
+
+	// Convert to cards
+	statusCardMap := make(map[string][]state.Card)
+	for status, items := range statusMap {
+		for _, item := range items {
+			assignee := ""
+			if len(item.Assignees) > 0 {
+				assignee = item.Assignees[0] // Take first assignee
+			}
+			priority := "Medium" // Default priority, could be derived from labels or other fields
+			if strings.Contains(strings.Join(item.Labels, " "), "high") {
+				priority = "High"
+			} else if strings.Contains(strings.Join(item.Labels, " "), "low") {
+				priority = "Low"
+			}
+			card := state.Card{
+				ID:       item.ID,
+				Title:    item.Title,
+				Assignee: assignee,
+				Labels:   item.Labels,
+				Status:   item.Status,
+				Priority: priority,
+			}
+			statusCardMap[status] = append(statusCardMap[status], card)
 		}
-		priority := "Medium" // Default priority, could be derived from labels or other fields
-		if strings.Contains(strings.Join(item.Labels, " "), "high") {
-			priority = "High"
-		} else if strings.Contains(strings.Join(item.Labels, " "), "low") {
-			priority = "Low"
-		}
-		card := state.Card{
-			ID:       item.ID,
-			Title:    item.Title,
-			Assignee: assignee,
-			Labels:   item.Labels,
-			Status:   item.Status,
-			Priority: priority,
-		}
-		statusMap[item.Status] = append(statusMap[item.Status], card)
 	}
 
 	// Define column order (Backlog, In Progress, Review, Done)
 	columnOrder := []string{"Backlog", "In Progress", "Review", "Done"}
 	var columns []state.Column
 	for _, status := range columnOrder {
-		if cards, exists := statusMap[status]; exists {
+		if cards, exists := statusCardMap[status]; exists {
 			columns = append(columns, state.Column{Name: status, Cards: cards})
 		}
 	}
 	// Add any other statuses not in the predefined order
-	for status, cards := range statusMap {
+	for status, cards := range statusCardMap {
 		found := false
 		for _, col := range columns {
 			if col.Name == status {

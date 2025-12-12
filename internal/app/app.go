@@ -26,7 +26,7 @@ type App struct {
 
 // New creates an App with an optional preloaded state.
 func New(initial state.Model, client github.Client, itemLimit int) App {
-	boardModel := boardPkg.NewBoardModel(initial.Items, initial.View.Filter)
+	boardModel := boardPkg.NewBoardModel(initial.Items, initial.View.Filter, initial.View.FocusedItemID)
 	return App{state: initial, gh: client, itemLimit: itemLimit, boardModel: boardModel}
 }
 
@@ -140,13 +140,13 @@ func (a App) handleReload() (tea.Model, tea.Cmd) {
 		a.state.Items = items
 		a.state.View.FocusedIndex = 0
 		a.state.View.FocusedItemID = items[0].ID
-		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter)
+		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter, items[0].ID)
 		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items", len(items)), Level: "info", At: time.Now()})
 	} else {
 		a.state.Items = items
 		a.state.View.FocusedIndex = -1
 		a.state.View.FocusedItemID = ""
-		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter)
+		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter, "")
 		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: "Loaded: 0 items", Level: "warn", At: time.Now()})
 	}
 	return a, nil
@@ -198,9 +198,9 @@ func (a App) View() string {
 	// For board view, limit height to prevent header from scrolling out
 	var framed string
 	if a.state.View.CurrentView == state.ViewBoard {
-		maxHeight := a.state.Height - 25 // Reserve more space for header, footer, and margins
-		if maxHeight < 15 {
-			maxHeight = 15
+		maxHeight := a.state.Height - 15 // Reserve space for header, footer, and margins
+		if maxHeight < 20 {
+			maxHeight = 20
 		}
 		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
