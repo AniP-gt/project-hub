@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"project-hub/internal/github"
 	"project-hub/internal/state"
 	boardPkg "project-hub/internal/ui/board"
@@ -22,12 +23,16 @@ type App struct {
 	gh         github.Client
 	itemLimit  int // Added
 	boardModel boardPkg.BoardModel
+	textInput  textinput.Model // For edit/assign input
 }
 
 // New creates an App with an optional preloaded state.
 func New(initial state.Model, client github.Client, itemLimit int) App {
 	boardModel := boardPkg.NewBoardModel(initial.Items, initial.View.Filter, initial.View.FocusedItemID)
-	return App{state: initial, gh: client, itemLimit: itemLimit, boardModel: boardModel}
+	ti := textinput.New()
+	ti.Placeholder = ""
+	ti.Focus()
+	return App{state: initial, gh: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti}
 }
 
 // Init loads initial project data (placeholder until gh wiring is added).
@@ -71,6 +76,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleSaveEdit(m)
 	case CancelEditMsg:
 		return a.handleCancelEdit(m)
+	case EnterAssignModeMsg:
+		return a.handleEnterAssignMode(m)
+	case SaveAssignMsg:
+		return a.handleSaveAssign(m)
+	case CancelAssignMsg:
+		return a.handleCancelAssign(m)
 	case AssignMsg:
 		return a.handleAssign(m)
 	default:
@@ -79,6 +90,27 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" {
+		switch k.String() {
+		case "enter":
+			if a.state.View.Mode == "edit" {
+				return a.handleSaveEdit(SaveEditMsg{Title: a.textInput.Value()})
+			} else {
+				return a.handleSaveAssign(SaveAssignMsg{Assignee: a.textInput.Value()})
+			}
+		case "esc":
+			if a.state.View.Mode == "edit" {
+				return a.handleCancelEdit(CancelEditMsg{})
+			} else {
+				return a.handleCancelAssign(CancelAssignMsg{})
+			}
+		default:
+			var cmd tea.Cmd
+			a.textInput, cmd = a.textInput.Update(k)
+			return a, cmd
+		}
+	}
+
 	if a.state.View.CurrentView == state.ViewBoard {
 		switch k.String() {
 		case "j", "k", "h", "l":
@@ -89,6 +121,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return a.handleEnterFilterMode(EnterFilterModeMsg{})
 		case "i":
 			return a.handleEnterEditMode(EnterEditModeMsg{})
+		case "a":
+			return a.handleEnterAssignMode(EnterAssignModeMsg{})
 		}
 	}
 	switch k.String() {
@@ -116,6 +150,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleClearFilter(ClearFilterMsg{})
 	case "i", "enter":
 		return a.handleEnterEditMode(EnterEditModeMsg{})
+	case "a":
+		return a.handleEnterAssignMode(EnterAssignModeMsg{})
 	default:
 		return a, nil
 	}
@@ -184,6 +220,15 @@ func (a App) View() string {
 		body = roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID)
 	default:
 		body = a.boardModel.View()
+	}
+
+	// Handle edit/assign modes
+	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" {
+		prompt := "Edit title: "
+		if a.state.View.Mode == "assign" {
+			prompt = "Assign to: "
+		}
+		body = body + "\n" + prompt + a.textInput.View()
 	}
 
 	frameWidth := width

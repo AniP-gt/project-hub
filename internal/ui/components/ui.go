@@ -113,7 +113,7 @@ var (
 
 	ColumnContainerStyle = lipgloss.NewStyle().
 				Width(24).     // w-64 (approx 24 chars in monospaced font)
-				MarginRight(2) // gap-4
+				MarginRight(1) // gap-2 (reduced from 2 to make columns closer)
 
 	// Table Styles
 	TableBorderStyle = lipgloss.NewStyle().
@@ -248,9 +248,33 @@ func RenderHeader(project state.Project, view state.ViewContext, width int) stri
 	projectName := HeaderProjectStyle.Render("Project: " + project.Name)
 
 	leftContent := lipgloss.JoinHorizontal(lipgloss.Top, title, lipgloss.NewStyle().Foreground(ColorGray500).Render(" | "), projectName)
+
+	var middleContent string
+	if view.CurrentView == state.ViewBoard {
+		// Show status summary for board view
+		statuses := []string{"Backlog", "In Progress", "Review", "Done"}
+		statusParts := []string{}
+		for _, status := range statuses {
+			statusParts = append(statusParts, HeaderProjectStyle.Render(status))
+		}
+		middleContent = lipgloss.JoinHorizontal(lipgloss.Top, statusParts...)
+		middleContent = lipgloss.NewStyle().Foreground(ColorGray400).Render(" | Status: ") + middleContent
+	}
+
 	rightContent := renderViewTabs(view.CurrentView)
 
-	content := lipgloss.JoinHorizontal(lipgloss.Top, leftContent, lipgloss.NewStyle().Width(width-lipgloss.Width(leftContent)-lipgloss.Width(rightContent)).Render(""), rightContent)
+	// Calculate widths
+	leftWidth := lipgloss.Width(leftContent)
+	middleWidth := lipgloss.Width(middleContent)
+	rightWidth := lipgloss.Width(rightContent)
+	totalContentWidth := leftWidth + middleWidth + rightWidth
+
+	spacerWidth := 0
+	if width > totalContentWidth {
+		spacerWidth = width - totalContentWidth
+	}
+
+	content := lipgloss.JoinHorizontal(lipgloss.Top, leftContent, middleContent, lipgloss.NewStyle().Width(spacerWidth).Render(""), rightContent)
 
 	style := HeaderStyle
 	if width > 0 {
