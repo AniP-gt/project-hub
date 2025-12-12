@@ -88,6 +88,22 @@ type Notification struct {
 	Dismissed bool
 }
 
+// Card represents a project item in the Kanban board view.
+type Card struct {
+	ID       string
+	Title    string
+	Assignee string
+	Labels   []string
+	Status   string
+	Priority string
+}
+
+// Column represents a column in the Kanban board.
+type Column struct {
+	Name  string
+	Cards []Card
+}
+
 // Model is the root state for Bubbletea Update/View.
 type Model struct {
 	Project       Project
