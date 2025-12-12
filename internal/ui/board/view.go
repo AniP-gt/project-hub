@@ -244,23 +244,8 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 
 // calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
 func (m BoardModel) calculateMaxVisibleCards() int {
-	// Calculate available height for cards (reserve space for header and scroll indicators)
-	availableHeight := m.Height - 15 - 1 // -1 for header
-	if availableHeight < 10 {
-		availableHeight = 10
-	}
-	// Estimate card height: ~7 lines (id, title, assignee, labels, priority + padding)
-	// But since app.go limits the total height, use a conservative estimate
-	// Assume ~6 lines per card to fit more
-	estimatedCardHeight := 6
-	maxCards := availableHeight / estimatedCardHeight
-	if maxCards < 1 {
-		maxCards = 1
-	}
-	if maxCards > 10 { // Cap at reasonable number
-		maxCards = 10
-	}
-	return maxCards
+	// For initial display, limit to 3 cards per column to ensure header is visible
+	return 3
 }
 
 // NewBoardModel creates a new BoardModel from items and filter state.
