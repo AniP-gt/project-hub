@@ -19,3 +19,8 @@ Thumbs.db
 
 .opencode
 
+
+specs/
+.opencode/
+.specify/
+projects-tui
