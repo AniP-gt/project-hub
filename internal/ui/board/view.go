@@ -257,6 +257,9 @@ func (m BoardModel) calculateMaxVisibleCards() int {
 	return 3
 }
 
+// ColumnOrder defines the order of columns in the Kanban board.
+var ColumnOrder = []string{"Todo", "In Progress", "In_Review", "Done", "Unknown"}
+
 // NewBoardModel creates a new BoardModel from items and filter state.
 func NewBoardModel(items []state.Item, filter state.FilterState, focusedItemID string) BoardModel {
 	// Apply global filter
@@ -365,9 +368,8 @@ func groupItemsByStatus(items []state.Item) []state.Column {
 	}
 
 	// Define column order (Backlog, In Progress, Review, Done)
-	columnOrder := []string{"Todo", "In Progress", "In_Review", "Done", "Unknown"}
 	var columns []state.Column
-	for _, status := range columnOrder {
+	for _, status := range ColumnOrder { // Use exported ColumnOrder
 		if cards, exists := statusCardMap[status]; exists {
 			columns = append(columns, state.Column{Name: status, Cards: cards})
 		}

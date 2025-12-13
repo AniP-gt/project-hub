@@ -1,6 +1,8 @@
 package state
 
-import "time"
+import (
+	"time"
+)
 
 // ViewMode represents current interaction mode.
 type ViewMode string
@@ -46,6 +48,7 @@ type Timeline struct {
 // Item is a single project card/issue in any view.
 type Item struct {
 	ID          string
+	ContentID   string // Added: ID of the underlying content (e.g., DI_ for draft issues)
 	Title       string
 	Description string
 	Status      string
@@ -82,10 +85,11 @@ type ViewContext struct {
 
 // Notification represents a non-blocking message to the user.
 type Notification struct {
-	Message   string
-	Level     string // info, warn, error
-	At        time.Time
-	Dismissed bool
+	Message      string
+	Level        string // info, warn, error
+	At           time.Time
+	Dismissed    bool
+	DismissAfter time.Duration // Added: Duration after which the notification should be dismissed
 }
 
 // Card represents a project item in the Kanban board view.

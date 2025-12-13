@@ -20,8 +20,8 @@ import (
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
 	state      state.Model
-	gh         github.Client
-	itemLimit  int // Added
+	github     github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
+	itemLimit  int
 	boardModel boardPkg.BoardModel
 	textInput  textinput.Model // For edit/assign input
 }
@@ -32,61 +32,167 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.Focus()
-	return App{state: initial, gh: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti}
+	return App{state: initial, github: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti}
 }
 
-// Init loads initial project data (placeholder until gh wiring is added).
-func (a App) Init() tea.Cmd {
+// Msg types for asynchronous operations
+type FetchProjectMsg struct {
+	Project state.Project
+	Items   []state.Item
+}
+
+type ItemUpdatedMsg struct {
+	Index int
+	Item  state.Item
+}
+
+type ErrMsg struct {
+	Err error
+}
+
+func NewErrMsg(err error) ErrMsg {
+	return ErrMsg{Err: err}
+}
+
+type DismissNotificationMsg struct {
+	ID int
+}
+
+// Cmds for asynchronous operations
+func FetchProjectCmd(client github.Client, projectID, owner string, itemLimit int) tea.Cmd {
 	return func() tea.Msg {
-		// TODO: dispatch async load of project/items via gh client
-		return nil
+		proj, items, err := client.FetchProject(context.Background(), projectID, owner, itemLimit)
+		if err != nil {
+			return NewErrMsg(err)
+		}
+		return FetchProjectMsg{Project: proj, Items: items}
 	}
+}
+
+func dismissNotificationCmd(id int, duration time.Duration) tea.Cmd {
+	return tea.Tick(duration, func(t time.Time) tea.Msg {
+		return DismissNotificationMsg{ID: id}
+	})
+}
+
+// Init loads initial project data.
+func (a App) Init() tea.Cmd {
+	return FetchProjectCmd(a.github, a.state.Project.ID, a.state.Project.Owner, a.itemLimit)
 }
 
 // Update routes incoming messages to state transitions.
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
 	switch m := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.state.Width = m.Width
 		a.state.Height = m.Height
 		if a.state.View.CurrentView == state.ViewBoard {
-			var cmd tea.Cmd
-			model, cmd := a.boardModel.Update(msg)
+			var model tea.Model
+			model, cmd = a.boardModel.Update(msg)
 			a.boardModel = model.(boardPkg.BoardModel)
-			return a, cmd
+			cmds = append(cmds, cmd)
 		}
-		return a, nil
 	case tea.KeyMsg:
-		return a.handleKey(m)
+		var model tea.Model
+		model, cmd = a.handleKey(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
+	case FetchProjectMsg:
+		a.state.Project = m.Project
+		a.state.Items = m.Items
+		if len(a.state.Items) > 0 {
+			a.state.View.FocusedItemID = a.state.Items[0].ID
+		}
+		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.View.Filter, a.state.View.FocusedItemID)
+		notif := state.Notification{Message: fmt.Sprintf("Loaded %d items", len(a.state.Items)), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	case ItemUpdatedMsg:
+		a.state.Items[m.Index] = m.Item
+		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.View.Filter, a.state.View.FocusedItemID)
+		notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	case ErrMsg:
+		notif := state.Notification{Message: fmt.Sprintf("Error: %v", m.Err), Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	case DismissNotificationMsg:
+		if m.ID >= 0 && m.ID < len(a.state.Notifications) {
+			a.state.Notifications[m.ID].Dismissed = true
+		}
 	case SwitchViewMsg:
-		return a.handleSwitchView(m)
+		var model tea.Model
+		model, cmd = a.handleSwitchView(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case MoveFocusMsg:
-		return a.handleMoveFocus(m)
+		var model tea.Model
+		model, cmd = a.handleMoveFocus(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case StatusMoveMsg:
-		return a.handleStatusMove(m)
+		var model tea.Model
+		model, cmd = a.handleStatusMove(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case EnterFilterModeMsg:
-		return a.handleEnterFilterMode(m)
+		var model tea.Model
+		model, cmd = a.handleEnterFilterMode(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case ApplyFilterMsg:
-		return a.handleApplyFilter(m)
+		var model tea.Model
+		model, cmd = a.handleApplyFilter(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case ClearFilterMsg:
-		return a.handleClearFilter(m)
+		var model tea.Model
+		model, cmd = a.handleClearFilter(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case EnterEditModeMsg:
-		return a.handleEnterEditMode(m)
+		var model tea.Model
+		model, cmd = a.handleEnterEditMode(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case SaveEditMsg:
-		return a.handleSaveEdit(m)
+		var model tea.Model
+		model, cmd = a.handleSaveEdit(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case CancelEditMsg:
-		return a.handleCancelEdit(m)
+		var model tea.Model
+		model, cmd = a.handleCancelEdit(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case EnterAssignModeMsg:
-		return a.handleEnterAssignMode(m)
+		var model tea.Model
+		model, cmd = a.handleEnterAssignMode(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case SaveAssignMsg:
-		return a.handleSaveAssign(m)
+		var model tea.Model
+		model, cmd = a.handleSaveAssign(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case CancelAssignMsg:
-		return a.handleCancelAssign(m)
+		var model tea.Model
+		model, cmd = a.handleCancelAssign(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	case AssignMsg:
-		return a.handleAssign(m)
+		var model tea.Model
+		model, cmd = a.handleAssign(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
 	default:
-		return a, nil
+		// Handle other messages or pass them to sub-models
 	}
+	return a, tea.Batch(cmds...)
 }
 
 func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -158,39 +264,12 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleReload() (tea.Model, tea.Cmd) {
-	ctx := context.Background()
-	projID := a.state.Project.ID
-	owner := a.state.Project.Owner
-	proj, items, err := a.gh.FetchProject(ctx, projID, owner, a.itemLimit)
-	if err != nil {
-		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Reload failed: %v", err), Level: "error", At: time.Now()})
-		return a, nil
-	}
-	if proj.Name != "" {
-		a.state.Project.Name = proj.Name
-	}
-	if proj.Owner != "" {
-		a.state.Project.Owner = proj.Owner
-	}
-	if len(items) > 0 {
-		a.state.Items = items
-		a.state.View.FocusedIndex = 0
-		a.state.View.FocusedItemID = items[0].ID
-		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter, items[0].ID)
-		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items", len(items)), Level: "info", At: time.Now()})
-	} else {
-		a.state.Items = items
-		a.state.View.FocusedIndex = -1
-		a.state.View.FocusedItemID = ""
-		a.boardModel = boardPkg.NewBoardModel(items, a.state.View.Filter, "")
-		a.state.Notifications = append(a.state.Notifications, state.Notification{Message: "Loaded: 0 items", Level: "warn", At: time.Now()})
-	}
-	return a, nil
+	return a, FetchProjectCmd(a.github, a.state.Project.ID, a.state.Project.Owner, a.itemLimit)
 }
 
 // LoadInitialState is a helper to fetch project data using the gh client.
 func (a *App) LoadInitialState(ctx context.Context, projectID string, owner string) error {
-	project, items, err := a.gh.FetchProject(ctx, projectID, owner, a.itemLimit)
+	project, items, err := a.github.FetchProject(ctx, projectID, owner, a.itemLimit)
 	if err != nil {
 		return err
 	}
@@ -288,4 +367,43 @@ func containsAny(haystack []string, needles []string) bool {
 		}
 	}
 	return false
+}
+
+// handleSaveEdit is moved here from update_edit.go
+func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+	item := a.state.Items[idx]
+
+	// Call the GitHub client to update the item
+	cmd := func() tea.Msg {
+		updatedItem, err := a.github.UpdateItem(
+			context.Background(),
+			a.state.Project.ID,
+			a.state.Project.Owner,
+			item.ContentID, // Use ContentID here
+			msg.Title,
+			msg.Description,
+		)
+		if err != nil {
+			return NewErrMsg(err)
+		}
+		return ItemUpdatedMsg{Index: idx, Item: updatedItem}
+	}
+
+	a.state.View.Mode = "normal"
+	return a, tea.Batch(cmd, a.refreshBoardCmd())
+}
+
+func (a App) refreshBoardCmd() tea.Cmd {
+	return func() tea.Msg {
+		// Re-fetch items to ensure the board is up-to-date after an update
+		proj, items, err := a.github.FetchProject(context.Background(), a.state.Project.ID, a.state.Project.Owner, a.itemLimit)
+		if err != nil {
+			return NewErrMsg(err)
+		}
+		return FetchProjectMsg{Project: proj, Items: items}
+	}
 }

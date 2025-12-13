@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"strconv" // Added
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,7 +25,7 @@ const (
 type Client interface {
 	FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error)
 	FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error)
-	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, direction Direction) (state.Item, error)
+	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, newStatus string) (state.Item, error) // Modified signature
 	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeIDs []string) (state.Item, error)
 	UpdateItem(ctx context.Context, projectID string, owner string, itemID string, title string, description string) (state.Item, error)
 	FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error)
@@ -104,26 +104,87 @@ func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner stri
 	return items, nil
 }
 
-func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, direction Direction) (state.Item, error) {
-	_ = projectID
-	_ = owner
-	_ = itemID
-	_ = direction
-	return state.Item{}, errors.New("UpdateStatus not implemented yet")
+func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, newStatus string) (state.Item, error) { // Modified signature
+	args := []string{"project", "item-edit", "--id", itemID, "--project-id", projectID, "--format", "json"}
+	args = append(args, "--set-status", newStatus)
+
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh project item-edit failed: %w", err)
+	}
+
+	var rawItem map[string]any
+	if err := json.Unmarshal(out, &rawItem); err != nil {
+		return state.Item{}, fmt.Errorf("parse gh project item-edit json: %w", err)
+	}
+
+	item, ok := parseItemMap(rawItem)
+	if !ok {
+		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output")
+	}
+
+	return item, nil
 }
 
 func (c *CLIClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeIDs []string) (state.Item, error) {
-	_ = projectID
-	_ = owner
-	_ = itemID
-	_ = assigneeIDs
-	return state.Item{}, errors.New("UpdateAssignees not implemented yet")
+	args := []string{"project", "item-edit", "--id", itemID, "--project-id", projectID, "--format", "json"}
+
+	// Simplified: only handles adding a single assignee.
+	// A more robust solution would involve fetching current assignees and calculating the diff.
+	if len(assigneeIDs) > 0 && assigneeIDs[0] != "" {
+		args = append(args, "--add-assignee", assigneeIDs[0])
+	} else {
+		// If assigneeIDs is empty, we need to remove all assignees.
+		// This requires fetching the item first to get current assignees,
+		// then calling item-edit with --remove-assignee for each.
+		// For now, we'll skip this complex logic and just return the current item.
+		// TODO: Implement full assignee removal logic.
+		return state.Item{}, errors.New("removing all assignees is not yet implemented")
+	}
+
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh project item-edit failed: %w", err)
+	}
+
+	var rawItem map[string]any
+	if err := json.Unmarshal(out, &rawItem); err != nil {
+		return state.Item{}, fmt.Errorf("parse gh project item-edit json: %w", err)
+	}
+
+	item, ok := parseItemMap(rawItem)
+	if !ok {
+		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output")
+	}
+
+	return item, nil
 }
 
 func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, owner string, itemID string, title string, description string) (state.Item, error) {
-	_ = owner
-	// TODO: call `gh project item-edit` or equivalent once wiring is added.
-	return state.Item{ID: itemID, Title: title, Description: description}, nil
+	args := []string{"project", "item-edit", "--id", itemID, "--project-id", projectID, "--format", "json"}
+	if title != "" {
+		args = append(args, "--title", title)
+	}
+	if description != "" {
+		args = append(args, "--body", description)
+	}
+
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh project item-edit failed: %w", err)
+	}
+
+	var rawItem map[string]any
+	if err := json.Unmarshal(out, &rawItem); err != nil {
+		return state.Item{}, fmt.Errorf("parse gh project item-edit json: %w", err)
+	}
+
+	item, ok := parseItemMap(rawItem)
+	if !ok {
+		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output")
+	}
+
+	return item, nil
 }
 
 func (c *CLIClient) FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error) {
@@ -143,7 +204,6 @@ func (c *CLIClient) runGh(ctx context.Context, args ...string) ([]byte, error) {
 
 func parseItemList(out []byte) ([]state.Item, error) {
 	var items []any
-	// item-list returns either an array or an object with "items" field.
 	if err := json.Unmarshal(out, &items); err != nil {
 		var obj map[string]any
 		if err2 := json.Unmarshal(out, &obj); err2 != nil {
@@ -177,6 +237,10 @@ func parseItemMap(r any) (state.Item, bool) {
 		item.Title = title
 	}
 	if content, ok := m["content"].(map[string]any); ok {
+		// Extract ContentID if available
+		if contentID, ok := content["id"].(string); ok {
+			item.ContentID = contentID
+		}
 		if t, ok := content["title"].(string); ok && item.Title == "" {
 			item.Title = t
 		}
