@@ -4,27 +4,62 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"project-hub/internal/state"
+	"project-hub/internal/ui/components"
 )
 
-// Render presents items with their iteration if any.
+func renderProgressBar(percent int) string {
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	total := 10
+	filled := (percent * total) / 100
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", total-filled)
+	return components.RoadmapProgressBarStyle.Render(bar)
+}
+
+// Render presents items with their iteration if any, with styled timeline and progress.
 func Render(timelines []state.Timeline, items []state.Item, focusedID string) string {
-	var b strings.Builder
+	var blocks []string
+
 	for _, tl := range timelines {
-		b.WriteString(fmt.Sprintf("[%s]\n", tl.Name))
+		header := components.RoadmapTimelineStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Bold(true).Render(tl.Name), lipgloss.NewStyle().Foreground(components.ColorGray500).Render("  (timeline)")))
+		blocks = append(blocks, header)
+
 		for _, it := range items {
 			if it.IterationID != tl.ID {
 				continue
 			}
-			marker := " "
-			if it.ID == focusedID {
-				marker = ">"
+			isSelected := it.ID == focusedID
+			rowStyle := components.RoadmapItemBaseStyle
+			if isSelected {
+				rowStyle = components.RoadmapItemSelectedStyle
 			}
-			repo := it.Repository
-			b.WriteString(fmt.Sprintf("  %s %s (%s) %s\n", marker, it.Title, it.Status, repo))
+
+			percent := 0
+			// try to parse percent from Timeline.Progress or Item.Position heuristics
+			if tl.Progress != "" {
+				// placeholder: if tl.Progress contains digits like "60%" extract them
+				p := strings.TrimRight(tl.Progress, "%")
+				fmt.Sscanf(p, "%d", &percent)
+			}
+
+			bar := renderProgressBar(percent)
+			percentLabel := components.RoadmapProgressPercentStyle.Render(fmt.Sprintf("%d%%", percent))
+
+			title := lipgloss.NewStyle().Foreground(components.ColorGray200).Render(it.Title)
+			meta := components.RoadmapItemSprintStyle.Render(it.Status)
+			content := lipgloss.JoinVertical(lipgloss.Left, lipgloss.JoinHorizontal(lipgloss.Top, title, lipgloss.NewStyle().PaddingLeft(1).Render(meta)), lipgloss.JoinHorizontal(lipgloss.Top, bar, percentLabel))
+			blocks = append(blocks, rowStyle.Render(content))
 		}
 	}
-	// Unscheduled items
+
+	// Unscheduled
 	var unscheduled []state.Item
 	for _, it := range items {
 		if it.IterationID == "" {
@@ -32,15 +67,21 @@ func Render(timelines []state.Timeline, items []state.Item, focusedID string) st
 		}
 	}
 	if len(unscheduled) > 0 {
-		b.WriteString("[unscheduled]\n")
+		blocks = append(blocks, components.RoadmapTimelineStyle.Render("[unscheduled]"))
 		for _, it := range unscheduled {
-			marker := " "
-			if it.ID == focusedID {
-				marker = ">"
+			isSelected := it.ID == focusedID
+			rowStyle := components.RoadmapItemBaseStyle
+			if isSelected {
+				rowStyle = components.RoadmapItemSelectedStyle
 			}
-			repo := it.Repository
-			b.WriteString(fmt.Sprintf("  %s %s (%s) %s\n", marker, it.Title, it.Status, repo))
+			percent := 0
+			bar := renderProgressBar(percent)
+			percentLabel := components.RoadmapProgressPercentStyle.Render(fmt.Sprintf("%d%%", percent))
+			title := lipgloss.NewStyle().Foreground(components.ColorGray200).Render(it.Title)
+			content := lipgloss.JoinVertical(lipgloss.Left, title, lipgloss.JoinHorizontal(lipgloss.Top, bar, percentLabel))
+			blocks = append(blocks, rowStyle.Render(content))
 		}
 	}
-	return strings.TrimRight(b.String(), "\n")
+
+	return strings.TrimRight(lipgloss.JoinVertical(lipgloss.Left, blocks...), "\n")
 }
