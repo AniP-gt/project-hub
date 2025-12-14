@@ -70,7 +70,21 @@ type Project struct {
 	Views      []ViewType
 	Filters    []string
 	Iterations []Timeline
+	Fields     []Field // Added to store project fields like "Status"
 	UpdatedAt  *time.Time
+}
+
+// Field represents a project field (e.g., "Status").
+type Field struct {
+	ID      string
+	Name    string
+	Options []Option
+}
+
+// Option represents a selectable option for a field (e.g., "Todo", "In Progress").
+type Option struct {
+	ID   string
+	Name string
 }
 
 // ViewContext holds transient UI state.

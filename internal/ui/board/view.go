@@ -211,7 +211,6 @@ func (m BoardModel) View() string {
 
 // renderCard renders a single card.
 func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
-	id := components.CardIDStyle.Render(card.ID)
 	title := components.CardTitleStyle.Render(card.Title)
 
 	// Assignee
@@ -241,7 +240,7 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		priority = priorityStyle.Render(card.Priority)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, id, title, assignee, labels, priority)
+	content := lipgloss.JoinVertical(lipgloss.Left, title, assignee, labels, priority)
 
 	style := components.CardBaseStyle
 	if isSelected {

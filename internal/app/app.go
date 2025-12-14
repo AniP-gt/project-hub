@@ -383,7 +383,7 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 			context.Background(),
 			a.state.Project.ID,
 			a.state.Project.Owner,
-			item.ContentID, // Use ContentID here
+			item, // Pass the whole item
 			msg.Title,
 			msg.Description,
 		)
