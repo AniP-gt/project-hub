@@ -16,3 +16,11 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+.opencode
+
+
+specs/
+.opencode/
+.specify/
+projects-tui

@@ -1,9 +1,9 @@
 package app
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	"context"
 
-	boardPkg "project-hub/internal/ui/board"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // EnterEditModeMsg switches to edit mode for focused item.
@@ -34,23 +34,6 @@ func (a App) handleEnterEditMode(msg EnterEditModeMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
-	idx := a.state.View.FocusedIndex
-	if idx < 0 || idx >= len(a.state.Items) {
-		return a, nil
-	}
-	item := a.state.Items[idx]
-	if msg.Title != "" {
-		item.Title = msg.Title
-	}
-	if msg.Description != "" {
-		item.Description = msg.Description
-	}
-	a.state.Items[idx] = item
-	a.state.View.Mode = "normal"
-	return a, nil
-}
-
 func (a App) handleCancelEdit(msg CancelEditMsg) (tea.Model, tea.Cmd) {
 	if a.state.View.Mode == "edit" {
 		a.state.View.Mode = "normal"
@@ -69,14 +52,28 @@ func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	item := a.state.Items[idx]
-	if msg.Assignee != "" {
-		item.Assignees = []string{msg.Assignee}
+
+	// Call the GitHub client to update the assignees
+	cmd := func() tea.Msg {
+		assigneeIDs := []string{}
+		if msg.Assignee != "" {
+			assigneeIDs = append(assigneeIDs, msg.Assignee)
+		}
+		updatedItem, err := a.github.UpdateAssignees(
+			context.Background(),
+			a.state.Project.ID,
+			a.state.Project.Owner,
+			item.ID,
+			assigneeIDs,
+		)
+		if err != nil {
+			return NewErrMsg(err)
+		}
+		return ItemUpdatedMsg{Index: idx, Item: updatedItem}
 	}
-	a.state.Items[idx] = item
+
 	a.state.View.Mode = "normal"
-	// Update board model with new data
-	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.View.Filter, a.state.View.FocusedItemID)
-	return a, nil
+	return a, tea.Batch(cmd, a.refreshBoardCmd())
 }
 
 func (a App) handleCancelAssign(msg CancelAssignMsg) (tea.Model, tea.Cmd) {
