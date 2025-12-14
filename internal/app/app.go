@@ -352,7 +352,9 @@ func (a App) View() string {
 			maxHeight = 15
 		}
 		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
-		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+		// Include header inside the same framed region so it remains visible
+		headerAndBody := lipgloss.JoinVertical(lipgloss.Top, header, bodyRendered)
+		framed = components.FrameStyle.Width(frameWidth).Render(headerAndBody)
 	} else {
 		// Limit non-board views as well so the header/footer remain visible
 		maxBodyHeight := a.state.Height - 8 // reserve space for header, footer and notifications
@@ -360,12 +362,14 @@ func (a App) View() string {
 			maxBodyHeight = 10
 		}
 		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxBodyHeight).Render(body)
-		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+		// Include header inside the same framed region so it remains visible
+		headerAndBody := lipgloss.JoinVertical(lipgloss.Top, header, bodyRendered)
+		framed = components.FrameStyle.Width(frameWidth).Render(headerAndBody)
 	}
 
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
-	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
+	return fmt.Sprintf("%s\n%s\n%s", framed, footer, notif)
 }
 
 func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
