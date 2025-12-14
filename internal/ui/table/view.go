@@ -102,7 +102,6 @@ func Render(items []state.Item, focusedID string) string {
 	}
 
 	tableBody := lipgloss.JoinVertical(lipgloss.Left, append([]string{head}, rows...)...)
-	// Wrap table in a bright frame so it looks like a distinct table region
-	framed := components.FrameStyle.Width(lipgloss.Width(tableBody) + components.FrameStyle.GetHorizontalFrameSize()).Render(tableBody)
-	return framed
+	// Return unframed table body; App will apply the outer frame so header/footer stay fixed
+	return tableBody
 }
