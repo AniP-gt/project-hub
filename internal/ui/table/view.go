@@ -14,14 +14,24 @@ func Render(items []state.Item, focusedID string) string {
 		return ""
 	}
 
-	// Header
+	// Column widths (keep in sync with row cell widths)
+	const (
+		idWidth       = 8
+		titleWidth    = 28
+		statusWidth   = 12
+		assigneeWidth = 12
+		priorityWidth = 10
+		updatedWidth  = 12
+	)
+
+	// Header cells with explicit widths
 	head := lipgloss.JoinHorizontal(lipgloss.Top,
-		components.TableHeaderCellStyle.Render("ID"),
-		components.TableHeaderCellStyle.Render("Title"),
-		components.TableHeaderCellStyle.Render("Status"),
-		components.TableHeaderCellStyle.Render("Assignee"),
-		components.TableHeaderCellStyle.Render("Priority"),
-		components.TableHeaderCellStyle.Render("Updated"),
+		components.TableHeaderCellStyle.Width(idWidth).Render("ID"),
+		components.TableHeaderCellStyle.Width(titleWidth).Render("Title"),
+		components.TableHeaderCellStyle.Width(statusWidth).Render("Status"),
+		components.TableHeaderCellStyle.Width(assigneeWidth).Render("Assignee"),
+		components.TableHeaderCellStyle.Width(priorityWidth).Render("Priority"),
+		components.TableHeaderCellStyle.Width(updatedWidth).Render("Updated"),
 	)
 
 	var rows []string
@@ -31,14 +41,15 @@ func Render(items []state.Item, focusedID string) string {
 			rowStyle = components.TableRowSelectedStyle
 		}
 
-		idCell := components.TableCellIDStyle.Width(8).Render(it.ID)
-		titleCell := lipgloss.NewStyle().Width(28).Render(it.Title)
-		statusCell := components.TableCellStatusStyle.Width(12).Render(it.Status)
+		idCell := components.TableCellIDStyle.Width(idWidth).Render(it.ID)
+		titleCell := lipgloss.NewStyle().Width(titleWidth).Render(it.Title)
+		statusCell := components.TableCellStatusStyle.Width(statusWidth).Render(it.Status)
 		assignee := ""
 		if len(it.Assignees) > 0 {
 			assignee = "@" + it.Assignees[0]
 		}
-		assigneeCell := components.TableCellAssigneeStyle.Width(12).Render(assignee)
+		assigneeCell := components.TableCellAssigneeStyle.Width(assigneeWidth).Render(assignee)
+
 		// Derive a priority label from labels (fallback to empty)
 		priority := ""
 		for _, l := range it.Labels {
@@ -62,16 +73,18 @@ func Render(items []state.Item, focusedID string) string {
 		case "Low":
 			priorityStyle = priorityStyle.Foreground(components.ColorGreen400)
 		}
-		priorityCell := priorityStyle.Width(10).Render(priority)
+		priorityCell := priorityStyle.Width(priorityWidth).Render(priority)
 		updated := ""
 		if it.UpdatedAt != nil {
 			updated = it.UpdatedAt.Format("2006-01-02")
 		}
-		updatedCell := components.TableCellUpdatedStyle.Width(12).Render(updated)
+		updatedCell := components.TableCellUpdatedStyle.Width(updatedWidth).Render(updated)
 
 		row := lipgloss.JoinHorizontal(lipgloss.Top, idCell, titleCell, statusCell, assigneeCell, priorityCell, updatedCell)
 		rows = append(rows, rowStyle.Render(row))
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, append([]string{head}, rows...)...)
+	tableBody := lipgloss.JoinVertical(lipgloss.Left, append([]string{head}, rows...)...)
+	// Wrap table in a border so it looks like a distinct table region
+	return components.TableBorderStyle.Render(tableBody)
 }
