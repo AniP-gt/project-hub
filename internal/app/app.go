@@ -222,6 +222,7 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "j", "k", "h", "l":
 			model, cmd := a.boardModel.Update(k)
 			a.boardModel = model.(boardPkg.BoardModel)
+			a.syncFocusedItem() // Sync main state with board's focus
 			return a, cmd
 		case "/":
 			return a.handleEnterFilterMode(EnterFilterModeMsg{})
@@ -260,6 +261,30 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleEnterAssignMode(EnterAssignModeMsg{})
 	default:
 		return a, nil
+	}
+}
+
+func (a *App) syncFocusedItem() {
+	colIndex := a.boardModel.FocusedColumnIndex
+	cardIndex := a.boardModel.FocusedCardIndex
+
+	if colIndex < 0 || colIndex >= len(a.boardModel.Columns) {
+		return
+	}
+	column := a.boardModel.Columns[colIndex]
+
+	if cardIndex < 0 || cardIndex >= len(column.Cards) {
+		return
+	}
+	focusedCard := column.Cards[cardIndex]
+
+	// Find the corresponding item in the main list and update the app's focused index
+	for i, item := range a.state.Items {
+		if item.ID == focusedCard.ID {
+			a.state.View.FocusedIndex = i
+			a.state.View.FocusedItemID = item.ID
+			return
+		}
 	}
 }
 
