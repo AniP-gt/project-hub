@@ -346,26 +346,27 @@ func (a App) View() string {
 
 	// For board view, limit height to prevent header from scrolling out
 	var framed string
-	if a.state.View.CurrentView == state.ViewBoard {
-		maxHeight := a.state.Height - 12 // use more of the lower space for board
-		if maxHeight < 15 {
-			maxHeight = 15
-		}
-		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
-		// Include header inside the same framed region so it remains visible
-		headerAndBody := lipgloss.JoinVertical(lipgloss.Top, header, bodyRendered)
-		framed = components.FrameStyle.Width(frameWidth).Render(headerAndBody)
-	} else {
-		// Limit non-board views as well so the header/footer remain visible
-		maxBodyHeight := a.state.Height - 8 // reserve space for header, footer and notifications
-		if maxBodyHeight < 10 {
-			maxBodyHeight = 10
-		}
-		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxBodyHeight).Render(body)
-		// Include header inside the same framed region so it remains visible
-		headerAndBody := lipgloss.JoinVertical(lipgloss.Top, header, bodyRendered)
-		framed = components.FrameStyle.Width(frameWidth).Render(headerAndBody)
+	// Render header separately (fixed), then body framed with height that excludes header
+	// Calculate header height
+	headerHeight := lipgloss.Height(header)
+	footerSample := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
+	footerHeight := lipgloss.Height(footerSample)
+	notifSample := components.RenderNotifications(a.state.Notifications)
+	notifHeight := 0
+	if notifSample != "" {
+		notifHeight = lipgloss.Height(notifSample)
 	}
+
+	// Reserve space for header, footer and notifications
+	reserved := headerHeight + footerHeight + notifHeight + 2 // small padding
+	availableHeight := a.state.Height - reserved
+	if availableHeight < 3 {
+		availableHeight = 3
+	}
+
+	// Render body into the computed height and frame it
+	bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(availableHeight).Render(body)
+	framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
