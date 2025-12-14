@@ -49,10 +49,13 @@ type Timeline struct {
 type Item struct {
 	ID          string
 	ContentID   string // Added: ID of the underlying content (e.g., DI_ for draft issues)
+	Type        string // Type of content, e.g., "Issue", "PullRequest", "DraftIssue"
 	Title       string
 	Description string
 	Status      string
 	Repository  string
+	Number      int    // Issue or PR number
+	URL         string // URL to the issue or PR
 	Assignees   []string
 	Labels      []string
 	CreatedAt   *time.Time

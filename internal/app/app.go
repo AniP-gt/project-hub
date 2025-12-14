@@ -402,12 +402,6 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	}
 	item := a.state.Items[idx]
 
-	// DEBUG: Display the IDs being used for the edit
-	debugMsg := fmt.Sprintf("Editing ItemID: %s, ContentID: %s", item.ID, item.ContentID)
-	debugNotif := state.Notification{Message: debugMsg, Level: "info", At: time.Now(), DismissAfter: 10 * time.Second}
-	a.state.Notifications = append(a.state.Notifications, debugNotif)
-	dismissCmd := dismissNotificationCmd(len(a.state.Notifications)-1, debugNotif.DismissAfter)
-
 	// Call the GitHub client to update the item
 	updateCmd := func() tea.Msg {
 		updatedItem, err := a.github.UpdateItem(
@@ -425,7 +419,7 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	}
 
 	a.state.View.Mode = "normal"
-	return a, tea.Batch(dismissCmd, updateCmd, a.refreshBoardCmd())
+	return a, tea.Batch(updateCmd, a.refreshBoardCmd())
 }
 func (a App) refreshBoardCmd() tea.Cmd {
 	return func() tea.Msg {

@@ -203,8 +203,36 @@ func (c *CLIClient) UpdateAssignees(ctx context.Context, projectID string, owner
 }
 
 func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error) {
-	// For draft issues, the content ID must be used for edits.
-	// For repository-backed issues, the item's node ID is used.
+	// If the item is a real issue, we must use `gh issue edit`.
+	if item.Type == "Issue" {
+		if item.Number == 0 || item.Repository == "" {
+			return state.Item{}, fmt.Errorf("cannot edit issue without number or repository")
+		}
+
+		args := []string{
+			"issue", "edit",
+			strconv.Itoa(item.Number),
+			"--repo", item.Repository,
+		}
+		if title != "" {
+			args = append(args, "--title", title)
+		}
+		if description != "" {
+			args = append(args, "--body", description)
+		}
+
+		_, err := c.runGh(ctx, args...)
+		if err != nil {
+			return state.Item{}, fmt.Errorf("gh issue edit failed: %w", err)
+		}
+
+		// `gh issue edit` does not return the updated item, so we update it manually.
+		item.Title = title
+		item.Description = description
+		return item, nil
+	}
+
+	// For draft issues, use `gh project item-edit`.
 	idToUse := item.ID
 	if strings.HasPrefix(item.ContentID, "DI_") {
 		idToUse = item.ContentID
@@ -290,11 +318,20 @@ func parseItemMap(r any) (state.Item, bool) {
 		if contentID, ok := content["id"].(string); ok {
 			item.ContentID = contentID
 		}
+		if contentType, ok := content["type"].(string); ok {
+			item.Type = contentType
+		}
 		if t, ok := content["title"].(string); ok && item.Title == "" {
 			item.Title = t
 		}
 		if body, ok := content["body"].(string); ok {
 			item.Description = body
+		}
+		if number, ok := content["number"].(float64); ok {
+			item.Number = int(number)
+		}
+		if url, ok := content["url"].(string); ok {
+			item.URL = url
 		}
 		if st, ok := content["state"].(string); ok && item.Status == "" {
 			item.Status = st
