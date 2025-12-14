@@ -347,7 +347,7 @@ func (a App) View() string {
 	// For board view, limit height to prevent header from scrolling out
 	var framed string
 	if a.state.View.CurrentView == state.ViewBoard {
-		maxHeight := a.state.Height - 30 // Reserve more space for header, footer, and margins
+		maxHeight := a.state.Height - 12 // use more of the lower space for board
 		if maxHeight < 15 {
 			maxHeight = 15
 		}

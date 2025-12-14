@@ -4,6 +4,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"strings"
 
+	"github.com/mattn/go-runewidth"
+
 	"project-hub/internal/state"
 	"project-hub/internal/ui/components"
 )
@@ -24,10 +26,9 @@ func Render(items []state.Item, focusedID string) string {
 	)
 
 	// Header cells with explicit widths (ID is not shown)
-	// include a small empty header cell for the selection marker column
-	markerHeader := lipgloss.NewStyle().Width(2).Render("")
+	// Use bordered header cells to form a grid
 	head := lipgloss.JoinHorizontal(lipgloss.Top,
-		markerHeader,
+		components.TableHeaderCellStyle.Width(2).Render(""),
 		components.TableHeaderCellStyle.Width(titleWidth).Render("Title"),
 		components.TableHeaderCellStyle.Width(statusWidth).Render("Status"),
 		components.TableHeaderCellStyle.Width(assigneeWidth).Render("Assignee"),
@@ -47,15 +48,10 @@ func Render(items []state.Item, focusedID string) string {
 		if it.ID == focusedID {
 			marker = ">"
 		}
-		markerCell := lipgloss.NewStyle().Width(2).Render(marker)
-
-		titleCell := lipgloss.NewStyle().Width(titleWidth).Render(it.Title)
-		statusCell := components.TableCellStatusStyle.Width(statusWidth).Render(it.Status)
 		assignee := ""
 		if len(it.Assignees) > 0 {
 			assignee = "@" + it.Assignees[0]
 		}
-		assigneeCell := components.TableCellAssigneeStyle.Width(assigneeWidth).Render(assignee)
 
 		// Derive a priority label from labels (fallback to empty)
 		priority := ""
@@ -80,14 +76,28 @@ func Render(items []state.Item, focusedID string) string {
 		case "Low":
 			priorityStyle = priorityStyle.Foreground(components.ColorGreen400)
 		}
-		priorityCell := priorityStyle.Width(priorityWidth).Render(priority)
+
 		updated := ""
 		if it.UpdatedAt != nil {
 			updated = it.UpdatedAt.Format("2006-01-02")
 		}
-		updatedCell := components.TableCellUpdatedStyle.Width(updatedWidth).Render(updated)
 
-		row := lipgloss.JoinHorizontal(lipgloss.Top, markerCell, titleCell, statusCell, assigneeCell, priorityCell, updatedCell)
+		// Truncate title to fit into column
+		title := it.Title
+		if lipgloss.Width(title) > titleWidth {
+			title = runewidth.Truncate(title, titleWidth-1, "...")
+		}
+
+		// Render each cell with shared TableCellStyle for borders and alignment
+		cells := []string{
+			components.TableMarkerCellStyle.Render(marker),
+			components.TableCellStyle.Width(titleWidth).Render(title),
+			components.TableCellStyle.Width(statusWidth).Render(components.TableCellStatusStyle.Render(it.Status)),
+			components.TableCellStyle.Width(assigneeWidth).Render(components.TableCellAssigneeStyle.Render(assignee)),
+			components.TableCellStyle.Width(priorityWidth).Render(priorityStyle.Render(priority)),
+			components.TableCellStyle.Width(updatedWidth).Render(components.TableCellUpdatedStyle.Render(updated)),
+		}
+		row := lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 		rows = append(rows, rowStyle.Render(row))
 	}
 

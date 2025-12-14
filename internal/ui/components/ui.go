@@ -135,6 +135,18 @@ var (
 				BorderForeground(ColorGray200).
 				Align(lipgloss.Left)
 
+	// Reusable table cell style to ensure header & rows align
+	TableCellStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(ColorGray200).
+			Padding(0, 2).
+			Align(lipgloss.Left)
+
+	TableMarkerCellStyle = lipgloss.NewStyle().
+				Width(2).
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(ColorGray200)
+
 	TableRowBaseStyle = lipgloss.NewStyle().
 				Background(ColorGray900).
 				Foreground(ColorGray300)
