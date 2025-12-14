@@ -354,7 +354,12 @@ func (a App) View() string {
 		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 	} else {
-		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Render(body)
+		// Limit non-board views as well so the header/footer remain visible
+		maxBodyHeight := a.state.Height - 8 // reserve space for header, footer and notifications
+		if maxBodyHeight < 10 {
+			maxBodyHeight = 10
+		}
+		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxBodyHeight).Render(body)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 	}
 
