@@ -24,7 +24,10 @@ func Render(items []state.Item, focusedID string) string {
 	)
 
 	// Header cells with explicit widths (ID is not shown)
+	// include a small empty header cell for the selection marker column
+	markerHeader := lipgloss.NewStyle().Width(2).Render("")
 	head := lipgloss.JoinHorizontal(lipgloss.Top,
+		markerHeader,
 		components.TableHeaderCellStyle.Width(titleWidth).Render("Title"),
 		components.TableHeaderCellStyle.Width(statusWidth).Render("Status"),
 		components.TableHeaderCellStyle.Width(assigneeWidth).Render("Assignee"),
@@ -89,6 +92,7 @@ func Render(items []state.Item, focusedID string) string {
 	}
 
 	tableBody := lipgloss.JoinVertical(lipgloss.Left, append([]string{head}, rows...)...)
-	// Wrap table in a border so it looks like a distinct table region
-	return components.TableBorderStyle.Render(tableBody)
+	// Wrap table in a bright frame so it looks like a distinct table region
+	framed := components.FrameStyle.Width(lipgloss.Width(tableBody) + components.FrameStyle.GetHorizontalFrameSize()).Render(tableBody)
+	return framed
 }
