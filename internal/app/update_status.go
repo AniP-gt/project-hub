@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"project-hub/internal/github"
-	boardPkg "project-hub/internal/ui/board"
+	"project-hub/internal/state"
 )
 
 // StatusMoveMsg requests moving the focused item left/right.
@@ -22,22 +22,38 @@ func (a App) handleStatusMove(msg StatusMoveMsg) (tea.Model, tea.Cmd) {
 	}
 	item := a.state.Items[idx]
 
-	currentStatus := item.Status
+	// Find the "Status" field from the project's fields
+	var statusField state.Field
+	found := false
+	for _, field := range a.state.Project.Fields {
+		if field.Name == "Status" {
+			statusField = field
+			found = true
+			break
+		}
+	}
+	if !found {
+		return a, func() tea.Msg {
+			return NewErrMsg(fmt.Errorf("status field not found in project"))
+		}
+	}
+
+	// Find the current status option index
 	currentStatusIndex := -1
-	for i, status := range boardPkg.ColumnOrder {
-		if status == currentStatus {
+	for i, option := range statusField.Options {
+		if option.Name == item.Status {
 			currentStatusIndex = i
 			break
 		}
 	}
 
 	if currentStatusIndex == -1 {
-		// Current status not found in defined order, cannot move
 		return a, func() tea.Msg {
-			return NewErrMsg(fmt.Errorf("current status '%s' not found in column order", currentStatus))
+			return NewErrMsg(fmt.Errorf("current status '%s' not found in status field options", item.Status))
 		}
 	}
 
+	// Calculate the new status index
 	newStatusIndex := currentStatusIndex
 	if msg.Direction == github.DirectionLeft {
 		newStatusIndex--
@@ -45,12 +61,12 @@ func (a App) handleStatusMove(msg StatusMoveMsg) (tea.Model, tea.Cmd) {
 		newStatusIndex++
 	}
 
-	if newStatusIndex < 0 || newStatusIndex >= len(boardPkg.ColumnOrder) {
-		// Cannot move further in this direction
-		return a, nil
+	// Check if the new index is valid
+	if newStatusIndex < 0 || newStatusIndex >= len(statusField.Options) {
+		return a, nil // Cannot move further
 	}
 
-	newStatus := boardPkg.ColumnOrder[newStatusIndex]
+	newStatusOption := statusField.Options[newStatusIndex]
 
 	// Call the GitHub client to update the status
 	cmd := func() tea.Msg {
@@ -58,8 +74,9 @@ func (a App) handleStatusMove(msg StatusMoveMsg) (tea.Model, tea.Cmd) {
 			context.Background(),
 			a.state.Project.ID,
 			a.state.Project.Owner,
-			item.ID,
-			newStatus,
+			item.ID, // Use the item's node ID for field updates
+			statusField.ID,
+			newStatusOption.ID,
 		)
 		if err != nil {
 			return NewErrMsg(err)
@@ -67,5 +84,5 @@ func (a App) handleStatusMove(msg StatusMoveMsg) (tea.Model, tea.Cmd) {
 		return ItemUpdatedMsg{Index: idx, Item: updatedItem}
 	}
 
-	return a, tea.Batch(cmd, a.refreshBoardCmd())
+	return a, tea.Batch(cmd)
 }

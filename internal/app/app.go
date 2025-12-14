@@ -222,6 +222,7 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "j", "k", "h", "l":
 			model, cmd := a.boardModel.Update(k)
 			a.boardModel = model.(boardPkg.BoardModel)
+			a.syncFocusedItem() // Sync main state with board's focus
 			return a, cmd
 		case "/":
 			return a.handleEnterFilterMode(EnterFilterModeMsg{})
@@ -260,6 +261,30 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleEnterAssignMode(EnterAssignModeMsg{})
 	default:
 		return a, nil
+	}
+}
+
+func (a *App) syncFocusedItem() {
+	colIndex := a.boardModel.FocusedColumnIndex
+	cardIndex := a.boardModel.FocusedCardIndex
+
+	if colIndex < 0 || colIndex >= len(a.boardModel.Columns) {
+		return
+	}
+	column := a.boardModel.Columns[colIndex]
+
+	if cardIndex < 0 || cardIndex >= len(column.Cards) {
+		return
+	}
+	focusedCard := column.Cards[cardIndex]
+
+	// Find the corresponding item in the main list and update the app's focused index
+	for i, item := range a.state.Items {
+		if item.ID == focusedCard.ID {
+			a.state.View.FocusedIndex = i
+			a.state.View.FocusedItemID = item.ID
+			return
+		}
 	}
 }
 
@@ -378,12 +403,12 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	item := a.state.Items[idx]
 
 	// Call the GitHub client to update the item
-	cmd := func() tea.Msg {
+	updateCmd := func() tea.Msg {
 		updatedItem, err := a.github.UpdateItem(
 			context.Background(),
 			a.state.Project.ID,
 			a.state.Project.Owner,
-			item.ContentID, // Use ContentID here
+			item, // Pass the whole item
 			msg.Title,
 			msg.Description,
 		)
@@ -394,9 +419,8 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	}
 
 	a.state.View.Mode = "normal"
-	return a, tea.Batch(cmd, a.refreshBoardCmd())
+	return a, tea.Batch(updateCmd)
 }
-
 func (a App) refreshBoardCmd() tea.Cmd {
 	return func() tea.Msg {
 		// Re-fetch items to ensure the board is up-to-date after an update
