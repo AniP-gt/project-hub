@@ -43,7 +43,7 @@ var (
 			Foreground(ColorGreen400).
 			Padding(1, 2).
 			Border(lipgloss.NormalBorder(), false, false, true, false).
-			BorderForeground(ColorGray700)
+			BorderForeground(ColorGray200)
 
 	HeaderTitleStyle = lipgloss.NewStyle().
 				Foreground(ColorGreen500).
@@ -65,7 +65,7 @@ var (
 			Foreground(ColorGray400).
 			Padding(1, 2).
 			Border(lipgloss.NormalBorder(), true, false, false, false).
-			BorderForeground(ColorGray700)
+			BorderForeground(ColorGray200)
 
 	FooterModeStyle = lipgloss.NewStyle().
 			Foreground(ColorGreen500)
@@ -77,7 +77,7 @@ var (
 	CardBaseStyle = lipgloss.NewStyle().
 			Background(ColorGray800).
 			Border(lipgloss.NormalBorder()).
-			BorderForeground(ColorGray700).
+			BorderForeground(ColorGray200).
 			Padding(0, 1). // narrower vertical padding to match mock
 			Foreground(ColorGray300)
 
@@ -116,7 +116,7 @@ var (
 				Padding(0, 2). // slightly wider horizontal padding
 				Bold(true).
 				Border(lipgloss.NormalBorder(), true, true, false, true). // rounded-t, border
-				BorderForeground(ColorGray700)
+				BorderForeground(ColorGray200)
 
 	ColumnContainerStyle = lipgloss.NewStyle().
 				Width(28).     // target ~24-28 characters to match mock
@@ -125,14 +125,14 @@ var (
 	// Table Styles
 	TableBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700)
+				BorderForeground(ColorGray200)
 
 	TableHeaderCellStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
 				Foreground(ColorBlue300).
 				Padding(0, 2). // wider header padding
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700).
+				BorderForeground(ColorGray200).
 				Align(lipgloss.Left)
 
 	TableRowBaseStyle = lipgloss.NewStyle().
@@ -176,12 +176,12 @@ var (
 				Foreground(ColorBlue300).
 				Padding(1, 2). // px-4 py-2
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700)
+				BorderForeground(ColorGray200)
 
 	RoadmapItemBaseStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700).
+				BorderForeground(ColorGray200).
 				Padding(0, 2). // slightly narrower vertical padding
 				Foreground(ColorGray200)
 
@@ -218,7 +218,7 @@ var (
 var (
 	FrameStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorGray700).
+			BorderForeground(ColorGray200).
 			Padding(1, 2)
 
 	BadgeActive = lipgloss.NewStyle().
