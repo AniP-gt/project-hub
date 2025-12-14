@@ -37,19 +37,20 @@ var (
 			Foreground(ColorGreen400).
 			Background(ColorBlack)
 
-	// Header Styles (moc-inspired colors)
+	// Header Styles
 	HeaderStyle = lipgloss.NewStyle().
 			Background(ColorGray900).
+			Foreground(ColorGreen400).
 			Padding(1, 2).
 			Border(lipgloss.NormalBorder(), false, false, true, false).
 			BorderForeground(ColorGray200)
 
 	HeaderTitleStyle = lipgloss.NewStyle().
-				Foreground(ColorGreen400).
+				Foreground(ColorGreen500).
 				Bold(true)
 
 	HeaderProjectStyle = lipgloss.NewStyle().
-				Foreground(ColorBlue300)
+				Foreground(ColorBlue400)
 
 	HeaderViewSelectedStyle = lipgloss.NewStyle().
 				Foreground(ColorYellow400).
@@ -131,20 +132,20 @@ var (
 				Foreground(ColorBlue300).
 				Padding(0, 2). // wider header padding
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700).
+				BorderForeground(ColorGray200).
 				Align(lipgloss.Left)
 
 	// Reusable table cell style to ensure header & rows align
 	TableCellStyle = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
-			BorderForeground(ColorGray700).
+			BorderForeground(ColorGray200).
 			Padding(0, 2).
 			Align(lipgloss.Left)
 
 	TableMarkerCellStyle = lipgloss.NewStyle().
 				Width(2).
 				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700)
+				BorderForeground(ColorGray200)
 
 	TableRowBaseStyle = lipgloss.NewStyle().
 				Background(ColorGray900).
@@ -185,22 +186,22 @@ var (
 	RoadmapTimelineStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
 				Foreground(ColorBlue300).
-				Padding(1, 3). // px-4 py-2
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ColorGray700)
+				Padding(1, 2). // px-4 py-2
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(ColorGray200)
 
 	RoadmapItemBaseStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ColorGray700).
-				Padding(1, 3). // px-4 py-3
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(ColorGray200).
+				Padding(0, 2). // slightly narrower vertical padding
 				Foreground(ColorGray200)
 
 	RoadmapItemSelectedStyle = lipgloss.NewStyle().
 					Background(ColorGray700).
-					Border(lipgloss.RoundedBorder()).
+					Border(lipgloss.NormalBorder()).
 					BorderForeground(ColorYellow400).
-					Padding(1, 3).
+					Padding(0, 2).
 					Foreground(ColorGray200)
 
 	RoadmapItemHoverStyle = lipgloss.NewStyle(). // Simulated by selection
@@ -230,8 +231,7 @@ var (
 	FrameStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(ColorGray200).
-			Padding(1, 2).
-			Background(ColorGray800)
+			Padding(1, 2)
 
 	BadgeActive = lipgloss.NewStyle().
 			Background(ColorAccent).
