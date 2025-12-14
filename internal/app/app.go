@@ -19,20 +19,24 @@ import (
 
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
-	state      state.Model
-	github     github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
-	itemLimit  int
-	boardModel boardPkg.BoardModel
-	textInput  textinput.Model // For edit/assign input
+	state        state.Model
+	github       github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
+	itemLimit    int
+	boardModel   boardPkg.BoardModel
+	tableModel   table.TableModel
+	roadmapModel roadmap.RoadmapModel
+	textInput    textinput.Model // For edit/assign input
 }
 
 // New creates an App with an optional preloaded state.
 func New(initial state.Model, client github.Client, itemLimit int) App {
 	boardModel := boardPkg.NewBoardModel(initial.Items, initial.View.Filter, initial.View.FocusedItemID)
+	tableModel := table.NewTableModel(initial.Items, initial.View.FocusedItemID)
+	roadmapModel := roadmap.NewRoadmapModel(initial.Project.Iterations, initial.Items, initial.View.FocusedItemID)
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.Focus()
-	return App{state: initial, github: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti}
+	return App{state: initial, github: client, itemLimit: itemLimit, boardModel: boardModel, tableModel: tableModel, roadmapModel: roadmapModel, textInput: ti}
 }
 
 // Msg types for asynchronous operations
@@ -89,14 +93,76 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.state.Width = m.Width
 		a.state.Height = m.Height
-		if a.state.View.CurrentView == state.ViewBoard {
+		// compute inner sizes taking into account frame padding used in View
+		frameHorizontal := components.FrameStyle.GetHorizontalFrameSize()
+		frameVertical := components.FrameStyle.GetVerticalFrameSize()
+		// header/footer/notifications heights are computed in View;
+		// for model updates we provide the inner width/height available to the framed body
+		innerWidth := m.Width - frameHorizontal
+		if innerWidth < 20 {
+			innerWidth = 20
+		}
+		// approximate available height for models: subtract header/footer/notifications as minimal estimates
+		headerSample := components.RenderHeader(a.state.Project, a.state.View, m.Width)
+		headerHeight := lipgloss.Height(headerSample)
+		footerSample := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), m.Width)
+		footerHeight := lipgloss.Height(footerSample)
+		notifSample := components.RenderNotifications(a.state.Notifications)
+		notifHeight := 0
+		if notifSample != "" {
+			notifHeight = lipgloss.Height(notifSample)
+		}
+		availableHeight := m.Height - (headerHeight + footerHeight + notifHeight) - frameVertical - 2
+		if availableHeight < 3 {
+			availableHeight = 3
+		}
+
+		// Route window size to active view model so it can calculate visible slice
+		switch a.state.View.CurrentView {
+		case state.ViewBoard:
 			var model tea.Model
 			model, cmd = a.boardModel.Update(msg)
 			a.boardModel = model.(boardPkg.BoardModel)
 			cmds = append(cmds, cmd)
+		case state.ViewTable:
+			m2, c2 := a.tableModel.Update(tea.WindowSizeMsg{Width: innerWidth, Height: availableHeight})
+			a.tableModel = m2.(table.TableModel)
+			cmds = append(cmds, c2)
+		case state.ViewRoadmap:
+			m3, c3 := a.roadmapModel.Update(tea.WindowSizeMsg{Width: innerWidth, Height: availableHeight})
+			a.roadmapModel = m3.(roadmap.RoadmapModel)
+			cmds = append(cmds, c3)
 		}
 	case tea.KeyMsg:
 		var model tea.Model
+		// First, give the active view model a chance to handle navigation keys
+		if a.state.View.Mode == "normal" {
+			switch a.state.View.CurrentView {
+			case state.ViewBoard:
+				m2, c2 := a.boardModel.Update(m)
+				a.boardModel = m2.(boardPkg.BoardModel)
+				cmds = append(cmds, c2)
+				// sync focus after board handles keys
+				a.syncFocusedItem()
+			case state.ViewTable:
+				m2, c2 := a.tableModel.Update(m)
+				a.tableModel = m2.(table.TableModel)
+				cmds = append(cmds, c2)
+				// sync main state focus from table
+				if a.tableModel.FocusedIndex >= 0 && a.tableModel.FocusedIndex < len(a.state.Items) {
+					a.state.View.FocusedIndex = a.tableModel.FocusedIndex
+					a.state.View.FocusedItemID = a.state.Items[a.tableModel.FocusedIndex].ID
+				}
+			case state.ViewRoadmap:
+				m3, c3 := a.roadmapModel.Update(m)
+				a.roadmapModel = m3.(roadmap.RoadmapModel)
+				cmds = append(cmds, c3)
+				if a.roadmapModel.FocusedIndex >= 0 && a.roadmapModel.FocusedIndex < len(a.state.Items) {
+					a.state.View.FocusedIndex = a.roadmapModel.FocusedIndex
+					a.state.View.FocusedItemID = a.state.Items[a.roadmapModel.FocusedIndex].ID
+				}
+			}
+		}
 		model, cmd = a.handleKey(m)
 		a = model.(App)
 		cmds = append(cmds, cmd)
@@ -319,14 +385,19 @@ func (a App) View() string {
 	body := ""
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
-		body = table.Render(items, a.state.View.FocusedItemID)
+		// use the table model's View which handles visible slice
+		// ensure the model has the latest items
+		a.tableModel.Items = items
+		body = a.tableModel.View()
 	case state.ViewRoadmap:
-		body = roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID)
+		// ensure roadmap model has latest timelines/items
+		a.roadmapModel.Items = items
+		body = a.roadmapModel.View()
 	default:
 		body = a.boardModel.View()
 	}
 
-	// Handle edit/assign modes
+	// Handle edit/assign modes (render prompt below the body so it stays within the frame)
 	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" {
 		prompt := "Edit title: "
 		if a.state.View.Mode == "assign" {
@@ -368,9 +439,10 @@ func (a App) View() string {
 	bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(availableHeight).Render(body)
 	framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 
+	// Compose final output: header (fixed) above framed body
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
 	notif := components.RenderNotifications(a.state.Notifications)
-	return fmt.Sprintf("%s\n%s\n%s", framed, footer, notif)
+	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
 }
 
 func applyFilter(items []state.Item, fs state.FilterState) []state.Item {

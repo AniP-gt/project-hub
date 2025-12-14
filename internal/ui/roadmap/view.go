@@ -84,6 +84,6 @@ func Render(timelines []state.Timeline, items []state.Item, focusedID string) st
 	}
 
 	body := strings.TrimRight(lipgloss.JoinVertical(lipgloss.Left, blocks...), "\n")
-	// Wrap roadmap content in a frame so it doesn't visually collide with header/footer
-	return components.FrameStyle.Render(body)
+	// Return unframed roadmap body; App will apply the frame
+	return body
 }
