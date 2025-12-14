@@ -16,17 +16,15 @@ func Render(items []state.Item, focusedID string) string {
 
 	// Column widths (keep in sync with row cell widths)
 	const (
-		idWidth       = 8
-		titleWidth    = 28
-		statusWidth   = 12
+		titleWidth    = 36
+		statusWidth   = 14
 		assigneeWidth = 12
 		priorityWidth = 10
 		updatedWidth  = 12
 	)
 
-	// Header cells with explicit widths
+	// Header cells with explicit widths (ID is not shown)
 	head := lipgloss.JoinHorizontal(lipgloss.Top,
-		components.TableHeaderCellStyle.Width(idWidth).Render("ID"),
 		components.TableHeaderCellStyle.Width(titleWidth).Render("Title"),
 		components.TableHeaderCellStyle.Width(statusWidth).Render("Status"),
 		components.TableHeaderCellStyle.Width(assigneeWidth).Render("Assignee"),
@@ -41,7 +39,13 @@ func Render(items []state.Item, focusedID string) string {
 			rowStyle = components.TableRowSelectedStyle
 		}
 
-		idCell := components.TableCellIDStyle.Width(idWidth).Render(it.ID)
+		// Selection marker instead of ID column
+		marker := " "
+		if it.ID == focusedID {
+			marker = ">"
+		}
+		markerCell := lipgloss.NewStyle().Width(2).Render(marker)
+
 		titleCell := lipgloss.NewStyle().Width(titleWidth).Render(it.Title)
 		statusCell := components.TableCellStatusStyle.Width(statusWidth).Render(it.Status)
 		assignee := ""
@@ -80,7 +84,7 @@ func Render(items []state.Item, focusedID string) string {
 		}
 		updatedCell := components.TableCellUpdatedStyle.Width(updatedWidth).Render(updated)
 
-		row := lipgloss.JoinHorizontal(lipgloss.Top, idCell, titleCell, statusCell, assigneeCell, priorityCell, updatedCell)
+		row := lipgloss.JoinHorizontal(lipgloss.Top, markerCell, titleCell, statusCell, assigneeCell, priorityCell, updatedCell)
 		rows = append(rows, rowStyle.Render(row))
 	}
 
