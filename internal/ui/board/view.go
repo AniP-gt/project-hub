@@ -240,9 +240,8 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		priority = priorityStyle.Render(card.Priority)
 	}
 
-	id := components.CardIDStyle.Render(card.ID)
-	// Arrange ID, Title, then metadata (assignee, labels, priority) to match mock
-	content := lipgloss.JoinVertical(lipgloss.Left, id, title, lipgloss.JoinHorizontal(lipgloss.Left, assignee, labels, priority))
+	// Arrange Title, then metadata (assignee, labels, priority). ID is intentionally not displayed in the UI.
+	content := lipgloss.JoinVertical(lipgloss.Left, title, lipgloss.JoinHorizontal(lipgloss.Left, assignee, labels, priority))
 
 	style := components.CardBaseStyle
 	if isSelected {
