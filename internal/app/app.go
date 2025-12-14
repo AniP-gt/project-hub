@@ -419,7 +419,7 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	}
 
 	a.state.View.Mode = "normal"
-	return a, tea.Batch(updateCmd, a.refreshBoardCmd())
+	return a, tea.Batch(updateCmd)
 }
 func (a App) refreshBoardCmd() tea.Cmd {
 	return func() tea.Msg {

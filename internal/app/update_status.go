@@ -84,5 +84,5 @@ func (a App) handleStatusMove(msg StatusMoveMsg) (tea.Model, tea.Cmd) {
 		return ItemUpdatedMsg{Index: idx, Item: updatedItem}
 	}
 
-	return a, tea.Batch(cmd, a.refreshBoardCmd())
+	return a, tea.Batch(cmd)
 }

@@ -100,7 +100,7 @@ func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {
 	}
 
 	a.state.View.Mode = "normal"
-	return a, tea.Batch(cmd, a.refreshBoardCmd())
+	return a, tea.Batch(cmd)
 }
 
 func (a App) handleCancelAssign(msg CancelAssignMsg) (tea.Model, tea.Cmd) {
