@@ -78,18 +78,25 @@ var (
 			Background(ColorGray800).
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorGray700).
-			Padding(1, 1). // px-3 py-2
+			Padding(0, 1). // narrower vertical padding to match mock
 			Foreground(ColorGray300)
 
-	CardSelectedStyle = CardBaseStyle.Copy().
+	CardSelectedStyle = lipgloss.NewStyle().
+				Background(ColorGray700).
+				Border(lipgloss.NormalBorder()).
 				BorderForeground(ColorYellow400).
-				Background(ColorGray700)
+				Padding(0, 1).
+				Foreground(ColorGray200).
+				Bold(true)
 
-	CardHoverStyle = CardBaseStyle.Copy(). // For TUI, hover is often simulated by selection
+	CardHoverStyle = lipgloss.NewStyle(). // For TUI, hover is often simulated by selection
+			Background(ColorGray800).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorGray500)
 
 	CardIDStyle = lipgloss.NewStyle().
 			Foreground(ColorGreen400).
+			Bold(true).
 			MarginBottom(0) // text-xs mb-1
 
 	CardTagStyle = lipgloss.NewStyle().
@@ -106,14 +113,14 @@ var (
 	ColumnHeaderStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
 				Foreground(ColorBlue300).
-				Padding(0, 1). // px-3 py-2
+				Padding(0, 2). // slightly wider horizontal padding
 				Bold(true).
 				Border(lipgloss.NormalBorder(), true, true, false, true). // rounded-t, border
 				BorderForeground(ColorGray700)
 
 	ColumnContainerStyle = lipgloss.NewStyle().
-				Width(24).     // w-64 (approx 24 chars in monospaced font)
-				MarginRight(0) // gap-2 (reduced from 2 to make columns closer)
+				Width(28).     // target ~24-28 characters to match mock
+				MarginRight(1) // small gap between columns
 
 	// Table Styles
 	TableBorderStyle = lipgloss.NewStyle().
@@ -123,7 +130,7 @@ var (
 	TableHeaderCellStyle = lipgloss.NewStyle().
 				Background(ColorGray800).
 				Foreground(ColorBlue300).
-				Padding(0, 1). // px-3 py-2
+				Padding(0, 2). // wider header padding
 				Border(lipgloss.NormalBorder()).
 				BorderForeground(ColorGray700).
 				Align(lipgloss.Left)
@@ -175,14 +182,19 @@ var (
 				Background(ColorGray800).
 				Border(lipgloss.NormalBorder()).
 				BorderForeground(ColorGray700).
-				Padding(1, 2). // px-4 py-3
+				Padding(0, 2). // slightly narrower vertical padding
 				Foreground(ColorGray200)
 
-	RoadmapItemSelectedStyle = RoadmapItemBaseStyle.Copy().
+	RoadmapItemSelectedStyle = lipgloss.NewStyle().
+					Background(ColorGray700).
+					Border(lipgloss.NormalBorder()).
 					BorderForeground(ColorYellow400).
-					Background(ColorGray700)
+					Padding(0, 2).
+					Foreground(ColorGray200)
 
-	RoadmapItemHoverStyle = RoadmapItemBaseStyle.Copy(). // Simulated by selection
+	RoadmapItemHoverStyle = lipgloss.NewStyle(). // Simulated by selection
+				Background(ColorGray800).
+				Border(lipgloss.NormalBorder()).
 				BorderForeground(ColorGray500)
 
 	RoadmapItemSprintStyle = lipgloss.NewStyle().
