@@ -402,8 +402,14 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	}
 	item := a.state.Items[idx]
 
+	// DEBUG: Display the IDs being used for the edit
+	debugMsg := fmt.Sprintf("Editing ItemID: %s, ContentID: %s", item.ID, item.ContentID)
+	debugNotif := state.Notification{Message: debugMsg, Level: "info", At: time.Now(), DismissAfter: 10 * time.Second}
+	a.state.Notifications = append(a.state.Notifications, debugNotif)
+	dismissCmd := dismissNotificationCmd(len(a.state.Notifications)-1, debugNotif.DismissAfter)
+
 	// Call the GitHub client to update the item
-	cmd := func() tea.Msg {
+	updateCmd := func() tea.Msg {
 		updatedItem, err := a.github.UpdateItem(
 			context.Background(),
 			a.state.Project.ID,
@@ -419,9 +425,8 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	}
 
 	a.state.View.Mode = "normal"
-	return a, tea.Batch(cmd, a.refreshBoardCmd())
+	return a, tea.Batch(dismissCmd, updateCmd, a.refreshBoardCmd())
 }
-
 func (a App) refreshBoardCmd() tea.Cmd {
 	return func() tea.Msg {
 		// Re-fetch items to ensure the board is up-to-date after an update
