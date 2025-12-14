@@ -240,7 +240,9 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		priority = priorityStyle.Render(card.Priority)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, title, assignee, labels, priority)
+	id := components.CardIDStyle.Render(card.ID)
+	// Arrange ID, Title, then metadata (assignee, labels, priority) to match mock
+	content := lipgloss.JoinVertical(lipgloss.Left, id, title, lipgloss.JoinHorizontal(lipgloss.Left, assignee, labels, priority))
 
 	style := components.CardBaseStyle
 	if isSelected {
@@ -252,12 +254,24 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 
 // calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
 func (m BoardModel) calculateMaxVisibleCards() int {
-	// For initial display, limit to 3 cards per column to ensure header is visible
-	return 3
+	// Estimate cards visible based on model height. Reserve space for header and margins.
+	if m.Height <= 0 {
+		return 3
+	}
+	available := m.Height - 8 // reserve header/footer and padding
+	if available <= 4 {
+		return 1
+	}
+	// assume each card approx 3 lines tall (ID, title, meta)
+	max := available / 3
+	if max < 1 {
+		max = 1
+	}
+	return max
 }
 
 // ColumnOrder defines the order of columns in the Kanban board.
-var ColumnOrder = []string{"Todo", "In Progress", "In_Review", "Done", "Unknown"}
+var ColumnOrder = []string{"Backlog", "In Progress", "Review", "Done"}
 
 // NewBoardModel creates a new BoardModel from items and filter state.
 func NewBoardModel(items []state.Item, filter state.FilterState, focusedItemID string) BoardModel {
