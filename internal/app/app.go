@@ -229,7 +229,7 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Status")
 		case "r", "R":
 			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Repository")
-		case "l", "L":
+		case "L":
 			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Labels")
 		case "m", "M":
 			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Milestone")
@@ -241,6 +241,20 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "CreatedAt")
 		case "u", "U":
 			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "UpdatedAt")
+		case "j", "down":
+			// move focus down
+			return a.handleMoveFocus(MoveFocusMsg{Delta: 1})
+		case "k", "up":
+			// move focus up
+			return a.handleMoveFocus(MoveFocusMsg{Delta: -1})
+		case "h":
+			// move status left
+			a.state.View.Mode = state.ModeNormal
+			return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionLeft})
+		case "l":
+			// move status right
+			a.state.View.Mode = state.ModeNormal
+			return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionRight})
 		case "esc":
 			// cancel sort mode
 			a.state.View.Mode = state.ModeNormal
