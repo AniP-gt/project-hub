@@ -303,6 +303,16 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionRight})
 	case "/":
 		return a.handleEnterFilterMode(EnterFilterModeMsg{})
+	case "s":
+		// enter sort mode only in table view
+		if a.state.View.CurrentView == state.ViewTable {
+			a.state.View.Mode = state.ModeSort
+			// notify instructions
+			notif := state.Notification{Message: "Sort mode: t=Title s=Status r=Repository l=Labels m=Milestone p=Priority n=Number c=CreatedAt u=UpdatedAt (esc to cancel)", Level: "info", At: time.Now(), DismissAfter: 5 * time.Second}
+			a.state.Notifications = append(a.state.Notifications, notif)
+			return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+		}
+		return a, nil
 	case "esc":
 		return a.handleClearFilter(ClearFilterMsg{})
 	case "i", "enter":
