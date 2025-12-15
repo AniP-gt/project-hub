@@ -304,7 +304,21 @@ func renderViewTabs(currentView state.ViewType) string {
 func RenderFooter(mode, view string, width int) string {
 	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
 	keybinds := FooterKeybindsStyle.Render("j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了")
-	modeStatus := FooterModeStyle.Render("NORMAL MODE")
+	var modeLabel string
+	modeStyle := FooterModeStyle
+	switch strings.ToLower(mode) {
+	case "edit":
+		modeLabel = "INSERT MODE"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorYellow400)
+	case "assign":
+		modeLabel = "ASSIGN MODE"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorCyan400)
+	case "filtering":
+		modeLabel = "FILTER MODE"
+	default:
+		modeLabel = "NORMAL MODE"
+	}
+	modeStatus := modeStyle.Render(modeLabel)
 
 	// Calculate remaining width for spacing
 	totalKeybindsWidth := lipgloss.Width(keybinds)
