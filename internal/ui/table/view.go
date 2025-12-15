@@ -3,162 +3,92 @@ package table
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"project-hub/internal/state"
 )
 
-// Render renders an ASCII boxed table showing items with columns:
-// Title | Status | Repository | Labels | Milestone | Priority
+// Render renders the table view using lipgloss, matching the moc.go layout.
 func Render(items []state.Item, focusedID string, innerWidth int) string {
-	// Column headers
-	headers := []string{"Title", "Status", "Repository", "Labels", "Milestone", "Priority"}
+	if innerWidth <= 0 {
+		innerWidth = 80
+	}
 
-	// Collect column contents (as strings)
-	rows := make([][]string, len(items))
-	for i, it := range items {
-		rows[i] = []string{
-			it.Title,
-			it.Status,
-			it.Repository,
-			strings.Join(it.Labels, ","),
-			it.Milestone,
-			it.Priority,
+	headStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("12")).
+		Background(lipgloss.Color("236")).
+		Padding(0, 1).
+		Bold(true)
+
+	cellStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")).
+		Padding(0, 1)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("11")).
+		Background(lipgloss.Color("236")).
+		Padding(0, 1)
+
+	// Columns: Title, Status, Repository, Labels, Milestone, Priority
+	cols := []string{"Title", "Status", "Repository", "Labels", "Milestone", "Priority"}
+
+	// Assign widths by percentage of innerWidth
+	// Reserve a small margin for spacing
+	margin := 2
+	avail := innerWidth - margin
+	if avail < 40 {
+		avail = 40
+	}
+
+	percent := []int{40, 10, 20, 15, 8, 7} // sums to 100
+	widths := make([]int, len(percent))
+	total := 0
+	for i, p := range percent {
+		w := avail * p / 100
+		if w < 6 {
+			w = 6
 		}
+		widths[i] = w
+		total += w
 	}
 
-	// Determine column widths based on headers and content, leaving room for separators and marker
-	markerWidth := 2                                     // one for marker + one space
-	sepWidth := 3 * (len(headers) - 1)                   // " | " between columns
-	available := innerWidth - markerWidth - sepWidth - 2 // 2 for frame borders '|' at ends
-	if available < len(headers) {
-		available = len(headers)
+	// If rounding causes total > avail, shrink title
+	if total > avail {
+		over := total - avail
+		widths[0] -= over
 	}
 
-	colWidths := make([]int, len(headers))
-	// start with header widths
-	for i := range headers {
-		colWidths[i] = len(headers[i])
-	}
-	// expand to fit content up to available
-	for _, r := range rows {
-		for c, cell := range r {
-			if len(cell) > colWidths[c] {
-				colWidths[c] = len(cell)
-			}
-		}
+	// Prepare header row
+	headers := make([]string, len(cols))
+	for i, c := range cols {
+		headers[i] = headStyle.Width(widths[i]).Render(c)
 	}
 
-	// If sum of colWidths exceeds available, shrink columns with priority:
-	// shrinkable order: Title, Labels, Repository, Milestone, Priority, Status
-	order := []int{0, 3, 2, 4, 5, 1}
-	sum := 0
-	for _, w := range colWidths {
-		sum += w
+	var rows []string
+	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, headers...))
+	sepLen := innerWidth
+	if sepLen < 0 {
+		sepLen = 0
 	}
-	if sum > available {
-		extra := sum - available
-		for _, idx := range order {
-			if extra <= 0 {
-				break
-			}
-			canReduce := colWidths[idx] - 5 // minimum width 5
-			if canReduce <= 0 {
-				continue
-			}
-			reduction := canReduce
-			if reduction > extra {
-				reduction = extra
-			}
-			colWidths[idx] -= reduction
-			extra -= reduction
-		}
-	}
+	rows = append(rows, strings.Repeat("─", sepLen))
 
-	// helper to pad or truncate
-	pad := func(s string, w int) string {
-		if len(s) > w {
-			if w <= 1 {
-				return s[:w]
-			}
-			return s[:w-1] + "…"
-		}
-		return s + strings.Repeat(" ", w-len(s))
-	}
-
-	var b strings.Builder
-
-	// top border (use '=' to avoid long '-' runs)
-	b.WriteString("+" + strings.Repeat("=", innerWidth-2) + "+\n")
-
-	// header row
-	b.WriteString("| ")
-	for i, h := range headers {
-		b.WriteString(pad(h, colWidths[i]))
-		if i < len(headers)-1 {
-			b.WriteString(" | ")
-		}
-	}
-	rem := innerWidth - 2 - (markerWidth - 1) - (func() int {
-		s := 0
-		for _, w := range colWidths {
-			s += w
-		}
-		return s + sepWidth
-	}())
-	// pad to full width
-	if rem > 0 {
-		b.WriteString(strings.Repeat(" ", rem))
-	}
-	b.WriteString(" |")
-	b.WriteString("\n")
-
-	// header separator (use '=' as well)
-	b.WriteString("+" + strings.Repeat("=", innerWidth-2) + "+\n")
-
-	// data rows
-	for _, r := range rows {
-		b.WriteString("| ")
-		for i, cell := range r {
-			b.WriteString(pad(cell, colWidths[i]))
-			if i < len(r)-1 {
-				b.WriteString(" | ")
-			}
-		}
-		// pad remainder
-		rem := innerWidth - 2 - (func() int {
-			s := 0
-			for _, w := range colWidths {
-				s += w
-			}
-			return s + sepWidth
-		}())
-		if rem > 0 {
-			b.WriteString(strings.Repeat(" ", rem))
-		}
-		b.WriteString(" |")
-		b.WriteString("\n")
-	}
-
-	// bottom border (match header separator)
-	b.WriteString("+" + strings.Repeat("=", innerWidth-2) + "+")
-
-	// add focus marker at line start for focused row(s)
-	out := b.String()
-	if focusedID == "" {
-		return out
-	}
-	// Mark focused line: find the row index
-	for i, it := range items {
+	// Build data rows
+	for _, it := range items {
+		style := cellStyle
 		if it.ID == focusedID {
-			// locate start of data row: after top border and header (3 lines)
-			// compute line to replace
-			lines := strings.Split(out, "\n")
-			// data rows start at index 3 (0-based): top border(0), header(1), sep(2)
-			lineIdx := 3 + i
-			if lineIdx >= 0 && lineIdx < len(lines) {
-				lines[lineIdx] = ">" + lines[lineIdx][1:]
-				return strings.Join(lines, "\n")
-			}
+			style = selectedStyle
 		}
+
+		cells := []string{
+			style.Width(widths[0]).Render(it.Title),
+			style.Width(widths[1]).Render(it.Status),
+			style.Width(widths[2]).Render(it.Repository),
+			style.Width(widths[3]).Render(strings.Join(it.Labels, ",")),
+			style.Width(widths[4]).Render(it.Milestone),
+			style.Width(widths[5]).Render(it.Priority),
+		}
+
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))
 	}
-	return out
+
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
