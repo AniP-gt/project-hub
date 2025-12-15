@@ -58,6 +58,8 @@ type Item struct {
 	URL         string // URL to the issue or PR
 	Assignees   []string
 	Labels      []string
+	Milestone   string
+	Priority    string
 	CreatedAt   *time.Time
 	UpdatedAt   *time.Time
 	Due         *time.Time

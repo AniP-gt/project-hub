@@ -316,10 +316,20 @@ func (a App) View() string {
 	header := components.RenderHeader(a.state.Project, a.state.View, width)
 	items := applyFilter(a.state.Items, a.state.View.Filter)
 
+	// Compute frame and inner width early so views can size content appropriately
+	frameWidth := width
+	if frameWidth <= 0 {
+		frameWidth = 100
+	}
+	innerWidth := frameWidth - components.FrameStyle.GetHorizontalFrameSize()
+	if innerWidth < 40 {
+		innerWidth = 40
+	}
+
 	body := ""
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
-		body = table.Render(items, a.state.View.FocusedItemID)
+		body = table.Render(items, a.state.View.FocusedItemID, innerWidth)
 	case state.ViewRoadmap:
 		body = roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID)
 	default:
@@ -333,15 +343,6 @@ func (a App) View() string {
 			prompt = "Assign to: "
 		}
 		body = body + "\n" + prompt + a.textInput.View()
-	}
-
-	frameWidth := width
-	if frameWidth <= 0 {
-		frameWidth = 100
-	}
-	innerWidth := frameWidth - components.FrameStyle.GetHorizontalFrameSize()
-	if innerWidth < 40 {
-		innerWidth = 40
 	}
 
 	// For board view, limit height to prevent header from scrolling out
