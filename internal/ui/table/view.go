@@ -86,8 +86,8 @@ func Render(items []state.Item, focusedID string, innerWidth int) string {
 
 	var b strings.Builder
 
-	// top border
-	b.WriteString("+" + strings.Repeat("-", innerWidth-2) + "+\n")
+	// top border (use '=' to avoid long '-' runs)
+	b.WriteString("+" + strings.Repeat("=", innerWidth-2) + "+\n")
 
 	// header row
 	b.WriteString("| ")
@@ -111,8 +111,8 @@ func Render(items []state.Item, focusedID string, innerWidth int) string {
 	b.WriteString(" |")
 	b.WriteString("\n")
 
-	// header separator
-	b.WriteString("+" + strings.Repeat("-", innerWidth-2) + "+\n")
+	// header separator (use '=' as well)
+	b.WriteString("+" + strings.Repeat("=", innerWidth-2) + "+\n")
 
 	// data rows
 	for _, r := range rows {
@@ -138,8 +138,8 @@ func Render(items []state.Item, focusedID string, innerWidth int) string {
 		b.WriteString("\n")
 	}
 
-	// bottom border
-	b.WriteString("+" + strings.Repeat("-", innerWidth-2) + "+")
+	// bottom border (match header separator)
+	b.WriteString("+" + strings.Repeat("=", innerWidth-2) + "+")
 
 	// add focus marker at line start for focused row(s)
 	out := b.String()
