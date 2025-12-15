@@ -8,9 +8,11 @@ import (
 type ViewMode string
 
 const (
-	ModeNormal    ViewMode = "normal"
-	ModeFiltering ViewMode = "filtering"
-	ModeEdit      ViewMode = "edit"
+	ModeNormal       ViewMode = "normal"
+	ModeFiltering    ViewMode = "filtering"
+	ModeEdit         ViewMode = "edit"
+	ModeSort         ViewMode = "sort"
+	ModeStatusSelect ViewMode = "statusSelect" // Added for status selection mode
 )
 
 // ViewType represents the active view.
@@ -58,6 +60,8 @@ type Item struct {
 	URL         string // URL to the issue or PR
 	Assignees   []string
 	Labels      []string
+	Milestone   string
+	Priority    string
 	CreatedAt   *time.Time
 	UpdatedAt   *time.Time
 	Due         *time.Time
@@ -92,12 +96,13 @@ type Option struct {
 
 // ViewContext holds transient UI state.
 type ViewContext struct {
-	CurrentView   ViewType
-	FocusedItemID string
-	FocusedIndex  int
-	Filter        FilterState
-	Mode          ViewMode
-	TableSort     TableSort
+	CurrentView        ViewType
+	FocusedItemID      string
+	FocusedIndex       int
+	FocusedColumnIndex int // Added for cell-level focus in table view
+	Filter             FilterState
+	Mode               ViewMode
+	TableSort          TableSort
 }
 
 // Notification represents a non-blocking message to the user.

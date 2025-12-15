@@ -346,11 +346,57 @@ func parseItemMap(r any) (state.Item, bool) {
 	if repo, ok := m["repository"].(string); ok && item.Repository == "" {
 		item.Repository = repo
 	}
-	if status, ok := m["status"].(string); ok {
-		item.Status = status
+	// Robustly parse status: it may be string, an object with id/name,
+	// or described in fieldValues -> singleSelectOption. Prefer human-readable name.
+	if statusVal, ok := m["status"]; ok {
+		switch sv := statusVal.(type) {
+		case string:
+			item.Status = sv
+		case map[string]any:
+			if name, ok := sv["name"].(string); ok && name != "" {
+				item.Status = name
+			} else if id, ok := sv["id"].(string); ok && id != "" {
+				item.Status = id
+			}
+		}
 	}
+
+	// Also check "fieldValues" array for status
+	if item.Status == "" { // Only if status not found yet
+		if fv, ok := m["fieldValues"].([]any); ok {
+			for _, v := range fv {
+				if fm, ok := v.(map[string]any); ok {
+					if fname, ok := fm["fieldName"].(string); ok && fname == "Status" {
+						if opt, ok := fm["singleSelectOption"].(map[string]any); ok {
+							if name, ok := opt["name"].(string); ok && name != "" {
+								item.Status = name
+								break // Found status, no need to check other fieldValues
+							} else if id, ok := opt["id"].(string); ok && id != "" {
+								item.Status = id
+								break // Found status, no need to check other fieldValues
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if item.Status == "" {
 		item.Status = "Unknown"
+	}
+
+	if priorityVal, ok := m["priority"]; ok {
+		switch pv := priorityVal.(type) {
+		case string:
+			item.Priority = pv
+		case map[string]any:
+			if name, ok := pv["name"].(string); ok && name != "" {
+				item.Priority = name
+			} else if id, ok := pv["id"].(string); ok && id != "" {
+				item.Priority = id
+			}
+		}
 	}
 	if labels, ok := m["labels"].([]any); ok {
 		for _, lv := range labels {
