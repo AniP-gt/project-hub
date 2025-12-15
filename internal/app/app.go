@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -196,6 +198,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle input while in edit/assign modes (these modes are stored as raw strings elsewhere)
 	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" {
 		switch k.String() {
 		case "enter":
@@ -215,6 +218,53 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.textInput, cmd = a.textInput.Update(k)
 			return a, cmd
 		}
+	}
+
+	// Handle input while in sort mode (ModeSort is a typed constant)
+	if a.state.View.Mode == state.ModeSort {
+		switch k.String() {
+		case "t", "T":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Title")
+		case "s", "S":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Status")
+		case "r", "R":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Repository")
+		case "l", "L":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Labels")
+		case "m", "M":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Milestone")
+		case "p", "P":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Priority")
+		case "n", "N":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "Number")
+		case "c", "C":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "CreatedAt")
+		case "u", "U":
+			a.state.View.TableSort = toggleSort(a.state.View.TableSort, "UpdatedAt")
+		case "esc":
+			// cancel sort mode
+			a.state.View.Mode = state.ModeNormal
+			return a, nil
+		default:
+			// ignore other keys in sort mode
+			return a, nil
+		}
+		// apply focus to first item after sort
+		if len(a.state.Items) > 0 {
+			a.state.View.FocusedIndex = 0
+			a.state.View.FocusedItemID = a.state.Items[0].ID
+		}
+		// exit sort mode
+		a.state.View.Mode = state.ModeNormal
+		// notify
+		notif := state.Notification{Message: fmt.Sprintf("Sort: %s %s", a.state.View.TableSort.Field, func() string {
+			if a.state.View.TableSort.Asc {
+				return "↑"
+			}
+			return "↓"
+		}()), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
 	}
 
 	if a.state.View.CurrentView == state.ViewBoard {
@@ -315,6 +365,8 @@ func (a App) View() string {
 	}
 	header := components.RenderHeader(a.state.Project, a.state.View, width)
 	items := applyFilter(a.state.Items, a.state.View.Filter)
+	// Apply table sort if present
+	items = applySort(items, a.state.View.TableSort)
 
 	// Compute frame and inner width early so views can size content appropriately
 	frameWidth := width
@@ -393,6 +445,116 @@ func containsAny(haystack []string, needles []string) bool {
 		}
 	}
 	return false
+}
+
+// toggleSort toggles the sort direction or sets new field with ascending order.
+func toggleSort(ts state.TableSort, field string) state.TableSort {
+	if ts.Field == field {
+		ts.Asc = !ts.Asc
+		return ts
+	}
+	return state.TableSort{Field: field, Asc: true}
+}
+
+// applySort orders items according to TableSort. If Field is empty, no-op.
+func applySort(items []state.Item, ts state.TableSort) []state.Item {
+	if ts.Field == "" {
+		return items
+	}
+	// use stable sort
+	switch ts.Field {
+	case "Title":
+		sort.SliceStable(items, func(i, j int) bool {
+			if ts.Asc {
+				return items[i].Title < items[j].Title
+			}
+			return items[i].Title > items[j].Title
+		})
+	case "Status":
+		sort.SliceStable(items, func(i, j int) bool {
+			if ts.Asc {
+				return items[i].Status < items[j].Status
+			}
+			return items[i].Status > items[j].Status
+		})
+	case "Repository":
+		sort.SliceStable(items, func(i, j int) bool {
+			if ts.Asc {
+				return items[i].Repository < items[j].Repository
+			}
+			return items[i].Repository > items[j].Repository
+		})
+	case "Labels":
+		sort.SliceStable(items, func(i, j int) bool {
+			iLabels := strings.Join(items[i].Labels, ",")
+			jLabels := strings.Join(items[j].Labels, ",")
+			if ts.Asc {
+				return iLabels < jLabels
+			}
+			return iLabels > jLabels
+		})
+	case "Milestone":
+		sort.SliceStable(items, func(i, j int) bool {
+			if ts.Asc {
+				return items[i].Milestone < items[j].Milestone
+			}
+			return items[i].Milestone > items[j].Milestone
+		})
+	case "Priority":
+		// Priority: attempt to order High > Medium > Low when Asc=false
+		priorityRank := func(p string) int {
+			switch strings.ToLower(p) {
+			case "high":
+				return 3
+			case "medium":
+				return 2
+			case "low":
+				return 1
+			default:
+				return 0
+			}
+		}
+		sort.SliceStable(items, func(i, j int) bool {
+			if ts.Asc {
+				return priorityRank(items[i].Priority) < priorityRank(items[j].Priority)
+			}
+			return priorityRank(items[i].Priority) > priorityRank(items[j].Priority)
+		})
+	default:
+		// try numeric/date fields
+		switch ts.Field {
+		case "Number":
+			sort.SliceStable(items, func(i, j int) bool {
+				if ts.Asc {
+					return items[i].Number < items[j].Number
+				}
+				return items[i].Number > items[j].Number
+			})
+		case "CreatedAt":
+			sort.SliceStable(items, func(i, j int) bool {
+				if items[i].CreatedAt == nil || items[j].CreatedAt == nil {
+					return items[i].CreatedAt == nil
+				}
+				if ts.Asc {
+					return items[i].CreatedAt.Before(*items[j].CreatedAt)
+				}
+				return items[j].CreatedAt.Before(*items[i].CreatedAt)
+			})
+		case "UpdatedAt":
+			sort.SliceStable(items, func(i, j int) bool {
+				if items[i].UpdatedAt == nil || items[j].UpdatedAt == nil {
+					return items[i].UpdatedAt == nil
+				}
+				if ts.Asc {
+					return items[i].UpdatedAt.Before(*items[j].UpdatedAt)
+				}
+				return items[j].UpdatedAt.Before(*items[i].UpdatedAt)
+			})
+		default:
+			// unsupported field: no-op
+		}
+	}
+	return items
 }
 
 // handleSaveEdit is moved here from update_edit.go

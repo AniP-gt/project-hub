@@ -11,6 +11,7 @@ const (
 	ModeNormal    ViewMode = "normal"
 	ModeFiltering ViewMode = "filtering"
 	ModeEdit      ViewMode = "edit"
+	ModeSort      ViewMode = "sort"
 )
 
 // ViewType represents the active view.
