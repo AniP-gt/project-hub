@@ -8,7 +8,7 @@ import (
 )
 
 // Render renders the table view using lipgloss, matching the moc.go layout.
-func Render(items []state.Item, focusedID string, innerWidth int) string {
+func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidth int) string {
 	if innerWidth <= 0 {
 		innerWidth = 80
 	}
@@ -25,11 +25,16 @@ func Render(items []state.Item, focusedID string, innerWidth int) string {
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("11")).
-		Background(lipgloss.Color("236")).
 		Padding(0, 1)
 
-	// Columns: Title, Status, Repository, Labels, Milestone, Priority
-	cols := []string{"Title", "Status", "Repository", "Labels", "Milestone", "Priority"}
+	focusedCellStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")). // Brighter foreground for focused cell
+		Background(lipgloss.Color("236")).
+		Padding(0, 1).
+		Bold(true)
+
+	// Columns: Title, Status, Repository, Labels, Milestone, Priority, Assignees
+	cols := []string{"Title", "Status", "Repository", "Labels", "Milestone", "Priority", "Assignees"}
 
 	// Assign widths by percentage of innerWidth
 	// Reserve a small margin for spacing
@@ -39,7 +44,7 @@ func Render(items []state.Item, focusedID string, innerWidth int) string {
 		avail = 40
 	}
 
-	percent := []int{40, 10, 20, 15, 8, 7} // sums to 100
+	percent := []int{40, 10, 15, 10, 8, 5, 12} // sums to 100
 	widths := make([]int, len(percent))
 	total := 0
 	for i, p := range percent {
@@ -73,18 +78,29 @@ func Render(items []state.Item, focusedID string, innerWidth int) string {
 
 	// Build data rows
 	for _, it := range items {
-		style := cellStyle
+		// Base style for the entire row
+		rowBaseStyle := cellStyle
 		if it.ID == focusedID {
-			style = selectedStyle
+			rowBaseStyle = selectedStyle
 		}
 
-		cells := []string{
-			style.Width(widths[0]).Render(it.Title),
-			style.Width(widths[1]).Render(it.Status),
-			style.Width(widths[2]).Render(it.Repository),
-			style.Width(widths[3]).Render(strings.Join(it.Labels, ",")),
-			style.Width(widths[4]).Render(it.Milestone),
-			style.Width(widths[5]).Render(it.Priority),
+		cells := make([]string, len(cols)) // cols: Title, Status, ...
+		cellValues := []string{
+			it.Title,
+			it.Status,
+			it.Repository,
+			strings.Join(it.Labels, ","),
+			it.Milestone,
+			it.Priority,
+			strings.Join(it.Assignees, ","), // Add Assignees here
+		}
+
+		for colIdx, val := range cellValues {
+			cellStyleToApply := rowBaseStyle.Copy() // Start with the row's base style
+			if it.ID == focusedID && colIdx == focusedColIndex {
+				cellStyleToApply = focusedCellStyle.Copy()
+			}
+			cells[colIdx] = cellStyleToApply.Width(widths[colIdx]).Render(val)
 		}
 
 		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))

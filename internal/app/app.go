@@ -21,11 +21,12 @@ import (
 
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
-	state      state.Model
-	github     github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
-	itemLimit  int
-	boardModel boardPkg.BoardModel
-	textInput  textinput.Model // For edit/assign input
+	state          state.Model
+	github         github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
+	itemLimit      int
+	boardModel     boardPkg.BoardModel
+	textInput      textinput.Model                // For edit/assign input
+	statusSelector components.StatusSelectorModel // New field for status selection
 }
 
 // New creates an App with an optional preloaded state.
@@ -60,6 +61,8 @@ type DismissNotificationMsg struct {
 	ID int
 }
 
+type EnterStatusSelectModeMsg struct{} // New message type for entering status selection mode
+
 // Cmds for asynchronous operations
 func FetchProjectCmd(client github.Client, projectID, owner string, itemLimit int) tea.Cmd {
 	return func() tea.Msg {
@@ -86,6 +89,54 @@ func (a App) Init() tea.Cmd {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
+
+	// Handle input while in status select mode
+	if a.state.View.Mode == state.ModeStatusSelect {
+		var statusSelectorCmd tea.Cmd
+		var updatedStatusSelector tea.Model
+		updatedStatusSelector, statusSelectorCmd = a.statusSelector.Update(msg)
+		a.statusSelector = updatedStatusSelector.(components.StatusSelectorModel)
+		if statusSelectorCmd != nil {
+			cmds = append(cmds, statusSelectorCmd)
+		}
+
+		switch m := msg.(type) {
+		case components.StatusSelectedMsg:
+			if m.Canceled {
+				a.state.View.Mode = state.ModeNormal // Exit status select mode
+				return a, tea.Batch(cmds...)
+			}
+			// Handle status update
+			idx := a.state.View.FocusedIndex
+			if idx < 0 || idx >= len(a.state.Items) {
+				a.state.View.Mode = state.ModeNormal // Exit status select mode
+				return a, tea.Batch(cmds...)
+			}
+			item := a.state.Items[idx]
+
+			// Call the GitHub client to update the status
+			updateCmd := func() tea.Msg {
+				updatedItem, err := a.github.UpdateStatus(
+					context.Background(),
+					a.state.Project.ID,
+					a.state.Project.Owner,
+					item.ID,         // Use the item's node ID for field updates
+					m.StatusFieldID, // Use the selected status field ID
+					m.OptionID,      // Use the selected option ID
+				)
+				if err != nil {
+					return NewErrMsg(err)
+				}
+				return ItemUpdatedMsg{Index: idx, Item: updatedItem}
+			}
+
+			a.state.View.Mode = state.ModeNormal // Exit status select mode
+			return a, tea.Batch(append(cmds, updateCmd)...)
+
+		default:
+			return a, tea.Batch(cmds...)
+		}
+	}
 
 	switch m := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -136,11 +187,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model, cmd = a.handleMoveFocus(m)
 		a = model.(App)
 		cmds = append(cmds, cmd)
-	case StatusMoveMsg:
-		var model tea.Model
-		model, cmd = a.handleStatusMove(m)
-		a = model.(App)
-		cmds = append(cmds, cmd)
+	// case StatusMoveMsg: // Removed as per new design
+	// 	var model tea.Model
+	// 	model, cmd = a.handleStatusMove(m)
+	// 	a = model.(App)
+	// 	cmds = append(cmds, cmd)
 	case EnterFilterModeMsg:
 		var model tea.Model
 		model, cmd = a.handleEnterFilterMode(m)
@@ -189,6 +240,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AssignMsg:
 		var model tea.Model
 		model, cmd = a.handleAssign(m)
+		a = model.(App)
+		cmds = append(cmds, cmd)
+	case EnterStatusSelectModeMsg: // New: handle entering status select mode
+		var model tea.Model
+		model, cmd = a.handleEnterStatusSelectMode(m)
 		a = model.(App)
 		cmds = append(cmds, cmd)
 	default:
@@ -248,13 +304,21 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// move focus up
 			return a.handleMoveFocus(MoveFocusMsg{Delta: -1})
 		case "h":
-			// move status left
-			a.state.View.Mode = state.ModeNormal
-			return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionLeft})
+			// move focus left (column)
+			a.state.View.FocusedColumnIndex--
+			if a.state.View.FocusedColumnIndex < 0 {
+				a.state.View.FocusedColumnIndex = 0
+			}
+			return a, nil
 		case "l":
-			// move status right
-			a.state.View.Mode = state.ModeNormal
-			return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionRight})
+			// move focus right (column)
+			// TODO: dynamically get max columns from table.view
+			maxCols := 7 // Title, Status, Repository, Labels, Milestone, Priority, Assignees
+			a.state.View.FocusedColumnIndex++
+			if a.state.View.FocusedColumnIndex >= maxCols {
+				a.state.View.FocusedColumnIndex = maxCols - 1
+			}
+			return a, nil
 		case "esc":
 			// cancel sort mode
 			a.state.View.Mode = state.ModeNormal
@@ -311,10 +375,20 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleMoveFocus(MoveFocusMsg{Delta: 1})
 	case "k":
 		return a.handleMoveFocus(MoveFocusMsg{Delta: -1})
-	case "h":
-		return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionLeft})
-	case "l":
-		return a.handleStatusMove(StatusMoveMsg{Direction: github.DirectionRight})
+	case "h": // move focus left (column)
+		a.state.View.FocusedColumnIndex--
+		if a.state.View.FocusedColumnIndex < 0 {
+			a.state.View.FocusedColumnIndex = 0
+		}
+		return a, nil
+	case "l": // move focus right (column)
+		// TODO: dynamically get max columns from table.view
+		maxCols := 7 // Title, Status, Repository, Labels, Milestone, Priority, Assignees
+		a.state.View.FocusedColumnIndex++
+		if a.state.View.FocusedColumnIndex >= maxCols {
+			a.state.View.FocusedColumnIndex = maxCols - 1
+		}
+		return a, nil
 	case "/":
 		return a.handleEnterFilterMode(EnterFilterModeMsg{})
 	case "s":
@@ -333,6 +407,11 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleEnterEditMode(EnterEditModeMsg{})
 	case "a":
 		return a.handleEnterAssignMode(EnterAssignModeMsg{})
+	case "w": // New: enter status select mode
+		if a.state.View.CurrentView == state.ViewTable { // Only allow in table view
+			return a.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
+		}
+		return a, nil
 	default:
 		return a, nil
 	}
@@ -405,7 +484,7 @@ func (a App) View() string {
 	body := ""
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
-		body = table.Render(items, a.state.View.FocusedItemID, innerWidth)
+		body = table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
 	case state.ViewRoadmap:
 		body = roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID)
 	default:
@@ -419,6 +498,8 @@ func (a App) View() string {
 			prompt = "Assign to: "
 		}
 		body = body + "\n" + prompt + a.textInput.View()
+	} else if a.state.View.Mode == state.ModeStatusSelect { // New: Handle status select mode
+		body = lipgloss.JoinVertical(lipgloss.Left, body, a.statusSelector.View())
 	}
 
 	// For board view, limit height to prevent header from scrolling out
@@ -605,9 +686,50 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 		return ItemUpdatedMsg{Index: idx, Item: updatedItem}
 	}
 
-	a.state.View.Mode = "normal"
+	a.state.View.Mode = state.ModeNormal // Use state.ModeNormal instead of "normal" string
 	return a, tea.Batch(updateCmd)
 }
+
+func (a App) handleEnterStatusSelectMode(msg EnterStatusSelectModeMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil // No item focused, do nothing
+	}
+	focusedItem := a.state.Items[idx]
+
+	// Find the "Status" field from the project's fields
+	var statusField state.Field
+	found := false
+	for _, field := range a.state.Project.Fields {
+		if field.Name == "Status" {
+			statusField = field
+			found = true
+			break
+		}
+	}
+	if !found {
+		notif := state.Notification{Message: fmt.Sprintf("Status field not found in project"), Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+
+	// Initialize statusSelectorModel
+	a.statusSelector = components.NewStatusSelectorModel(focusedItem, statusField, a.state.Width, a.state.Height)
+
+	// Set mode to status select
+	a.state.View.Mode = state.ModeStatusSelect
+
+	// Optionally provide a notification to the user
+	notif := state.Notification{
+		Message:      "Status select mode: Use arrow keys to select, enter to confirm, esc to cancel",
+		Level:        "info",
+		At:           time.Now(),
+		DismissAfter: 5 * time.Second,
+	}
+	a.state.Notifications = append(a.state.Notifications, notif)
+	return a, tea.Batch(a.statusSelector.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+}
+
 func (a App) refreshBoardCmd() tea.Cmd {
 	return func() tea.Msg {
 		// Re-fetch items to ensure the board is up-to-date after an update
