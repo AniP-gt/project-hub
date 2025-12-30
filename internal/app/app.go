@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	"project-hub/internal/github"
 	"project-hub/internal/state"
 	boardPkg "project-hub/internal/ui/board"
@@ -21,12 +22,13 @@ import (
 
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
-	state          state.Model
-	github         github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
-	itemLimit      int
-	boardModel     boardPkg.BoardModel
-	textInput      textinput.Model                // For edit/assign input
-	statusSelector components.StatusSelectorModel // New field for status selection
+	state           state.Model
+	github          github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
+	itemLimit       int
+	boardModel      boardPkg.BoardModel
+	textInput       textinput.Model                // For edit/assign input
+	statusSelector  components.StatusSelectorModel // New field for status selection
+	roadmapViewport *viewport.Model
 }
 
 // New creates an App with an optional preloaded state.
@@ -35,7 +37,8 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.Focus()
-	return App{state: initial, github: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti}
+	vp := viewport.New(0, 0)
+	return App{state: initial, github: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti, roadmapViewport: &vp}
 }
 
 // Msg types for asynchronous operations
@@ -481,12 +484,25 @@ func (a App) View() string {
 		innerWidth = 40
 	}
 
+	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
+	notif := components.RenderNotifications(a.state.Notifications)
+
 	body := ""
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
 		body = table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
 	case state.ViewRoadmap:
-		body = roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID)
+		statusProgress := deriveStatusProgress(a.state.Project.Fields)
+		content, focusLine := roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID, statusProgress)
+		viewportHeight := a.roadmapViewportHeight(header, footer, notif)
+		if a.roadmapViewport != nil {
+			a.ensureRoadmapViewportSize(innerWidth, viewportHeight)
+			a.roadmapViewport.SetContent(content)
+			a.scrollRoadmapViewportToFocus(focusLine)
+			body = a.roadmapViewport.View()
+		} else {
+			body = content
+		}
 	default:
 		body = a.boardModel.View()
 	}
@@ -516,8 +532,6 @@ func (a App) View() string {
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 	}
 
-	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
-	notif := components.RenderNotifications(a.state.Notifications)
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
 }
 
@@ -739,4 +753,98 @@ func (a App) refreshBoardCmd() tea.Cmd {
 		}
 		return FetchProjectMsg{Project: proj, Items: items}
 	}
+}
+
+func (a App) roadmapViewportHeight(header, footer, notif string) int {
+	height := a.state.Height
+	if height <= 0 {
+		height = 40
+	}
+	available := height - lipgloss.Height(header) - lipgloss.Height(footer)
+	if strings.TrimSpace(notif) != "" {
+		available -= lipgloss.Height(notif)
+	}
+	available -= components.FrameStyle.GetVerticalFrameSize()
+	if available < 5 {
+		available = 5
+	}
+	return available
+}
+
+func (a App) ensureRoadmapViewportSize(width, height int) {
+	if a.roadmapViewport == nil {
+		return
+	}
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	if a.roadmapViewport.Width != width {
+		a.roadmapViewport.Width = width
+	}
+	if a.roadmapViewport.Height != height {
+		a.roadmapViewport.Height = height
+	}
+}
+
+func (a App) scrollRoadmapViewportToFocus(line int) {
+	if a.roadmapViewport == nil || line < 0 {
+		return
+	}
+	vp := a.roadmapViewport
+	if line < vp.YOffset {
+		vp.YOffset = line
+		if vp.YOffset < 0 {
+			vp.YOffset = 0
+		}
+		return
+	}
+	bottom := vp.YOffset + vp.Height - 1
+	if line > bottom {
+		newOffset := line - vp.Height + 1
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		vp.YOffset = newOffset
+	}
+}
+
+func deriveStatusProgress(fields []state.Field) map[string]int {
+	for _, field := range fields {
+		if !strings.EqualFold(field.Name, "Status") {
+			continue
+		}
+		total := len(field.Options)
+		if total == 0 {
+			return nil
+		}
+		progress := make(map[string]int, total*2)
+		divisions := total - 1
+		for idx, opt := range field.Options {
+			pct := 100
+			if divisions > 0 {
+				if idx == total-1 {
+					pct = 100
+				} else {
+					pct = idx * (100 / divisions)
+				}
+			}
+			storeStatusProgressKey(progress, opt.Name, pct)
+			storeStatusProgressKey(progress, opt.ID, pct)
+		}
+		return progress
+	}
+	return nil
+}
+
+func storeStatusProgressKey(m map[string]int, key string, pct int) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
+	}
+	m[key] = pct
+	lower := strings.ToLower(key)
+	m[lower] = pct
 }
