@@ -499,6 +499,7 @@ func (a App) View() string {
 
 	body := ""
 	bodyHeight := a.bodyViewportHeight(header, footer, notif)
+	frameVertical := components.FrameStyle.GetVerticalFrameSize()
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
 		tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
@@ -520,12 +521,30 @@ func (a App) View() string {
 		}
 	case state.ViewRoadmap:
 		statusProgress := deriveStatusProgress(a.state.Project.Fields)
-		content, focusLine := roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID, statusProgress)
-		viewportHeight := bodyHeight
+		content, focusTop, focusBottom := roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID, statusProgress, innerWidth)
+		contentHeight := lipgloss.Height(content)
+		if contentHeight <= 0 {
+			focusTop = -1
+			focusBottom = -1
+		} else {
+			if focusTop >= contentHeight {
+				focusTop = contentHeight - 1
+			}
+			if focusBottom >= contentHeight {
+				focusBottom = contentHeight - 1
+			}
+			if focusBottom < focusTop {
+				focusBottom = focusTop
+			}
+		}
+		viewportHeight := bodyHeight - frameVertical
+		if viewportHeight < 1 {
+			viewportHeight = 1
+		}
 		if a.roadmapViewport != nil {
 			a.ensureRoadmapViewportSize(innerWidth, viewportHeight)
 			a.roadmapViewport.SetContent(content)
-			a.scrollRoadmapViewportToFocus(focusLine)
+			a.scrollRoadmapViewportToFocus(focusTop, focusBottom)
 			body = a.roadmapViewport.View()
 		} else {
 			body = content
@@ -549,7 +568,6 @@ func (a App) View() string {
 	}
 
 	var framed string
-	frameVertical := components.FrameStyle.GetVerticalFrameSize()
 	if a.state.View.CurrentView == state.ViewBoard {
 		maxHeight := bodyHeight - frameVertical
 		if maxHeight < 15 {
@@ -903,25 +921,29 @@ func (a App) ensureRoadmapViewportSize(width, height int) {
 	}
 }
 
-func (a App) scrollRoadmapViewportToFocus(line int) {
-	if a.roadmapViewport == nil || line < 0 {
+func (a App) scrollRoadmapViewportToFocus(focusTop, focusBottom int) {
+	if a.roadmapViewport == nil || focusTop < 0 || focusBottom < 0 {
 		return
 	}
 	vp := a.roadmapViewport
-	if line < vp.YOffset {
-		vp.YOffset = line
-		if vp.YOffset < 0 {
-			vp.YOffset = 0
-		}
+	visibleHeight := vp.Height - vp.Style.GetVerticalFrameSize()
+	if visibleHeight < 1 {
+		visibleHeight = 1
+	}
+	if focusBottom < focusTop {
+		focusBottom = focusTop
+	}
+	if focusBottom-focusTop+1 > visibleHeight {
+		focusBottom = focusTop + visibleHeight - 1
+	}
+	top := vp.YOffset
+	bottom := vp.YOffset + visibleHeight - 1
+	if focusTop < top {
+		vp.SetYOffset(focusTop)
 		return
 	}
-	bottom := vp.YOffset + vp.Height - 1
-	if line > bottom {
-		newOffset := line - vp.Height + 1
-		if newOffset < 0 {
-			newOffset = 0
-		}
-		vp.YOffset = newOffset
+	if focusBottom > bottom {
+		vp.SetYOffset(focusBottom - visibleHeight + 1)
 	}
 }
 

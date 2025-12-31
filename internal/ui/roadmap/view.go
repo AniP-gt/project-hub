@@ -12,31 +12,38 @@ import (
 
 const progressSegments = 10
 
-func Render(timelines []state.Timeline, items []state.Item, focusedID string, statusProgress map[string]int) (string, int) {
-	type sectionBlock struct {
-		content   string
-		focusLine int
+func Render(timelines []state.Timeline, items []state.Item, focusedID string, statusProgress map[string]int, width int) (string, int, int) {
+	if width < 1 {
+		width = 1
 	}
-
 	grouped := groupItemsByTimeline(items)
-	var blocks []sectionBlock
+	var sections []string
+	focusTop := -1
+	focusBottom := -1
+	lineCursor := 0
 
-	appendBlock := func(content string, focusLine int) {
-		if strings.TrimSpace(content) == "" {
+	appendBlock := func(content string, blockTop, blockBottom int) {
+		trimmed := strings.TrimSpace(content)
+		if trimmed == "" {
 			return
 		}
-		blocks = append(blocks, sectionBlock{content: content, focusLine: focusLine})
+		if blockTop >= 0 && blockBottom >= blockTop {
+			focusTop = lineCursor + blockTop
+			focusBottom = lineCursor + blockBottom
+		}
+		sections = append(sections, trimmed)
+		lineCursor += lipgloss.Height(trimmed)
 	}
 
 	for _, tl := range timelines {
-		section, relFocus := renderTimelineSection(tl, grouped[tl.ID], focusedID, statusProgress)
-		appendBlock(section, relFocus)
+		section, relTop, relBottom := renderTimelineSection(tl, grouped[tl.ID], focusedID, statusProgress, width)
+		appendBlock(section, relTop, relBottom)
 		delete(grouped, tl.ID)
 	}
 
 	if unscheduled := grouped[""]; len(unscheduled) > 0 {
-		section, relFocus := renderUnscheduledSection(unscheduled, focusedID, statusProgress)
-		appendBlock(section, relFocus)
+		section, relTop, relBottom := renderUnscheduledSection(unscheduled, focusedID, statusProgress, width)
+		appendBlock(section, relTop, relBottom)
 		delete(grouped, "")
 	}
 
@@ -45,70 +52,79 @@ func Render(timelines []state.Timeline, items []state.Item, focusedID string, st
 			continue
 		}
 		phantomTimeline := state.Timeline{ID: timelineID, Name: fmt.Sprintf("Timeline %s", timelineID)}
-		section, relFocus := renderTimelineSection(phantomTimeline, orphaned, focusedID, statusProgress)
-		appendBlock(section, relFocus)
+		section, relTop, relBottom := renderTimelineSection(phantomTimeline, orphaned, focusedID, statusProgress, width)
+		appendBlock(section, relTop, relBottom)
 	}
 
 	overview := renderOverview(timelines, groupedItemsWithFallback(timelines, items), statusProgress)
 	if overview != "" {
-		appendBlock(overview, -1)
+		section := lipgloss.NewStyle().Width(width).Render(overview)
+		appendBlock(section, -1, -1)
 	}
 
-	if len(blocks) == 0 {
-		return "", -1
+	if len(sections) == 0 {
+		return "", -1, -1
 	}
 
-	var sections []string
-	focusLine := -1
-	lineCursor := 0
-	for i, block := range blocks {
-		if i > 0 {
-			lineCursor++
+	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
+	height := lipgloss.Height(content)
+	if height <= 0 {
+		return content, -1, -1
+	}
+	if focusTop >= 0 {
+		if focusTop >= height {
+			focusTop = height - 1
 		}
-		if block.focusLine >= 0 {
-			focusLine = lineCursor + block.focusLine
+	}
+	if focusBottom >= 0 {
+		if focusBottom >= height {
+			focusBottom = height - 1
 		}
-		sections = append(sections, block.content)
-		lineCursor += lipgloss.Height(block.content)
+	}
+	if focusTop >= 0 && focusBottom >= 0 && focusBottom < focusTop {
+		focusBottom = focusTop
 	}
 
-	return strings.TrimSpace(lipgloss.JoinVertical(lipgloss.Left, sections...)), focusLine
+	return content, focusTop, focusBottom
 }
 
-func renderTimelineSection(timeline state.Timeline, items []state.Item, focusedID string, statusProgress map[string]int) (string, int) {
-	header := renderTimelineHeader(timeline)
+func renderTimelineSection(timeline state.Timeline, items []state.Item, focusedID string, statusProgress map[string]int, width int) (string, int, int) {
+	if width < 1 {
+		width = 1
+	}
+	widthStyle := lipgloss.NewStyle().Width(width)
+	header := widthStyle.Render(renderTimelineHeader(timeline))
+	headerHeight := lipgloss.Height(header)
+
 	if len(items) == 0 {
-		empty := components.RoadmapItemBaseStyle.Render("No items scheduled")
-		return lipgloss.JoinVertical(lipgloss.Left, header, empty), -1
+		empty := widthStyle.Render(components.RoadmapItemBaseStyle.Render("No items scheduled"))
+		return lipgloss.JoinVertical(lipgloss.Left, header, empty), -1, -1
 	}
 
 	var cards []string
-	focusLineInList := -1
-	lineOffset := 0
-	for idx, item := range items {
+	focusTop := -1
+	focusBottom := -1
+	lineCursor := headerHeight
+	for _, item := range items {
 		selected := focusedID == item.ID
-		card := renderItemCard(item, timeline.Name, selected, statusProgress)
-		cards = append(cards, card)
+		card := widthStyle.Render(renderItemCard(item, timeline.Name, selected, statusProgress))
+		cardHeight := lipgloss.Height(card)
 		if selected {
-			focusLineInList = lineOffset
+			focusTop = lineCursor
+			focusBottom = lineCursor + cardHeight - 1
 		}
-		lineOffset += lipgloss.Height(card)
-		if idx < len(items)-1 {
-			lineOffset++
-		}
+		cards = append(cards, card)
+		lineCursor += cardHeight
 	}
 
 	list := lipgloss.JoinVertical(lipgloss.Left, cards...)
 	content := lipgloss.JoinVertical(lipgloss.Left, header, list)
-	if focusLineInList >= 0 {
-		return content, lipgloss.Height(header) + focusLineInList
-	}
-	return content, -1
+	return content, focusTop, focusBottom
 }
 
-func renderUnscheduledSection(items []state.Item, focusedID string, statusProgress map[string]int) (string, int) {
+func renderUnscheduledSection(items []state.Item, focusedID string, statusProgress map[string]int, width int) (string, int, int) {
 	timeline := state.Timeline{Name: "Unscheduled"}
-	return renderTimelineSection(timeline, items, focusedID, statusProgress)
+	return renderTimelineSection(timeline, items, focusedID, statusProgress, width)
 }
 
 func renderTimelineHeader(timeline state.Timeline) string {
