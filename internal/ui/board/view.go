@@ -11,6 +11,14 @@ import (
 	"project-hub/internal/ui/components"
 )
 
+const (
+	minColumnWidth      = 24
+	estimatedCardHeight = 6
+	minVisibleCards     = 3
+)
+
+var columnHeaderHeight = lipgloss.Height(components.ColumnHeaderStyle.Render("Column"))
+
 // BoardModel is the Bubbletea model for the Kanban board view.
 type BoardModel struct {
 	Columns            []state.Column
@@ -19,8 +27,72 @@ type BoardModel struct {
 	Width              int
 	Height             int
 	ColumnWidth        int
+	VisibleColumns     int
 	ColumnOffset       int
 	CardOffset         int // Vertical scroll offset for cards in the focused column
+}
+
+func (m *BoardModel) ensureLayoutConstraints() {
+	availableWidth := m.Width
+	if availableWidth <= 0 {
+		availableWidth = minColumnWidth
+	}
+	columnCount := len(m.Columns)
+	if columnCount == 0 {
+		columnCount = 1
+	}
+	maxVisible := availableWidth / minColumnWidth
+	if maxVisible < 1 {
+		maxVisible = 1
+	}
+	if maxVisible > columnCount {
+		maxVisible = columnCount
+	}
+	m.VisibleColumns = maxVisible
+	if m.VisibleColumns < 1 {
+		m.VisibleColumns = 1
+	}
+	columnWidth := availableWidth / m.VisibleColumns
+	if columnWidth < minColumnWidth {
+		columnWidth = minColumnWidth
+	}
+	m.ColumnWidth = columnWidth
+
+	if len(m.Columns) == 0 {
+		m.FocusedColumnIndex = 0
+		m.ColumnOffset = 0
+		return
+	}
+	if m.FocusedColumnIndex >= len(m.Columns) {
+		m.FocusedColumnIndex = len(m.Columns) - 1
+	}
+	if m.FocusedColumnIndex < 0 {
+		m.FocusedColumnIndex = 0
+	}
+	maxOffset := len(m.Columns) - m.VisibleColumns
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.ColumnOffset > maxOffset {
+		m.ColumnOffset = maxOffset
+	}
+	if m.ColumnOffset < 0 {
+		m.ColumnOffset = 0
+	}
+}
+
+func (m BoardModel) visibleColumnCount() int {
+	if m.VisibleColumns > 0 {
+		return m.VisibleColumns
+	}
+	if len(m.Columns) == 0 {
+		return 1
+	}
+	return len(m.Columns)
+}
+
+func (m *BoardModel) EnsureLayout() {
+	m.ensureLayoutConstraints()
 }
 
 // Init initializes the board model.
@@ -34,22 +106,10 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
-		// Calculate column width based on available screen width and desired number of visible columns
-		numVisibleColumns := 4 // Default to 4 visible columns
-		if len(m.Columns) < numVisibleColumns {
-			numVisibleColumns = len(m.Columns)
-		}
-		if numVisibleColumns == 0 {
-			numVisibleColumns = 1 // Avoid division by zero if no columns
-		}
-
-		m.ColumnWidth = (m.Width - components.FrameStyle.GetHorizontalFrameSize() - (numVisibleColumns * components.ColumnContainerStyle.GetMarginRight())) / numVisibleColumns
-		if m.ColumnWidth < 20 { // Minimum width
-			m.ColumnWidth = 20
-		}
-		components.ColumnContainerStyle = components.ColumnContainerStyle.Width(m.ColumnWidth)
+		m.ensureLayoutConstraints()
 
 	case tea.KeyMsg:
+		m.ensureLayoutConstraints()
 		switch msg.String() {
 		case "h", "left":
 			if m.FocusedColumnIndex > 0 {
@@ -62,7 +122,7 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "l", "right":
-			numVisibleColumns := 4 // Must match the value used in WindowSizeMsg
+			numVisibleColumns := m.visibleColumnCount()
 			if m.FocusedColumnIndex < len(m.Columns)-1 {
 				m.FocusedColumnIndex++
 				m.FocusedCardIndex = 0 // Reset card focus
@@ -129,12 +189,13 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View renders the board.
 func (m BoardModel) View() string {
+	m.ensureLayoutConstraints()
 	var renderedColumns []string
 
 	// Height is managed in app.go, no need for local availableHeight
 
 	// Determine visible columns for horizontal scrolling
-	numVisibleColumns := 4 // Must match the value used in WindowSizeMsg
+	numVisibleColumns := m.visibleColumnCount()
 	startCol := m.ColumnOffset
 	endCol := startCol + numVisibleColumns
 	if endCol > len(m.Columns) {
@@ -149,7 +210,7 @@ func (m BoardModel) View() string {
 		var columnContent []string
 
 		// Column title
-		headerStyle := components.ColumnHeaderStyle
+		headerStyle := components.ColumnHeaderStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
 		if i == m.FocusedColumnIndex {
 			headerStyle = headerStyle.BorderForeground(lipgloss.Color("205")) // Highlight focused column header
 		}
@@ -197,7 +258,7 @@ func (m BoardModel) View() string {
 		}
 
 		// Apply column style
-		currentColumnStyle := components.ColumnContainerStyle
+		currentColumnStyle := components.ColumnContainerStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
 		if i == m.FocusedColumnIndex {
 			currentColumnStyle = currentColumnStyle.BorderForeground(lipgloss.Color("205")) // Highlight focused column border
 		}
@@ -206,23 +267,38 @@ func (m BoardModel) View() string {
 		))
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, renderedColumns...)
+	boardContent := lipgloss.JoinHorizontal(lipgloss.Top, renderedColumns...)
+	if m.Width > 0 {
+		boardContent = lipgloss.PlaceHorizontal(m.Width, lipgloss.Left, boardContent)
+	}
+	return boardContent
 }
 
 // renderCard renders a single card.
 func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
-	title := components.CardTitleStyle.Render(card.Title)
+	contentWidth := m.ColumnWidth - 4
+	if contentWidth < 12 {
+		contentWidth = 12
+	}
+	wrap := func(value string) string {
+		if value == "" {
+			return ""
+		}
+		return lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Render(value)
+	}
+
+	title := wrap(card.Title)
 
 	// Assignee
 	var assignee string
 	if card.Assignee != "" {
-		assignee = components.CardAssigneeStyle.Render("@" + card.Assignee)
+		assignee = wrap("@" + card.Assignee)
 	}
 
 	// Labels
 	var labels string
 	if len(card.Labels) > 0 {
-		labels = components.CardTagStyle.Render("[" + strings.Join(card.Labels, ", ") + "]")
+		labels = wrap("[" + strings.Join(card.Labels, ", ") + "]")
 	}
 
 	// Priority
@@ -237,14 +313,14 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		case "Low":
 			priorityStyle = priorityStyle.Foreground(components.ColorGreen400)
 		}
-		priority = priorityStyle.Render(card.Priority)
+		priority = wrap(priorityStyle.Render(card.Priority))
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, title, assignee, labels, priority)
 
-	style := components.CardBaseStyle
+	style := components.CardBaseStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
 	if isSelected {
-		style = components.CardSelectedStyle
+		style = components.CardSelectedStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
 	}
 
 	return style.Render(content)
@@ -252,8 +328,19 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 
 // calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
 func (m BoardModel) calculateMaxVisibleCards() int {
-	// For initial display, limit to 3 cards per column to ensure header is visible
-	return 3
+	available := m.Height
+	if available <= 0 {
+		available = estimatedCardHeight * minVisibleCards
+	}
+	available -= columnHeaderHeight + 2
+	if available < estimatedCardHeight*minVisibleCards {
+		available = estimatedCardHeight * minVisibleCards
+	}
+	maxCards := available / estimatedCardHeight
+	if maxCards < minVisibleCards {
+		maxCards = minVisibleCards
+	}
+	return maxCards
 }
 
 // ColumnOrder defines the order of columns in the Kanban board.

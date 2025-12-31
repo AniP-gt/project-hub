@@ -29,6 +29,7 @@ type App struct {
 	textInput       textinput.Model                // For edit/assign input
 	statusSelector  components.StatusSelectorModel // New field for status selection
 	roadmapViewport *viewport.Model
+	tableViewport   *viewport.Model
 }
 
 // New creates an App with an optional preloaded state.
@@ -37,8 +38,17 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.Focus()
-	vp := viewport.New(0, 0)
-	return App{state: initial, github: client, itemLimit: itemLimit, boardModel: boardModel, textInput: ti, roadmapViewport: &vp}
+	roadmapVP := viewport.New(0, 0)
+	tableVP := viewport.New(0, 0)
+	return App{
+		state:           initial,
+		github:          client,
+		itemLimit:       itemLimit,
+		boardModel:      boardModel,
+		textInput:       ti,
+		roadmapViewport: &roadmapVP,
+		tableViewport:   &tableVP,
+	}
 }
 
 // Msg types for asynchronous operations
@@ -488,13 +498,30 @@ func (a App) View() string {
 	notif := components.RenderNotifications(a.state.Notifications)
 
 	body := ""
+	bodyHeight := a.bodyViewportHeight(header, footer, notif)
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
-		body = table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
+		tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
+		headerHeight := lipgloss.Height(tableView.Header)
+		rowsHeight := bodyHeight - headerHeight
+		if rowsHeight < 3 {
+			rowsHeight = 3
+		}
+		if a.tableViewport != nil {
+			rowsContent := strings.Join(tableView.Rows, "\n")
+			a.ensureTableViewportSize(innerWidth, rowsHeight)
+			a.tableViewport.SetContent(rowsContent)
+			focusedRow := focusedRowIndex(items, a.state.View.FocusedItemID)
+			focusTop, focusBottom := tableView.RowBounds(focusedRow)
+			a.syncTableViewportToFocus(focusTop, focusBottom, tableView.RowsLineSize)
+			body = lipgloss.JoinVertical(lipgloss.Left, tableView.Header, a.tableViewport.View())
+		} else {
+			body = lipgloss.JoinVertical(lipgloss.Left, append([]string{tableView.Header}, tableView.Rows...)...)
+		}
 	case state.ViewRoadmap:
 		statusProgress := deriveStatusProgress(a.state.Project.Fields)
 		content, focusLine := roadmap.Render(a.state.Project.Iterations, items, a.state.View.FocusedItemID, statusProgress)
-		viewportHeight := a.roadmapViewportHeight(header, footer, notif)
+		viewportHeight := bodyHeight
 		if a.roadmapViewport != nil {
 			a.ensureRoadmapViewportSize(innerWidth, viewportHeight)
 			a.roadmapViewport.SetContent(content)
@@ -504,6 +531,9 @@ func (a App) View() string {
 			body = content
 		}
 	default:
+		a.boardModel.Width = innerWidth
+		a.boardModel.Height = bodyHeight
+		a.boardModel.EnsureLayout()
 		body = a.boardModel.View()
 	}
 
@@ -518,17 +548,26 @@ func (a App) View() string {
 		body = lipgloss.JoinVertical(lipgloss.Left, body, a.statusSelector.View())
 	}
 
-	// For board view, limit height to prevent header from scrolling out
 	var framed string
+	frameVertical := components.FrameStyle.GetVerticalFrameSize()
 	if a.state.View.CurrentView == state.ViewBoard {
-		maxHeight := a.state.Height - 30 // Reserve more space for header, footer, and margins
+		maxHeight := bodyHeight - frameVertical
 		if maxHeight < 15 {
 			maxHeight = 15
 		}
-		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Height(maxHeight).Render(body)
+		if maxHeight < 1 {
+			maxHeight = 1
+		}
+		bodyRendered := clampContentHeight(body, maxHeight)
+		bodyRendered = lipgloss.NewStyle().Width(innerWidth).AlignHorizontal(lipgloss.Left).Render(bodyRendered)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 	} else {
-		bodyRendered := lipgloss.NewStyle().Width(innerWidth).Render(body)
+		maxHeight := bodyHeight - frameVertical
+		if maxHeight < 1 {
+			maxHeight = 1
+		}
+		bodyRendered := clampContentHeight(body, maxHeight)
+		bodyRendered = lipgloss.NewStyle().Width(innerWidth).AlignHorizontal(lipgloss.Left).Render(bodyRendered)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
 	}
 
@@ -755,7 +794,7 @@ func (a App) refreshBoardCmd() tea.Cmd {
 	}
 }
 
-func (a App) roadmapViewportHeight(header, footer, notif string) int {
+func (a App) bodyViewportHeight(header, footer, notif string) int {
 	height := a.state.Height
 	if height <= 0 {
 		height = 40
@@ -769,6 +808,81 @@ func (a App) roadmapViewportHeight(header, footer, notif string) int {
 		available = 5
 	}
 	return available
+}
+
+func clampContentHeight(content string, height int) string {
+	if height <= 0 {
+		return ""
+	}
+	lines := strings.Split(content, "\n")
+	if len(lines) >= height {
+		return strings.Join(lines[:height], "\n")
+	}
+	padding := make([]string, height-len(lines))
+	return strings.Join(append(lines, padding...), "\n")
+}
+
+func (a App) ensureTableViewportSize(width, height int) {
+	if a.tableViewport == nil {
+		return
+	}
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	if a.tableViewport.Width != width {
+		a.tableViewport.Width = width
+	}
+	if a.tableViewport.Height != height {
+		a.tableViewport.Height = height
+	}
+}
+
+func (a App) syncTableViewportToFocus(focusTop, focusBottom, totalLines int) {
+	if a.tableViewport == nil {
+		return
+	}
+	vp := a.tableViewport
+	if totalLines <= 0 {
+		vp.YOffset = 0
+		return
+	}
+	if totalLines <= vp.Height {
+		vp.YOffset = 0
+		return
+	}
+	if focusTop < 0 || focusBottom < 0 {
+		return
+	}
+	if focusTop < vp.YOffset {
+		vp.YOffset = focusTop
+	} else if focusBottom >= vp.YOffset+vp.Height {
+		vp.YOffset = focusBottom - vp.Height + 1
+	}
+	maxOffset := totalLines - vp.Height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if vp.YOffset > maxOffset {
+		vp.YOffset = maxOffset
+	}
+	if vp.YOffset < 0 {
+		vp.YOffset = 0
+	}
+}
+
+func focusedRowIndex(items []state.Item, focusedID string) int {
+	if focusedID == "" {
+		return -1
+	}
+	for idx, it := range items {
+		if it.ID == focusedID {
+			return idx
+		}
+	}
+	return -1
 }
 
 func (a App) ensureRoadmapViewportSize(width, height int) {
