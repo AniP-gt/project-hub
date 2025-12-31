@@ -7,8 +7,16 @@ import (
 	"project-hub/internal/state"
 )
 
+type RenderResult struct {
+	Header       string
+	Rows         []string
+	RowHeights   []int
+	RowOffsets   []int
+	RowsLineSize int
+}
+
 // Render renders the table view using lipgloss, matching the moc.go layout.
-func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidth int) string {
+func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidth int) RenderResult {
 	if innerWidth <= 0 {
 		innerWidth = 80
 	}
@@ -67,17 +75,21 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 	for i, c := range cols {
 		headers[i] = headStyle.Width(widths[i]).Render(c)
 	}
-
-	var rows []string
-	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, headers...))
+	headerRow := lipgloss.JoinHorizontal(lipgloss.Top, headers...)
 	sepLen := innerWidth
 	if sepLen < 0 {
 		sepLen = 0
 	}
-	rows = append(rows, strings.Repeat("─", sepLen))
+	headerView := lipgloss.JoinVertical(lipgloss.Left, headerRow, strings.Repeat("─", sepLen))
+
+	var dataRows []string
+	var rowHeights []int
+	var rowOffsets []int
+	var cumulativeHeight int
 
 	// Build data rows
 	for _, it := range items {
+
 		// Base style for the entire row
 		rowBaseStyle := cellStyle
 		if it.ID == focusedID {
@@ -103,8 +115,32 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 			cells[colIdx] = cellStyleToApply.Width(widths[colIdx]).Render(val)
 		}
 
-		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, cells...))
+		rowView := lipgloss.JoinHorizontal(lipgloss.Top, cells...)
+		dataRows = append(dataRows, rowView)
+		rowOffsets = append(rowOffsets, cumulativeHeight)
+		rowHeight := lipgloss.Height(rowView)
+		rowHeights = append(rowHeights, rowHeight)
+		cumulativeHeight += rowHeight
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return RenderResult{
+		Header:       headerView,
+		Rows:         dataRows,
+		RowHeights:   rowHeights,
+		RowOffsets:   rowOffsets,
+		RowsLineSize: cumulativeHeight,
+	}
+}
+
+func (r RenderResult) RowBounds(index int) (int, int) {
+	if index < 0 || index >= len(r.RowOffsets) || index >= len(r.RowHeights) {
+		return -1, -1
+	}
+	top := r.RowOffsets[index]
+	height := r.RowHeights[index]
+	if height <= 0 {
+		height = 1
+	}
+	bottom := top + height - 1
+	return top, bottom
 }
