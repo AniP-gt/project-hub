@@ -339,12 +339,20 @@ func parseItemMap(r any) (state.Item, bool) {
 		if repo, ok := content["repository"].(string); ok && item.Repository == "" {
 			item.Repository = repo
 		}
+		if item.Milestone == "" {
+			item.Milestone = parseMilestoneValue(content["milestone"])
+		}
+		item.Assignees = mergeStringsUnique(item.Assignees, extractAssigneeLogins(content["assignees"]))
+		item.Labels = mergeStringsUnique(item.Labels, extractLabelNames(content["labels"]))
 	}
 	if desc, ok := m["body"].(string); ok && item.Description == "" {
 		item.Description = desc
 	}
 	if repo, ok := m["repository"].(string); ok && item.Repository == "" {
 		item.Repository = repo
+	}
+	if item.Milestone == "" {
+		item.Milestone = parseMilestoneValue(m["milestone"])
 	}
 	// Robustly parse status: it may be string, an object with id/name,
 	// or described in fieldValues -> singleSelectOption. Prefer human-readable name.
@@ -361,28 +369,70 @@ func parseItemMap(r any) (state.Item, bool) {
 		}
 	}
 
-	// Also check "fieldValues" array for status
-	if item.Status == "" { // Only if status not found yet
-		if fv, ok := m["fieldValues"].([]any); ok {
-			for _, v := range fv {
-				if fm, ok := v.(map[string]any); ok {
-					if fname, ok := fm["fieldName"].(string); ok && fname == "Status" {
+	if fv, ok := m["fieldValues"].([]any); ok {
+		for _, v := range fv {
+			fm, ok := v.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			if fname, ok := fm["fieldName"].(string); ok {
+				switch fname {
+				case "Status":
+					if item.Status == "" {
 						if opt, ok := fm["singleSelectOption"].(map[string]any); ok {
 							if name, ok := opt["name"].(string); ok && name != "" {
 								item.Status = name
-								break // Found status, no need to check other fieldValues
 							} else if id, ok := opt["id"].(string); ok && id != "" {
 								item.Status = id
-								break // Found status, no need to check other fieldValues
 							}
 						}
 					}
-					for _, sub := range fm {
-						if subMap, ok := sub.(map[string]any); ok {
-							if applyIterationMetadata(&item, subMap) {
-								break
+				case "Priority":
+					if item.Priority == "" {
+						if opt, ok := fm["singleSelectOption"].(map[string]any); ok {
+							if name, ok := opt["name"].(string); ok && name != "" {
+								item.Priority = name
+							} else if id, ok := opt["id"].(string); ok && id != "" {
+								item.Priority = id
 							}
+						} else if text, ok := fm["text"].(string); ok && text != "" {
+							item.Priority = text
 						}
+					}
+				case "Assignees":
+					if len(item.Assignees) == 0 {
+						if users, ok := fm["users"]; ok {
+							item.Assignees = mergeStringsUnique(item.Assignees, extractAssigneeLogins(users))
+						} else if text, ok := fm["text"].(string); ok && text != "" {
+							item.Assignees = mergeStringsUnique(item.Assignees, splitListField(text))
+						}
+					}
+				case "Labels":
+					if len(item.Labels) == 0 {
+						if labelsVal, ok := fm["labels"]; ok {
+							item.Labels = mergeStringsUnique(item.Labels, extractLabelNames(labelsVal))
+						} else if text, ok := fm["text"].(string); ok && text != "" {
+							item.Labels = mergeStringsUnique(item.Labels, splitListField(text))
+						}
+					}
+				case "Milestone":
+					if item.Milestone == "" {
+						if val, ok := fm["milestone"]; ok {
+							item.Milestone = parseMilestoneValue(val)
+						} else if text, ok := fm["text"].(string); ok && text != "" {
+							item.Milestone = text
+						} else if opt, ok := fm["singleSelectOption"].(map[string]any); ok {
+							item.Milestone = parseMilestoneValue(opt)
+						}
+					}
+				}
+			}
+
+			for _, sub := range fm {
+				if subMap, ok := sub.(map[string]any); ok {
+					if applyIterationMetadata(&item, subMap) {
+						break
 					}
 				}
 			}
@@ -405,15 +455,8 @@ func parseItemMap(r any) (state.Item, bool) {
 			}
 		}
 	}
-	if labels, ok := m["labels"].([]any); ok {
-		for _, lv := range labels {
-			if lm, ok := lv.(map[string]any); ok {
-				if name, ok := lm["name"].(string); ok {
-					item.Labels = append(item.Labels, name)
-				}
-			}
-		}
-	}
+	item.Assignees = mergeStringsUnique(item.Assignees, extractAssigneeLogins(m["assignees"]))
+	item.Labels = mergeStringsUnique(item.Labels, extractLabelNames(m["labels"]))
 	for _, val := range m {
 		if sub, ok := val.(map[string]any); ok {
 			if applyIterationMetadata(&item, sub) {
@@ -450,4 +493,109 @@ func applyIterationMetadata(item *state.Item, data map[string]any) bool {
 		item.IterationDurationDays = dur
 	}
 	return true
+}
+
+func mergeStringsUnique(dst []string, src []string) []string {
+	for _, val := range src {
+		if val == "" {
+			continue
+		}
+		exists := false
+		for _, existing := range dst {
+			if existing == val {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			dst = append(dst, val)
+		}
+	}
+	return dst
+}
+
+func extractLabelNames(val any) []string {
+	var out []string
+	switch data := val.(type) {
+	case []any:
+		for _, entry := range data {
+			out = append(out, extractLabelNames(entry)...)
+		}
+	case map[string]any:
+		if nodes, ok := data["nodes"]; ok {
+			out = append(out, extractLabelNames(nodes)...)
+		} else if name, ok := data["name"].(string); ok && name != "" {
+			out = append(out, name)
+		} else if text, ok := data["text"].(string); ok && text != "" {
+			out = append(out, splitListField(text)...)
+		}
+	case string:
+		out = append(out, splitListField(data)...)
+	}
+	return out
+}
+
+func extractAssigneeLogins(val any) []string {
+	var out []string
+	switch data := val.(type) {
+	case []any:
+		for _, entry := range data {
+			out = append(out, extractAssigneeLogins(entry)...)
+		}
+	case map[string]any:
+		if nodes, ok := data["nodes"]; ok {
+			out = append(out, extractAssigneeLogins(nodes)...)
+		} else if login, ok := data["login"].(string); ok && login != "" {
+			out = append(out, login)
+		} else if name, ok := data["name"].(string); ok && name != "" {
+			out = append(out, name)
+		} else if text, ok := data["text"].(string); ok && text != "" {
+			out = append(out, splitListField(text)...)
+		}
+	case string:
+		out = append(out, splitListField(data)...)
+	}
+	return out
+}
+
+func splitListField(text string) []string {
+	fields := strings.FieldsFunc(text, func(r rune) bool {
+		switch r {
+		case ',', ';', '\n', '\r':
+			return true
+		}
+		return false
+	})
+	var out []string
+	for _, f := range fields {
+		val := strings.TrimSpace(f)
+		if val != "" {
+			out = append(out, val)
+		}
+	}
+	return out
+}
+
+func parseMilestoneValue(val any) string {
+	switch data := val.(type) {
+	case string:
+		return strings.TrimSpace(data)
+	case map[string]any:
+		if title, ok := data["title"].(string); ok && title != "" {
+			return title
+		}
+		if name, ok := data["name"].(string); ok && name != "" {
+			return name
+		}
+		if text, ok := data["text"].(string); ok && text != "" {
+			return text
+		}
+	case []any:
+		for _, entry := range data {
+			if candidate := parseMilestoneValue(entry); candidate != "" {
+				return candidate
+			}
+		}
+	}
+	return ""
 }

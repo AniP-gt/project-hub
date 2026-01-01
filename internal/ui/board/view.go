@@ -439,11 +439,12 @@ func groupItemsByStatus(items []state.Item) []state.Column {
 			if len(item.Assignees) > 0 {
 				assignee = item.Assignees[0] // Take first assignee
 			}
-			priority := "Medium" // Default priority, could be derived from labels or other fields
-			if strings.Contains(strings.Join(item.Labels, " "), "high") {
-				priority = "High"
-			} else if strings.Contains(strings.Join(item.Labels, " "), "low") {
-				priority = "Low"
+			priority := item.Priority
+			if priority == "" {
+				priority = inferPriorityFromLabels(item.Labels)
+			}
+			if priority == "" {
+				priority = "Medium"
 			}
 			card := state.Card{
 				ID:       item.ID,
@@ -478,4 +479,15 @@ func groupItemsByStatus(items []state.Item) []state.Column {
 		}
 	}
 	return columns
+}
+
+func inferPriorityFromLabels(labels []string) string {
+	joined := strings.ToLower(strings.Join(labels, " "))
+	switch {
+	case strings.Contains(joined, "high"):
+		return "High"
+	case strings.Contains(joined, "low"):
+		return "Low"
+	}
+	return ""
 }
