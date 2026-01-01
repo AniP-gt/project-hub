@@ -2,6 +2,7 @@ package github
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -89,6 +90,7 @@ func TestParseItemMap(t *testing.T) {
 				ID:        "I_kwDOJb9WfM57Wp-q",
 				Title:     "FieldValues Issue",
 				Status:    "Blocked",
+				Labels:    []string{"bug"},
 				UpdatedAt: parseTime("2023-10-27T13:00:00Z"),
 			},
 			wantOK: true,
@@ -173,6 +175,71 @@ func TestParseItemMap(t *testing.T) {
 			},
 			wantOK: true,
 		},
+		{
+			name: "Assignees and labels from nested nodes",
+			inputJSON: `{
+				"id": "I_nested_assignees",
+				"title": "Issue with nested data",
+				"content": {
+					"title": "Issue with nested data",
+					"assignees": {
+						"nodes": [
+							{"login": "alice"},
+							{"login": "bob"}
+						]
+					},
+					"labels": {
+						"nodes": [
+							{"name": "bug"},
+							{"name": "High Priority"}
+						]
+					},
+					"milestone": {
+						"title": "Sprint Alpha"
+					}
+				},
+				"fieldValues": [
+					{
+						"fieldName": "Priority",
+						"singleSelectOption": {
+							"name": "High"
+						}
+					}
+				],
+				"updatedAt": "2023-10-27T17:00:00Z"
+			}`,
+			wantItem: state.Item{
+				ID:        "I_nested_assignees",
+				Title:     "Issue with nested data",
+				Status:    "Unknown",
+				Labels:    []string{"bug", "High Priority"},
+				Assignees: []string{"alice", "bob"},
+				Priority:  "High",
+				Milestone: "Sprint Alpha",
+				UpdatedAt: parseTime("2023-10-27T17:00:00Z"),
+			},
+			wantOK: true,
+		},
+		{
+			name: "Milestone from field values",
+			inputJSON: `{
+				"id": "I_field_milestone",
+				"title": "Milestone via field",
+				"fieldValues": [
+					{
+						"fieldName": "Milestone",
+						"text": "Release 1"
+					}
+				]
+			}`,
+			wantItem: state.Item{
+				ID:        "I_field_milestone",
+				Title:     "Milestone via field",
+				Status:    "Unknown",
+				Milestone: "Release 1",
+			},
+			wantOK: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -200,6 +267,9 @@ func TestParseItemMap(t *testing.T) {
 			if got.Priority != tt.wantItem.Priority {
 				t.Errorf("parseItemMap() Priority = %v, want %v", got.Priority, tt.wantItem.Priority)
 			}
+			if got.Milestone != tt.wantItem.Milestone {
+				t.Errorf("parseItemMap() Milestone = %v, want %v", got.Milestone, tt.wantItem.Milestone)
+			}
 			if got.UpdatedAt != nil && tt.wantItem.UpdatedAt != nil {
 				if !got.UpdatedAt.Equal(*tt.wantItem.UpdatedAt) {
 					t.Errorf("parseItemMap() UpdatedAt = %v, want %v", *got.UpdatedAt, *tt.wantItem.UpdatedAt)
@@ -207,7 +277,12 @@ func TestParseItemMap(t *testing.T) {
 			} else if (got.UpdatedAt == nil && tt.wantItem.UpdatedAt != nil) || (got.UpdatedAt != nil && tt.wantItem.UpdatedAt == nil) {
 				t.Errorf("parseItemMap() UpdatedAt mismatch: got %v, want %v", got.UpdatedAt, tt.wantItem.UpdatedAt)
 			}
-			// Add more assertions for other fields as needed
+			if !reflect.DeepEqual(got.Assignees, tt.wantItem.Assignees) {
+				t.Errorf("parseItemMap() Assignees = %v, want %v", got.Assignees, tt.wantItem.Assignees)
+			}
+			if !reflect.DeepEqual(got.Labels, tt.wantItem.Labels) {
+				t.Errorf("parseItemMap() Labels = %v, want %v", got.Labels, tt.wantItem.Labels)
+			}
 		})
 	}
 }
