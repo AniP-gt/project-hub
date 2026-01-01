@@ -593,7 +593,7 @@ func (a App) View() string {
 }
 
 func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
-	if fs.Query == "" {
+	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 && len(fs.Iterations) == 0 {
 		return items
 	}
 	var out []state.Item
@@ -605,6 +605,9 @@ func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
 			continue
 		}
 		if len(fs.Statuses) > 0 && !containsAny([]string{it.Status}, fs.Statuses) {
+			continue
+		}
+		if len(fs.Iterations) > 0 && !state.MatchesIterationFilters(it, fs.Iterations, time.Now()) {
 			continue
 		}
 		out = append(out, it)

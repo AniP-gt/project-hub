@@ -377,6 +377,13 @@ func parseItemMap(r any) (state.Item, bool) {
 							}
 						}
 					}
+					for _, sub := range fm {
+						if subMap, ok := sub.(map[string]any); ok {
+							if applyIterationMetadata(&item, subMap) {
+								break
+							}
+						}
+					}
 				}
 			}
 		}
@@ -407,10 +414,40 @@ func parseItemMap(r any) (state.Item, bool) {
 			}
 		}
 	}
+	for _, val := range m {
+		if sub, ok := val.(map[string]any); ok {
+			if applyIterationMetadata(&item, sub) {
+				break
+			}
+		}
+	}
 	if updated, ok := m["updatedAt"].(string); ok {
 		if t, err := time.Parse(time.RFC3339, updated); err == nil {
 			item.UpdatedAt = &t
 		}
 	}
 	return item, true
+}
+
+func applyIterationMetadata(item *state.Item, data map[string]any) bool {
+	iterationID, ok := data["iterationId"].(string)
+	if !ok || iterationID == "" {
+		return false
+	}
+	item.IterationID = iterationID
+	if title, ok := data["title"].(string); ok {
+		item.IterationName = title
+	}
+	if start, ok := data["startDate"].(string); ok && start != "" {
+		if t, err := time.Parse("2006-01-02", start); err == nil {
+			item.IterationStart = &t
+		}
+	}
+	switch dur := data["duration"].(type) {
+	case float64:
+		item.IterationDurationDays = int(dur)
+	case int:
+		item.IterationDurationDays = dur
+	}
+	return true
 }

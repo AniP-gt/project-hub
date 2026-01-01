@@ -21,7 +21,18 @@ func main() {
 	ownerFlag := flag.String("owner", "", "Owner (org/user) for the project")
 	ghPathFlag := flag.String("gh-path", "", "Path to the gh CLI executable (default: \"gh\")")
 	itemLimitFlag := flag.Int("item-limit", 100, "Maximum number of items to fetch (default: 100)")
+	var iterationFlag multiValueFlag
+	flag.Var(&iterationFlag, "iteration", "Iteration filters (repeat flag or pass values after it)")
 	flag.Parse()
+
+	iterationTokens := append([]string{}, iterationFlag...)
+	if len(iterationTokens) > 0 {
+		iterationTokens = append(iterationTokens, flag.Args()...)
+	} else if len(flag.Args()) > 0 {
+		fmt.Fprintf(os.Stderr, "unexpected arguments: %v\n", flag.Args())
+		os.Exit(1)
+	}
+	iterationFilters := normalizeIterationFilters(iterationTokens)
 
 	if *projectArg == "" {
 		fmt.Fprintln(os.Stderr, "--project is required")
@@ -49,6 +60,7 @@ func main() {
 		View:      state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
 		ItemLimit: *itemLimitFlag,
 	}
+	initial.View.Filter.Iterations = iterationFilters
 
 	// Try to load real project data via gh; fallback to sample on error.
 	if proj, items, err := client.FetchProject(context.Background(), projID, owner, *itemLimitFlag); err == nil {
@@ -85,4 +97,54 @@ func parseProjectArg(arg string) (projectID string, owner string) {
 		}
 	}
 	return arg, ""
+}
+
+type multiValueFlag []string
+
+func (m *multiValueFlag) String() string {
+	return strings.Join(*m, ",")
+}
+
+func (m *multiValueFlag) Set(value string) error {
+	*m = append(*m, value)
+	return nil
+}
+
+func normalizeIterationFilters(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	var filters []string
+	for _, raw := range values {
+		val := strings.TrimSpace(raw)
+		if val == "" {
+			continue
+		}
+		lower := strings.ToLower(val)
+		if strings.HasPrefix(lower, "iteration:") {
+			val = strings.TrimSpace(val[len("iteration:"):])
+			lower = strings.ToLower(val)
+		}
+		if val == "" {
+			continue
+		}
+		relative := strings.TrimPrefix(lower, "@")
+		switch relative {
+		case "current", "next", "previous":
+			rel := "@" + relative
+			if _, ok := seen[rel]; ok {
+				continue
+			}
+			seen[rel] = struct{}{}
+			filters = append(filters, rel)
+			continue
+		}
+		if _, ok := seen[val]; ok {
+			continue
+		}
+		seen[val] = struct{}{}
+		filters = append(filters, val)
+	}
+	return filters
 }
