@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -393,6 +394,9 @@ func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
 			continue
 		}
 		if len(fs.Statuses) > 0 && !containsAny([]string{it.Status}, fs.Statuses) {
+			continue
+		}
+		if len(fs.Iterations) > 0 && !state.MatchesIterationFilters(it, fs.Iterations, time.Now()) {
 			continue
 		}
 		out = append(out, it)

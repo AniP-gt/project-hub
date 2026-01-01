@@ -22,6 +22,10 @@ func ParseFilter(query string) FilterState {
 			fs.Statuses = append(fs.Statuses, strings.TrimPrefix(t, "status:"))
 			continue
 		}
+		if strings.HasPrefix(t, "iteration:") {
+			fs.Iterations = append(fs.Iterations, strings.TrimPrefix(t, "iteration:"))
+			continue
+		}
 		// Unknown token: keep it in Query but ignore structured fields.
 	}
 	return fs

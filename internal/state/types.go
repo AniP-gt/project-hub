@@ -26,10 +26,11 @@ const (
 
 // FilterState captures parsed filter tokens and raw query.
 type FilterState struct {
-	Query     string
-	Labels    []string
-	Assignees []string
-	Statuses  []string
+	Query      string
+	Labels     []string
+	Assignees  []string
+	Statuses   []string
+	Iterations []string
 }
 
 // TableSort captures table ordering preferences.
@@ -49,24 +50,27 @@ type Timeline struct {
 
 // Item is a single project card/issue in any view.
 type Item struct {
-	ID          string
-	ContentID   string // Added: ID of the underlying content (e.g., DI_ for draft issues)
-	Type        string // Type of content, e.g., "Issue", "PullRequest", "DraftIssue"
-	Title       string
-	Description string
-	Status      string
-	Repository  string
-	Number      int    // Issue or PR number
-	URL         string // URL to the issue or PR
-	Assignees   []string
-	Labels      []string
-	Milestone   string
-	Priority    string
-	CreatedAt   *time.Time
-	UpdatedAt   *time.Time
-	Due         *time.Time
-	IterationID string
-	Position    int
+	ID                    string
+	ContentID             string // Added: ID of the underlying content (e.g., DI_ for draft issues)
+	Type                  string // Type of content, e.g., "Issue", "PullRequest", "DraftIssue"
+	Title                 string
+	Description           string
+	Status                string
+	Repository            string
+	Number                int    // Issue or PR number
+	URL                   string // URL to the issue or PR
+	Assignees             []string
+	Labels                []string
+	Milestone             string
+	Priority              string
+	CreatedAt             *time.Time
+	UpdatedAt             *time.Time
+	Due                   *time.Time
+	IterationID           string
+	IterationName         string
+	IterationStart        *time.Time
+	IterationDurationDays int
+	Position              int
 }
 
 // Project metadata and available capabilities.

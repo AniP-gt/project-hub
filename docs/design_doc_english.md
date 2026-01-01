@@ -28,6 +28,17 @@
 - **Progress visualization:** Display iteration-based task placement and progress using text-based graphs in the Roadmap view.
 - **High-speed inline editing:** Edit titles and descriptions of the selected issue inline, similar to Vim insert mode.
 
+### 2.3. Iteration Filter CLI (Planned)
+
+- **Goal:** Allow `projects-tui` to launch with iteration-scoped data using a new `--iteration` flag that accepts multiple values (e.g., `current next previous`).
+- **Accepted inputs:** Literal iteration titles (e.g., `Sprint 28`) and shorthand keywords with or without `@` prefixes (`current`, `@current`, `next`, etc.).
+- **Resolution flow:**
+  1. CLI parses the flag values in `cmd/projects-tui/main.go` and stores them in the initial `FilterState.Iterations` so the UI applies them consistently.
+  2. `internal/github/client.go` always fetches the full item list, but augments each item with iteration metadata (ID, title, start date, duration) extracted from the JSON payload.
+  3. Keywords resolve locally by comparing `time.Now()` to the iteration window (`@current` matches items whose iteration is in progress, `@next` matches iterations with a start date in the future, `@previous` matches iterations that ended in the past).
+  4. Literal values (e.g., `Sprint 12`) are matched case-insensitively against the iteration title or ID.
+- **UI impact:** All views (Board/Table/Roadmap) evaluate the same in-memory filters, so reloading or switching views preserves the CLI-provided iteration context.
+
 ---
 
 ## 3. Technology Stack
