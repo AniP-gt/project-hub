@@ -569,7 +569,7 @@ func (a App) View() string {
 
 	var framed string
 	if a.state.View.CurrentView == state.ViewBoard {
-		maxHeight := bodyHeight - frameVertical
+		maxHeight := bodyHeight
 		if maxHeight < 15 {
 			maxHeight = 15
 		}
