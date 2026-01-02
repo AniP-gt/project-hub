@@ -16,6 +16,8 @@ const (
 	minColumnWidth      = 24
 	estimatedCardHeight = 6
 	minVisibleCards     = 3
+	maxTitleLines       = 3
+	maxMetaLines        = 1
 )
 
 var columnHeaderHeight = lipgloss.Height(components.ColumnHeaderStyle.Render("Column"))
@@ -281,29 +283,35 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 	if contentWidth < 12 {
 		contentWidth = 12
 	}
-	wrap := func(value string) string {
+	wrap := func(value string, maxLines int) string {
 		if value == "" {
 			return ""
 		}
-		return lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Render(value)
+		rendered := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Render(value)
+		return clampRenderedLines(rendered, maxLines, contentWidth)
 	}
 
-	title := wrap(card.Title)
+	title := wrap(card.Title, maxTitleLines)
 
-	// Assignee
-	var assignee string
+	var contentBlocks []string
+	if title != "" {
+		contentBlocks = append(contentBlocks, title)
+	}
+
 	if card.Assignee != "" {
-		assignee = wrap("@" + card.Assignee)
+		assignee := wrap("@"+card.Assignee, maxMetaLines)
+		if assignee != "" {
+			contentBlocks = append(contentBlocks, assignee)
+		}
 	}
 
-	// Labels
-	var labels string
 	if len(card.Labels) > 0 {
-		labels = wrap("[" + strings.Join(card.Labels, ", ") + "]")
+		labels := wrap("["+strings.Join(card.Labels, ", ")+"]", maxMetaLines)
+		if labels != "" {
+			contentBlocks = append(contentBlocks, labels)
+		}
 	}
 
-	// Priority
-	var priority string
 	if card.Priority != "" {
 		priorityStyle := components.CardPriorityStyle
 		switch card.Priority {
@@ -314,10 +322,17 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		case "Low":
 			priorityStyle = priorityStyle.Foreground(components.ColorGreen400)
 		}
-		priority = wrap(priorityStyle.Render(card.Priority))
+		priority := wrap(priorityStyle.Render(card.Priority), maxMetaLines)
+		if priority != "" {
+			contentBlocks = append(contentBlocks, priority)
+		}
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Left, title, assignee, labels, priority)
+	if len(contentBlocks) == 0 {
+		contentBlocks = append(contentBlocks, "(no title)")
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Left, contentBlocks...)
 
 	style := components.CardBaseStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
 	if isSelected {
@@ -327,20 +342,88 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 	return style.Render(content)
 }
 
+func clampRenderedLines(rendered string, maxLines, width int) string {
+	if maxLines <= 0 {
+		return rendered
+	}
+	lines := strings.Split(rendered, "\n")
+	if len(lines) <= maxLines {
+		return rendered
+	}
+	clamped := lines[:maxLines]
+	clamped[maxLines-1] = truncateLineWithEllipsis(clamped[maxLines-1], width)
+	return strings.Join(clamped, "\n")
+}
+
+func truncateLineWithEllipsis(line string, width int) string {
+	ellipsis := "..."
+	if width <= lipgloss.Width(ellipsis) {
+		return ellipsis
+	}
+	trimmed := strings.TrimRight(line, " ")
+	runes := []rune(trimmed)
+	for lipgloss.Width(strings.TrimRight(string(runes), " "))+lipgloss.Width(ellipsis) > width && len(runes) > 0 {
+		runes = runes[:len(runes)-1]
+	}
+	trimmed = strings.TrimRight(string(runes), " ")
+	if trimmed == "" {
+		return ellipsis
+	}
+	return trimmed + ellipsis
+}
+
+func (m BoardModel) estimateCardHeight() int {
+	maxHeight := 0
+	for _, col := range m.Columns {
+		limit := len(col.Cards)
+		if limit > 3 {
+			limit = 3
+		}
+		for idx := 0; idx < limit; idx++ {
+			height := lipgloss.Height(m.renderCard(col.Cards[idx], false))
+			if height > maxHeight {
+				maxHeight = height
+			}
+		}
+	}
+	if maxHeight > 0 {
+		return maxHeight
+	}
+	sample := state.Card{
+		Title:    "Sample card height",
+		Assignee: "assignee",
+		Labels:   []string{"label"},
+		Priority: "High",
+	}
+	height := lipgloss.Height(m.renderCard(sample, false))
+	if height > 0 {
+		return height
+	}
+	return estimatedCardHeight
+}
+
 // calculateMaxVisibleCards calculates how many cards can fit in a column based on height.
 func (m BoardModel) calculateMaxVisibleCards() int {
+	cardHeight := m.estimateCardHeight()
+	if cardHeight <= 0 {
+		cardHeight = estimatedCardHeight
+	}
+
 	available := m.Height
 	if available <= 0 {
-		available = estimatedCardHeight * minVisibleCards
+		available = cardHeight*minVisibleCards + columnHeaderHeight + 2
 	}
+
 	available -= columnHeaderHeight + 2
-	if available < estimatedCardHeight*minVisibleCards {
-		available = estimatedCardHeight * minVisibleCards
+	if available < cardHeight {
+		available = cardHeight
 	}
-	maxCards := available / estimatedCardHeight
-	if maxCards < minVisibleCards {
-		maxCards = minVisibleCards
+
+	maxCards := available / cardHeight
+	if maxCards < 1 {
+		maxCards = 1
 	}
+
 	return maxCards
 }
 

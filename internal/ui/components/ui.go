@@ -78,7 +78,7 @@ var (
 			Background(ColorGray800).
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorGray700).
-			Padding(1, 1). // px-3 py-2
+			Padding(0, 1).
 			Foreground(ColorGray300)
 
 	CardSelectedStyle = CardBaseStyle.Copy().
