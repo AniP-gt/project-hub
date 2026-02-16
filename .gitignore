@@ -3,7 +3,7 @@
 *.test
 *.out
 vendor/
-
+.sisyphus/
 # Build outputs
 bin/
 build/
