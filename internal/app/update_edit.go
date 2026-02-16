@@ -34,12 +34,16 @@ type CancelAssignMsg struct{}
 func (a App) handleEnterEditMode(msg EnterEditModeMsg) (tea.Model, tea.Cmd) {
 	idx := a.state.View.FocusedIndex
 	if idx < 0 || idx >= len(a.state.Items) {
-		return a, nil // Or handle error
+		return a, nil
 	}
 	item := a.state.Items[idx]
 
+	a.textInput.Width = a.state.Width - 10
+	if a.textInput.Width < 30 {
+		a.textInput.Width = 30
+	}
 	a.textInput.SetValue(item.Title)
-	a.textInput.Placeholder = "Enter new title..."
+	a.textInput.Placeholder = ""
 	a.state.View.Mode = "edit"
 	return a, a.textInput.Focus()
 }
@@ -52,8 +56,22 @@ func (a App) handleCancelEdit(msg CancelEditMsg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleEnterAssignMode(msg EnterAssignModeMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil // Or handle error
+	}
+	item := a.state.Items[idx]
+
+	// Initialize input with first assignee if present, otherwise empty string
+	assignee := ""
+	if len(item.Assignees) > 0 {
+		assignee = item.Assignees[0]
+	}
+
+	a.textInput.SetValue(assignee)
+	a.textInput.Placeholder = "Enter assignee..."
 	a.state.View.Mode = "assign"
-	return a, nil
+	return a, a.textInput.Focus()
 }
 
 func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {

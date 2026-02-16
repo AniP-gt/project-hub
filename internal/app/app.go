@@ -494,7 +494,11 @@ func (a App) View() string {
 		innerWidth = 40
 	}
 
-	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width)
+	editTitle := ""
+	if a.state.View.Mode == "edit" {
+		editTitle = a.textInput.Value()
+	}
+	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width, editTitle)
 	notif := components.RenderNotifications(a.state.Notifications)
 
 	body := ""
@@ -558,11 +562,7 @@ func (a App) View() string {
 
 	// Handle edit/assign modes
 	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" {
-		prompt := "Edit title: "
-		if a.state.View.Mode == "assign" {
-			prompt = "Assign to: "
-		}
-		body = body + "\n" + prompt + a.textInput.View()
+		body = body + "\n" + a.textInput.View()
 	} else if a.state.View.Mode == state.ModeStatusSelect { // New: Handle status select mode
 		body = lipgloss.JoinVertical(lipgloss.Left, body, a.statusSelector.View())
 	}

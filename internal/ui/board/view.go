@@ -159,6 +159,17 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.FocusedCardIndex >= len(currentColumn.Cards) {
 					m.FocusedCardIndex = len(currentColumn.Cards) - 1
 				}
+				// Clamp card offset to safe range
+				maxCardOffset := len(currentColumn.Cards) - maxVisibleCards
+				if maxCardOffset < 0 {
+					maxCardOffset = 0
+				}
+				if m.CardOffset > maxCardOffset {
+					m.CardOffset = maxCardOffset
+				}
+				if m.CardOffset < 0 {
+					m.CardOffset = 0
+				}
 			}
 		case "k", "up":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
@@ -183,6 +194,17 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Ensure focused card is within bounds
 				if m.FocusedCardIndex < 0 {
 					m.FocusedCardIndex = 0
+				}
+				// Clamp card offset to safe range
+				maxCardOffset := len(currentColumn.Cards) - maxVisibleCards
+				if maxCardOffset < 0 {
+					maxCardOffset = 0
+				}
+				if m.CardOffset > maxCardOffset {
+					m.CardOffset = maxCardOffset
+				}
+				if m.CardOffset < 0 {
+					m.CardOffset = 0
 				}
 			}
 		}
@@ -373,22 +395,29 @@ func truncateLineWithEllipsis(line string, width int) string {
 }
 
 func (m BoardModel) estimateCardHeight() int {
-	maxHeight := 0
+	// Sample up to 10 cards across all columns for accurate height estimation
+	const maxSampleSize = 10
+	sampleCount := 0
+	totalHeight := 0
+
+	// Collect samples from across all columns
 	for _, col := range m.Columns {
-		limit := len(col.Cards)
-		if limit > 3 {
-			limit = 3
-		}
-		for idx := 0; idx < limit; idx++ {
+		for idx := 0; idx < len(col.Cards) && sampleCount < maxSampleSize; idx++ {
 			height := lipgloss.Height(m.renderCard(col.Cards[idx], false))
-			if height > maxHeight {
-				maxHeight = height
-			}
+			totalHeight += height
+			sampleCount++
+		}
+		if sampleCount >= maxSampleSize {
+			break
 		}
 	}
-	if maxHeight > 0 {
-		return maxHeight
+
+	// Return average height if we have samples
+	if sampleCount > 0 {
+		return totalHeight / sampleCount
 	}
+
+	// Fallback: create a sample card with typical content
 	sample := state.Card{
 		Title:    "Sample card height",
 		Assignee: "assignee",
@@ -427,8 +456,14 @@ func (m BoardModel) calculateMaxVisibleCards() int {
 	return maxCards
 }
 
-// ColumnOrder defines the order of columns in the Kanban board.
-var ColumnOrder = []string{"Todo", "In Progress", "In_Review", "Done", "Unknown"}
+// ColumnOrder defines the known progression order of columns in the Kanban board.
+// Unknown statuses will be inserted before Done, and Done will always be last if present.
+var ColumnOrder = []string{"Todo", "Draft", "In Progress", "In_Review"}
+
+// isDoneStatus checks if a status represents completion (case-insensitive, trimmed match for "done")
+func isDoneStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), "done")
+}
 
 // NewBoardModel creates a new BoardModel from items and filter state.
 func NewBoardModel(items []state.Item, filter state.FilterState, focusedItemID string) BoardModel {
@@ -499,7 +534,7 @@ func containsAny(haystack []string, needles []string) bool {
 	return false
 }
 
-// groupItemsByStatus groups items into columns by status.
+// groupItemsByStatus groups items into columns by status, enforcing progression order with Done last.
 func groupItemsByStatus(items []state.Item) []state.Column {
 	statusMap := make(map[string][]state.Item)
 	for _, item := range items {
@@ -541,26 +576,41 @@ func groupItemsByStatus(items []state.Item) []state.Column {
 		}
 	}
 
-	// Define column order (Backlog, In Progress, Review, Done)
+	// Build columns: known progression order, unknown statuses, then Done last
 	var columns []state.Column
-	for _, status := range ColumnOrder { // Use exported ColumnOrder
+	var doneColumn *state.Column
+
+	// Add columns in known progression order
+	for _, status := range ColumnOrder {
 		if cards, exists := statusCardMap[status]; exists {
 			columns = append(columns, state.Column{Name: status, Cards: cards})
+			delete(statusCardMap, status)
 		}
 	}
-	// Add any other statuses not in the predefined order
-	for status, cards := range statusCardMap {
-		found := false
-		for _, col := range columns {
-			if col.Name == status {
-				found = true
-				break
-			}
-		}
-		if !found {
-			columns = append(columns, state.Column{Name: status, Cards: cards})
+
+	// Separate Done column and remaining unknown statuses
+	var unknownStatuses []string
+	for status := range statusCardMap {
+		if isDoneStatus(status) {
+			doneColumn = &state.Column{Name: "Done", Cards: statusCardMap[status]}
+		} else {
+			unknownStatuses = append(unknownStatuses, status)
 		}
 	}
+
+	// Sort unknown statuses for deterministic ordering
+	sort.Strings(unknownStatuses)
+
+	// Add unknown statuses before Done
+	for _, status := range unknownStatuses {
+		columns = append(columns, state.Column{Name: status, Cards: statusCardMap[status]})
+	}
+
+	// Add Done column last if present
+	if doneColumn != nil {
+		columns = append(columns, *doneColumn)
+	}
+
 	return columns
 }
 
