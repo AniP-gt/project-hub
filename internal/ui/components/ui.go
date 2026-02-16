@@ -301,14 +301,18 @@ func renderViewTabs(currentView state.ViewType) string {
 }
 
 // RenderFooter shows key hints and mode status.
-func RenderFooter(mode, view string, width int) string {
+func RenderFooter(mode, view string, width int, editTitle string) string {
 	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
 	keybinds := FooterKeybindsStyle.Render("j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了")
 	var modeLabel string
 	modeStyle := FooterModeStyle
 	switch strings.ToLower(mode) {
 	case "edit":
-		modeLabel = "INSERT MODE"
+		if editTitle != "" {
+			modeLabel = "INSERT MODE " + editTitle
+		} else {
+			modeLabel = "INSERT MODE"
+		}
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorYellow400)
 	case "assign":
 		modeLabel = "ASSIGN MODE"
