@@ -106,6 +106,25 @@ Example config:
 }
 ```
 
+## Settings
+
+Press `4` in the TUI to open the Settings panel. Here you can view and manage your defaults:
+
+- **Default Project**: The default project ID saved in your config file
+- **Default Owner**: The default owner (org/user) saved in your config file
+
+Changes made in Settings are persisted to `projects-tui.json`. Note that **CLI overrides config**—if you pass `--project` or `--owner` on the command line, those values take precedence.
+
+### Configuration Errors
+
+If the config file cannot be loaded, you will see a warning message:
+
+```
+warning: failed to load config: <error details>
+```
+
+The application will continue to run normally; you can still use the CLI without a config file by providing values via command-line flags.
+
 ## Notes
 
 - The binary name is the last path element in the cmd directory (`cmd/project-hub` -> `project-hub`).
