@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"project-hub/internal/state"
@@ -232,5 +233,222 @@ func TestEnterAssignMode_InvalidFocusIndex(t *testing.T) {
 
 	if appModel.state.View.Mode != state.ModeNormal {
 		t.Errorf("expected mode to remain 'normal' on invalid index, got %q", appModel.state.View.Mode)
+	}
+}
+
+// Test: Board view "w" key triggers status select mode entry
+func TestEnterStatusSelectMode_SuccessfulEntry(t *testing.T) {
+	items := []state.Item{
+		{
+			ID:        "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+			Title:     "Test Item",
+			Assignees: []string{},
+			Status:    "Todo",
+			Position:  1,
+		},
+	}
+
+	project := state.Project{
+		ID:    "proj1",
+		Owner: "test-owner",
+		Fields: []state.Field{
+			{
+				ID:   "status_field_id",
+				Name: "Status",
+				Options: []state.Option{
+					{ID: "opt1", Name: "Todo"},
+					{ID: "opt2", Name: "In Progress"},
+					{ID: "opt3", Name: "Done"},
+				},
+			},
+		},
+	}
+
+	viewContext := state.ViewContext{
+		Mode:          state.ModeNormal,
+		FocusedIndex:  0,
+		FocusedItemID: "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+	}
+
+	initialState := state.Model{
+		Project: project,
+		Items:   items,
+		View:    viewContext,
+	}
+
+	app := New(initialState, &mockClient{}, 100)
+
+	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
+	appModel := updatedApp.(App)
+
+	if appModel.state.View.Mode != state.ModeStatusSelect {
+		t.Errorf("expected mode to be 'statusSelect', got %q", appModel.state.View.Mode)
+	}
+}
+
+// Test: Status field not found shows error notification
+func TestEnterStatusSelectMode_StatusFieldNotFound(t *testing.T) {
+	items := []state.Item{
+		{
+			ID:        "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+			Title:     "Test Item",
+			Assignees: []string{},
+			Status:    "Todo",
+			Position:  1,
+		},
+	}
+
+	project := state.Project{
+		ID:    "proj1",
+		Owner: "test-owner",
+		Fields: []state.Field{
+			{
+				ID:   "other_field_id",
+				Name: "Priority",
+				Options: []state.Option{
+					{ID: "opt1", Name: "Low"},
+					{ID: "opt2", Name: "High"},
+				},
+			},
+		},
+	}
+
+	viewContext := state.ViewContext{
+		Mode:          state.ModeNormal,
+		FocusedIndex:  0,
+		FocusedItemID: "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+	}
+
+	initialState := state.Model{
+		Project: project,
+		Items:   items,
+		View:    viewContext,
+	}
+
+	app := New(initialState, &mockClient{}, 100)
+
+	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
+	appModel := updatedApp.(App)
+
+	if appModel.state.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' when status field not found, got %q", appModel.state.View.Mode)
+	}
+
+	if len(appModel.state.Notifications) != 1 {
+		t.Errorf("expected 1 notification, got %d", len(appModel.state.Notifications))
+	}
+
+	if len(appModel.state.Notifications) > 0 {
+		notif := appModel.state.Notifications[0]
+		if notif.Level != "error" {
+			t.Errorf("expected notification level to be 'error', got %q", notif.Level)
+		}
+		if !strings.Contains(notif.Message, "Status field not found") {
+			t.Errorf("expected notification message to contain 'Status field not found', got %q", notif.Message)
+		}
+	}
+}
+
+// Test: Focused index out of range guards against panic
+func TestEnterStatusSelectMode_FocusedIndexOutOfRange(t *testing.T) {
+	items := []state.Item{
+		{
+			ID:        "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+			Title:     "Test Item",
+			Assignees: []string{},
+			Status:    "Todo",
+			Position:  1,
+		},
+	}
+
+	project := state.Project{
+		ID:    "proj1",
+		Owner: "test-owner",
+		Fields: []state.Field{
+			{
+				ID:   "status_field_id",
+				Name: "Status",
+				Options: []state.Option{
+					{ID: "opt1", Name: "Todo"},
+				},
+			},
+		},
+	}
+
+	viewContext := state.ViewContext{
+		Mode:          state.ModeNormal,
+		FocusedIndex:  999,
+		FocusedItemID: "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+	}
+
+	initialState := state.Model{
+		Project: project,
+		Items:   items,
+		View:    viewContext,
+	}
+
+	app := New(initialState, &mockClient{}, 100)
+
+	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
+	appModel := updatedApp.(App)
+
+	if appModel.state.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' when focused index is out of range, got %q", appModel.state.View.Mode)
+	}
+
+	if len(appModel.state.Notifications) != 0 {
+		t.Errorf("expected 0 notifications for out of range index, got %d", len(appModel.state.Notifications))
+	}
+}
+
+// Test: Negative focused index is handled correctly
+func TestEnterStatusSelectMode_NegativeFocusedIndex(t *testing.T) {
+	items := []state.Item{
+		{
+			ID:        "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+			Title:     "Test Item",
+			Assignees: []string{},
+			Status:    "Todo",
+			Position:  1,
+		},
+	}
+
+	project := state.Project{
+		ID:    "proj1",
+		Owner: "test-owner",
+		Fields: []state.Field{
+			{
+				ID:   "status_field_id",
+				Name: "Status",
+				Options: []state.Option{
+					{ID: "opt1", Name: "Todo"},
+				},
+			},
+		},
+	}
+
+	viewContext := state.ViewContext{
+		Mode:          state.ModeNormal,
+		FocusedIndex:  -1,
+		FocusedItemID: "PVTI_lAHOBYxjlc4AP3t4zgGkVY4",
+	}
+
+	initialState := state.Model{
+		Project: project,
+		Items:   items,
+		View:    viewContext,
+	}
+
+	app := New(initialState, &mockClient{}, 100)
+
+	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
+	appModel := updatedApp.(App)
+
+	if appModel.state.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' when focused index is negative, got %q", appModel.state.View.Mode)
+	}
+
+	if len(appModel.state.Notifications) != 0 {
+		t.Errorf("expected 0 notifications for negative index, got %d", len(appModel.state.Notifications))
 	}
 }

@@ -105,7 +105,7 @@ func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {
 		}
 		updatedItem, err := a.github.UpdateAssignees(
 			context.Background(),
-			a.state.Project.ID,
+			projectMutationID(a.state.Project),
 			a.state.Project.Owner,
 			item.ID, // Use the item's node ID for field updates
 			assigneeField.ID,

@@ -127,11 +127,23 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			item := a.state.Items[idx]
 
+			if item.ID == "" || !strings.HasPrefix(item.ID, "PVTI_") {
+				notif := state.Notification{
+					Message:      fmt.Sprintf("Invalid item ID format: %s. Expected project item node ID.", item.ID),
+					Level:        "error",
+					At:           time.Now(),
+					DismissAfter: 5 * time.Second,
+				}
+				a.state.Notifications = append(a.state.Notifications, notif)
+				a.state.View.Mode = state.ModeNormal
+				return a, tea.Batch(append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))...)
+			}
+
 			// Call the GitHub client to update the status
 			updateCmd := func() tea.Msg {
 				updatedItem, err := a.github.UpdateStatus(
 					context.Background(),
-					a.state.Project.ID,
+					projectMutationID(a.state.Project),
 					a.state.Project.Owner,
 					item.ID,         // Use the item's node ID for field updates
 					m.StatusFieldID, // Use the selected status field ID
@@ -139,6 +151,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				)
 				if err != nil {
 					return NewErrMsg(err)
+				}
+				if strings.EqualFold(strings.TrimSpace(updatedItem.Status), "unknown") && strings.TrimSpace(m.OptionName) != "" {
+					updatedItem.Status = m.OptionName
 				}
 				return ItemUpdatedMsg{Index: idx, Item: updatedItem}
 			}
@@ -371,6 +386,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return a.handleEnterEditMode(EnterEditModeMsg{})
 		case "a":
 			return a.handleEnterAssignMode(EnterAssignModeMsg{})
+		case "w":
+			return a.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
 		}
 	}
 	switch k.String() {
@@ -563,8 +580,6 @@ func (a App) View() string {
 	// Handle edit/assign modes
 	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" {
 		body = body + "\n" + a.textInput.View()
-	} else if a.state.View.Mode == state.ModeStatusSelect { // New: Handle status select mode
-		body = lipgloss.JoinVertical(lipgloss.Left, body, a.statusSelector.View())
 	}
 
 	var framed string
@@ -587,6 +602,17 @@ func (a App) View() string {
 		bodyRendered := clampContentHeight(body, maxHeight)
 		bodyRendered = lipgloss.NewStyle().Width(innerWidth).AlignHorizontal(lipgloss.Left).Render(bodyRendered)
 		framed = components.FrameStyle.Width(frameWidth).Render(bodyRendered)
+	}
+
+	if a.state.View.Mode == state.ModeStatusSelect {
+		selectorView := a.statusSelector.View()
+		framed = lipgloss.Place(
+			frameWidth,
+			bodyHeight,
+			lipgloss.Center,
+			lipgloss.Center,
+			selectorView,
+		)
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
@@ -748,7 +774,7 @@ func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
 	updateCmd := func() tea.Msg {
 		updatedItem, err := a.github.UpdateItem(
 			context.Background(),
-			a.state.Project.ID,
+			projectMutationID(a.state.Project),
 			a.state.Project.Owner,
 			item, // Pass the whole item
 			msg.Title,
@@ -813,6 +839,13 @@ func (a App) refreshBoardCmd() tea.Cmd {
 		}
 		return FetchProjectMsg{Project: proj, Items: items}
 	}
+}
+
+func projectMutationID(project state.Project) string {
+	if strings.TrimSpace(project.NodeID) != "" {
+		return project.NodeID
+	}
+	return project.ID
 }
 
 func (a App) bodyViewportHeight(header, footer, notif string) int {
