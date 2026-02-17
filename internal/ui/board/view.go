@@ -293,9 +293,6 @@ func (m BoardModel) View() string {
 	}
 
 	boardContent := lipgloss.JoinHorizontal(lipgloss.Top, renderedColumns...)
-	if m.Width > 0 {
-		boardContent = lipgloss.PlaceHorizontal(m.Width, lipgloss.Left, boardContent)
-	}
 	return boardContent
 }
 
@@ -469,13 +466,14 @@ func isDoneStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), "done")
 }
 
-// NewBoardModel creates a new BoardModel from items and filter state.
-func NewBoardModel(items []state.Item, filter state.FilterState, focusedItemID string) BoardModel {
+// NewBoardModel creates a new BoardModel from items, fields, and filter state.
+// The fields parameter is used to determine the status column order from GitHub Projects.
+func NewBoardModel(items []state.Item, fields []state.Field, filter state.FilterState, focusedItemID string) BoardModel {
 	// Apply global filter
 	filteredItems := applyFilter(items, filter)
 
 	// Group items into columns by status
-	columns := groupItemsByStatus(filteredItems)
+	columns := groupItemsByStatus(filteredItems, fields)
 
 	// Find the focused item and set initial focus
 	focusedColumnIndex := 0
@@ -539,7 +537,8 @@ func containsAny(haystack []string, needles []string) bool {
 }
 
 // groupItemsByStatus groups items into columns by status, enforcing progression order with Done last.
-func groupItemsByStatus(items []state.Item) []state.Column {
+// The fields parameter is used to get the status option order from GitHub Projects.
+func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column {
 	statusMap := make(map[string][]state.Item)
 	for _, item := range items {
 		statusMap[item.Status] = append(statusMap[item.Status], item)
@@ -580,12 +579,28 @@ func groupItemsByStatus(items []state.Item) []state.Column {
 		}
 	}
 
-	// Build columns: known progression order, unknown statuses, then Done last
+	// Get status option order from fields (GitHub Projects configuration)
+	var statusOrder []string
+	for _, field := range fields {
+		if field.Name == "Status" {
+			for _, opt := range field.Options {
+				statusOrder = append(statusOrder, opt.Name)
+			}
+			break
+		}
+	}
+
+	// Fall back to default order if no Status field found
+	if len(statusOrder) == 0 {
+		statusOrder = ColumnOrder
+	}
+
+	// Build columns: status order from GitHub Projects, unknown statuses, then Done last
 	var columns []state.Column
 	var doneColumn *state.Column
 
-	// Add columns in known progression order
-	for _, status := range ColumnOrder {
+	// Add columns in status order from GitHub Projects
+	for _, status := range statusOrder {
 		if cards, exists := statusCardMap[status]; exists {
 			columns = append(columns, state.Column{Name: status, Cards: cards})
 			delete(statusCardMap, status)

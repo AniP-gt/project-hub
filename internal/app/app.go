@@ -37,7 +37,7 @@ type App struct {
 
 // New creates an App with an optional preloaded state.
 func New(initial state.Model, client github.Client, itemLimit int) App {
-	boardModel := boardPkg.NewBoardModel(initial.Items, initial.View.Filter, initial.View.FocusedItemID)
+	boardModel := boardPkg.NewBoardModel(initial.Items, initial.Project.Fields, initial.View.Filter, initial.View.FocusedItemID)
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.Focus()
@@ -201,13 +201,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.state.Items) > 0 {
 			a.state.View.FocusedItemID = a.state.Items[0].ID
 		}
-		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.View.Filter, a.state.View.FocusedItemID)
+		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
 		notif := state.Notification{Message: fmt.Sprintf("Loaded %d items", len(a.state.Items)), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 		a.state.Notifications = append(a.state.Notifications, notif)
 		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 	case ItemUpdatedMsg:
 		a.state.Items[m.Index] = m.Item
-		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.View.Filter, a.state.View.FocusedItemID)
+		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
 		notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 		a.state.Notifications = append(a.state.Notifications, notif)
 		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
