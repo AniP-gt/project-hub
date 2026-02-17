@@ -13,15 +13,17 @@ const (
 	ModeEdit         ViewMode = "edit"
 	ModeSort         ViewMode = "sort"
 	ModeStatusSelect ViewMode = "statusSelect" // Added for status selection mode
+	ModeSettings     ViewMode = "settings"     // Added for settings view mode
 )
 
 // ViewType represents the active view.
 type ViewType string
 
 const (
-	ViewBoard   ViewType = "board"
-	ViewTable   ViewType = "table"
-	ViewRoadmap ViewType = "roadmap"
+	ViewBoard    ViewType = "board"
+	ViewTable    ViewType = "table"
+	ViewRoadmap  ViewType = "roadmap"
+	ViewSettings ViewType = "settings"
 )
 
 // FilterState captures parsed filter tokens and raw query.

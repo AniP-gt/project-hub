@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -12,9 +13,48 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"project-hub/internal/app"
+	"project-hub/internal/config"
 	"project-hub/internal/github"
 	"project-hub/internal/state"
 )
+
+// resolveStartupOptions merges CLI arguments and config defaults with proper precedence.
+// CLI non-empty values always win over config defaults.
+// Precedence: CLI project/owner > config project/owner.
+func resolveStartupOptions(cliProject, cliOwner string, cfg config.Config) (project, owner string) {
+	// CLI project takes precedence; fall back to config
+	if cliProject != "" {
+		project = cliProject
+	} else {
+		project = cfg.DefaultProjectID
+	}
+
+	// CLI owner takes precedence; fall back to config
+	if cliOwner != "" {
+		owner = cliOwner
+	} else {
+		owner = cfg.DefaultOwner
+	}
+
+	return project, owner
+}
+
+func loadStartupConfig(errOut io.Writer) config.Config {
+	cfg := config.Config{}
+	configPath, err := config.ResolvePath()
+	if err != nil {
+		fmt.Fprintln(errOut, "warning: failed to resolve config path:", err)
+		return cfg
+	}
+	loadedCfg, err := config.Load(configPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Fprintln(errOut, "warning: failed to load config:", err)
+		}
+		return cfg
+	}
+	return loadedCfg
+}
 
 func main() {
 	projectArg := flag.String("project", "", "GitHub Project ID or URL")
@@ -34,19 +74,27 @@ func main() {
 	}
 	iterationFilters := normalizeIterationFilters(iterationTokens)
 
-	if *projectArg == "" {
+	// Load and use configuration
+	cfg := loadStartupConfig(os.Stderr)
+
+	// Resolve final project and owner values (CLI > config defaults)
+	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, *ownerFlag, cfg)
+
+	// Check that project is now satisfied (either from CLI or config)
+	if resolvedProject == "" {
 		fmt.Fprintln(os.Stderr, "--project is required")
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	projID, urlOwner := parseProjectArg(*projectArg)
-	owner := *ownerFlag
+	// Parse the resolved project argument to extract ID and infer owner from URL if needed
+	projID, urlOwner := parseProjectArg(resolvedProject)
+	owner := resolvedOwner
 	if owner == "" {
 		owner = urlOwner
 	}
 	if projID == "" {
-		projID = *projectArg
+		projID = resolvedProject
 	}
 
 	client := github.NewCLIClient(*ghPathFlag)

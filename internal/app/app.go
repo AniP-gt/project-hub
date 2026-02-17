@@ -12,11 +12,13 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
+	"project-hub/internal/config"
 	"project-hub/internal/github"
 	"project-hub/internal/state"
 	boardPkg "project-hub/internal/ui/board"
 	"project-hub/internal/ui/components"
 	"project-hub/internal/ui/roadmap"
+	"project-hub/internal/ui/settings"
 	"project-hub/internal/ui/table"
 )
 
@@ -28,6 +30,7 @@ type App struct {
 	boardModel      boardPkg.BoardModel
 	textInput       textinput.Model                // For edit/assign input
 	statusSelector  components.StatusSelectorModel // New field for status selection
+	settingsModel   settings.SettingsModel         // Settings form model
 	roadmapViewport *viewport.Model
 	tableViewport   *viewport.Model
 }
@@ -40,12 +43,14 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 	ti.Focus()
 	roadmapVP := viewport.New(0, 0)
 	tableVP := viewport.New(0, 0)
+	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner)
 	return App{
 		state:           initial,
 		github:          client,
 		itemLimit:       itemLimit,
 		boardModel:      boardModel,
 		textInput:       ti,
+		settingsModel:   settingsModel,
 		roadmapViewport: &roadmapVP,
 		tableViewport:   &tableVP,
 	}
@@ -177,10 +182,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	case tea.KeyMsg:
-		var model tea.Model
-		model, cmd = a.handleKey(m)
-		a = model.(App)
-		cmds = append(cmds, cmd)
+		if a.state.View.CurrentView == state.ViewSettings {
+			// Pass key events to settings model
+			updatedModel, settingsCmd := a.settingsModel.Update(m)
+			a.settingsModel = updatedModel
+			if settingsCmd != nil {
+				cmds = append(cmds, settingsCmd)
+			}
+		} else {
+			var model tea.Model
+			model, cmd = a.handleKey(m)
+			a = model.(App)
+			cmds = append(cmds, cmd)
+		}
 	case FetchProjectMsg:
 		a.state.Project = m.Project
 		a.state.Items = m.Items
@@ -275,6 +289,48 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model, cmd = a.handleEnterStatusSelectMode(m)
 		a = model.(App)
 		cmds = append(cmds, cmd)
+	case settings.SaveMsg:
+		// Save settings to config
+		configPath, err := config.ResolvePath()
+		if err == nil {
+			cfg := config.Config{
+				DefaultProjectID: m.ProjectID,
+				DefaultOwner:     m.Owner,
+			}
+			if saveErr := config.Save(configPath, cfg); saveErr == nil {
+				notif := state.Notification{
+					Message:      "Settings saved successfully",
+					Level:        "info",
+					At:           time.Now(),
+					DismissAfter: 3 * time.Second,
+				}
+				a.state.Notifications = append(a.state.Notifications, notif)
+				cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+			} else {
+				notif := state.Notification{
+					Message:      fmt.Sprintf("Failed to save settings: %v", saveErr),
+					Level:        "error",
+					At:           time.Now(),
+					DismissAfter: 5 * time.Second,
+				}
+				a.state.Notifications = append(a.state.Notifications, notif)
+				cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+			}
+		} else {
+			notif := state.Notification{
+				Message:      fmt.Sprintf("Failed to resolve config path: %v", err),
+				Level:        "error",
+				At:           time.Now(),
+				DismissAfter: 5 * time.Second,
+			}
+			a.state.Notifications = append(a.state.Notifications, notif)
+			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+		}
+		// Switch back to board view
+		a.state.View.CurrentView = state.ViewBoard
+	case settings.CancelMsg:
+		// Just switch back to board view
+		a.state.View.CurrentView = state.ViewBoard
 	default:
 		// Handle other messages or pass them to sub-models
 	}
@@ -399,6 +455,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleSwitchView(SwitchViewMsg{View: state.ViewTable})
 	case "3", "r":
 		return a.handleSwitchView(SwitchViewMsg{View: state.ViewRoadmap})
+	case "4":
+		return a.handleSwitchView(SwitchViewMsg{View: state.ViewSettings})
 	case "R", "ctrl+r":
 		return a.handleReload()
 	case "j":
@@ -570,6 +628,9 @@ func (a App) View() string {
 		} else {
 			body = content
 		}
+	case state.ViewSettings:
+		a.settingsModel.SetSize(innerWidth, bodyHeight)
+		body = a.settingsModel.View()
 	default:
 		a.boardModel.Width = innerWidth
 		a.boardModel.Height = bodyHeight

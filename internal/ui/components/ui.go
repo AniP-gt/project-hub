@@ -287,6 +287,7 @@ func renderViewTabs(currentView state.ViewType) string {
 	boardTab := HeaderViewUnselectedStyle.Render("[1:Board]")
 	tableTab := HeaderViewUnselectedStyle.Render("[2:Table]")
 	roadmapTab := HeaderViewUnselectedStyle.Render("[3:Roadmap]")
+	settingsTab := HeaderViewUnselectedStyle.Render("[4:Settings]")
 
 	switch currentView {
 	case state.ViewBoard:
@@ -295,15 +296,17 @@ func renderViewTabs(currentView state.ViewType) string {
 		tableTab = HeaderViewSelectedStyle.Render("[2:Table]")
 	case state.ViewRoadmap:
 		roadmapTab = HeaderViewSelectedStyle.Render("[3:Roadmap]")
+	case state.ViewSettings:
+		settingsTab = HeaderViewSelectedStyle.Render("[4:Settings]")
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, boardTab, tableTab, roadmapTab)
+	return lipgloss.JoinHorizontal(lipgloss.Top, boardTab, tableTab, roadmapTab, settingsTab)
 }
 
 // RenderFooter shows key hints and mode status.
 func RenderFooter(mode, view string, width int, editTitle string) string {
-	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
-	keybinds := FooterKeybindsStyle.Render("j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了")
+	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-4:ビュー切替 q:終了
+	keybinds := FooterKeybindsStyle.Render("j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-4:ビュー切替 q:終了")
 	var modeLabel string
 	modeStyle := FooterModeStyle
 	switch strings.ToLower(mode) {

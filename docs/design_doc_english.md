@@ -110,10 +110,17 @@ The UI consists of three sections:
 | :---------------- | :------------------------ | :----------------------------------- |
 | **Navigation**    | Move up/down              | `k` / `j`                            |
 | **Status Change** | Move to left/right column | `h` / `l`                            |
-| **View Switch**   | Board / Table / Roadmap   | `1` or `b` / `2` or `t` / `3` or `r` |
+| **View Switch**   | Board / Table / Roadmap / Settings | `1` or `b` / `2` or `t` / `3` or `r` / `4` |
 | **Editing**       | Enter editing mode        | `i` / `Enter`                        |
 | **Filter**        | Enter filtering mode      | `/`                                  |
 | **Assign**        | Assign assignee           | `a`                                  |
 | **Quit**          | Exit application          | `q` / `Ctrl+c`                       |
 
 ---
+
+### 6.3. Startup Defaults (Project/Owner)
+
+- Users can open **Settings** (key `4`) and save default `project` and `owner` values.
+- Saved config path (Linux): `~/.config/project-hub/projects-tui.json`.
+- Precedence rule at startup: **CLI flags override saved config**.
+- If config is malformed, the app prints a warning and continues.
