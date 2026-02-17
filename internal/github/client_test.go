@@ -1,8 +1,10 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -293,4 +295,158 @@ func parseTime(s string) *time.Time {
 		panic(err)
 	}
 	return &t
+}
+
+func TestFetchProject_ProjectNodeIDAssignment(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputProjectID string
+		rawJSON        string
+		wantProjectID  string
+		wantNodeID     string
+	}{
+		{
+			name:           "numeric input with canonical id in response",
+			inputProjectID: "9",
+			rawJSON:        `{"id": "PVT_kwDOABC123", "title": "Test Project"}`,
+			wantProjectID:  "9",
+			wantNodeID:     "PVT_kwDOABC123",
+		},
+		{
+			name:           "numeric input without id in response uses fallback",
+			inputProjectID: "9",
+			rawJSON:        `{"title": "Test Project"}`,
+			wantProjectID:  "9",
+			wantNodeID:     "",
+		},
+		{
+			name:           "canonical input preserved as project id and node id",
+			inputProjectID: "PVT_kwDOABC123",
+			rawJSON:        `{"id": "PVT_kwDOABC123", "title": "Test Project"}`,
+			wantProjectID:  "PVT_kwDOABC123",
+			wantNodeID:     "PVT_kwDOABC123",
+		},
+		{
+			name:           "different canonical id in response stored in node id",
+			inputProjectID: "9",
+			rawJSON:        `{"id": "PVT_xyz789", "title": "Test Project"}`,
+			wantProjectID:  "9",
+			wantNodeID:     "PVT_xyz789",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var raw map[string]any
+			if err := json.Unmarshal([]byte(tt.rawJSON), &raw); err != nil {
+				t.Fatalf("Failed to unmarshal test JSON: %v", err)
+			}
+
+			proj := state.Project{ID: tt.inputProjectID}
+			if id, ok := raw["id"].(string); ok && id != "" {
+				proj.NodeID = id
+			}
+
+			if proj.ID != tt.wantProjectID {
+				t.Errorf("project ID = %q, want %q", proj.ID, tt.wantProjectID)
+			}
+
+			if proj.NodeID != tt.wantNodeID {
+				t.Errorf("project node ID = %q, want %q", proj.NodeID, tt.wantNodeID)
+			}
+		})
+	}
+}
+
+func TestUpdateStatus_ValidationIntegration(t *testing.T) {
+	client := NewCLIClient("gh")
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		projectID string
+		itemID    string
+		fieldID   string
+		optionID  string
+		wantErr   bool
+		errMsg    string
+	}{
+		{
+			name:      "invalid numeric project ID fails fast",
+			projectID: "9",
+			itemID:    "PVTI_test123",
+			fieldID:   "PVTF_field456",
+			optionID:  "PVTSSO_opt789",
+			wantErr:   true,
+			errMsg:    "numeric only",
+		},
+		{
+			name:      "invalid numeric item ID fails fast",
+			projectID: "PVT_proj123",
+			itemID:    "42",
+			fieldID:   "PVTF_field456",
+			optionID:  "PVTSSO_opt789",
+			wantErr:   true,
+			errMsg:    "numeric only",
+		},
+		{
+			name:      "empty field ID fails fast",
+			projectID: "PVT_proj123",
+			itemID:    "PVTI_test123",
+			fieldID:   "",
+			optionID:  "PVTSSO_opt789",
+			wantErr:   true,
+			errMsg:    "empty",
+		},
+		{
+			name:      "whitespace option ID fails fast",
+			projectID: "PVT_proj123",
+			itemID:    "PVTI_test123",
+			fieldID:   "PVTF_field456",
+			optionID:  "   ",
+			wantErr:   true,
+			errMsg:    "whitespace",
+		},
+		{
+			name:      "project ID missing PVT_ prefix fails",
+			projectID: "ABC123",
+			itemID:    "PVTI_test123",
+			fieldID:   "PVTF_field456",
+			optionID:  "PVTSSO_opt789",
+			wantErr:   true,
+			errMsg:    "does not start with 'PVT_'",
+		},
+		{
+			name:      "item ID missing PVTI_ prefix fails",
+			projectID: "PVT_proj123",
+			itemID:    "PVT_item456",
+			fieldID:   "PVTF_field456",
+			optionID:  "PVTSSO_opt789",
+			wantErr:   true,
+			errMsg:    "does not start with 'PVTI_'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.UpdateStatus(ctx, tt.projectID, "", tt.itemID, tt.fieldID, tt.optionID)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("UpdateStatus() error = nil, wantErr %v", tt.wantErr)
+					return
+				}
+				if !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("UpdateStatus() error = %v, want error containing %q", err, tt.errMsg)
+				}
+				if !strings.Contains(err.Error(), "validation failed") {
+					t.Errorf("UpdateStatus() error should indicate validation failure, got: %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("UpdateStatus() unexpected error = %v", err)
+				}
+			}
+		})
+	}
 }

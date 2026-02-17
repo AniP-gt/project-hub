@@ -59,6 +59,9 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner st
 		return state.Project{}, nil, fmt.Errorf("parse gh project view json: %w", err)
 	}
 	proj := state.Project{ID: projectID}
+	if id, ok := raw["id"].(string); ok && id != "" {
+		proj.NodeID = id
+	}
 	if own, ok := raw["owner"].(map[string]any); ok {
 		if login, ok := own["login"].(string); ok && login != "" {
 			proj.Owner = login
@@ -141,6 +144,10 @@ func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner stri
 }
 
 func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
+	if err := ValidateStatusUpdateIDs(projectID, itemID, fieldID, optionID); err != nil {
+		return state.Item{}, fmt.Errorf("validation failed: %w", err)
+	}
+
 	args := []string{
 		"project", "item-edit",
 		"--id", itemID,
