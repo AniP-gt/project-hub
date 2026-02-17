@@ -1,6 +1,7 @@
 package board
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -270,5 +271,233 @@ func TestScrollOffsetClampingUp(t *testing.T) {
 	}
 	if board.FocusedCardIndex < 0 {
 		t.Errorf("FocusedCardIndex is negative: %d", board.FocusedCardIndex)
+	}
+}
+
+func TestCardBackgroundColorUnselected(t *testing.T) {
+	tests := []struct {
+		name          string
+		card          state.Card
+		checkTitleFn  func(string) bool
+		checkAssignee bool
+	}{
+		{
+			name: "Unselected card with title only",
+			card: state.Card{
+				ID:    "1",
+				Title: "Card",
+			},
+			checkTitleFn: func(o string) bool { return len(o) > 0 },
+		},
+		{
+			name: "Unselected card with all fields",
+			card: state.Card{
+				ID:       "2",
+				Title:    "Task",
+				Assignee: "alice",
+				Labels:   []string{"bug"},
+				Priority: "High",
+			},
+			checkTitleFn:  func(o string) bool { return strings.Contains(o, "Task") },
+			checkAssignee: true,
+		},
+		{
+			name: "Unselected card with assignee",
+			card: state.Card{
+				ID:       "3",
+				Title:    "Work",
+				Assignee: "bob",
+			},
+			checkTitleFn:  func(o string) bool { return strings.Contains(o, "Work") },
+			checkAssignee: true,
+		},
+		{
+			name: "Unselected card with labels",
+			card: state.Card{
+				ID:     "4",
+				Title:  "Bug",
+				Labels: []string{"feature"},
+			},
+			checkTitleFn: func(o string) bool { return strings.Contains(o, "Bug") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			board := NewBoardModel([]state.Item{}, state.FilterState{}, "")
+			board.Width = 80
+			board.Height = 40
+
+			output := board.renderCard(tt.card, false)
+
+			if len(output) == 0 {
+				t.Errorf("renderCard returned empty output")
+			}
+
+			if !tt.checkTitleFn(output) {
+				t.Errorf("renderCard output invalid, got: %q", output)
+			}
+
+			if tt.checkAssignee && !strings.Contains(output, tt.card.Assignee) {
+				t.Errorf("renderCard output missing assignee %q", tt.card.Assignee)
+			}
+		})
+	}
+}
+
+func TestCardBackgroundColorSelected(t *testing.T) {
+	tests := []struct {
+		name string
+		card state.Card
+	}{
+		{
+			name: "Selected card with title only",
+			card: state.Card{
+				ID:    "1",
+				Title: "Work",
+			},
+		},
+		{
+			name: "Selected card with all fields",
+			card: state.Card{
+				ID:       "2",
+				Title:    "Task",
+				Assignee: "bob",
+				Labels:   []string{"bug"},
+				Priority: "Medium",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			board := NewBoardModel([]state.Item{}, state.FilterState{}, "")
+			board.Width = 80
+			board.Height = 40
+
+			output := board.renderCard(tt.card, true)
+
+			if len(output) == 0 {
+				t.Errorf("renderCard selected returned empty output")
+			}
+
+			if !strings.Contains(output, tt.card.Title) {
+				t.Errorf("renderCard selected output missing card title %q", tt.card.Title)
+			}
+		})
+	}
+}
+
+func TestCardPriorityColorsPreservedWithBackground(t *testing.T) {
+	tests := []struct {
+		name     string
+		priority string
+	}{
+		{name: "High priority with background", priority: "High"},
+		{name: "Medium priority with background", priority: "Medium"},
+		{name: "Low priority with background", priority: "Low"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			card := state.Card{
+				ID:       "1",
+				Title:    "Priority Test",
+				Priority: tt.priority,
+			}
+
+			board := NewBoardModel([]state.Item{}, state.FilterState{}, "")
+			board.Width = 80
+			board.Height = 40
+
+			outputUnselected := board.renderCard(card, false)
+			if !strings.Contains(outputUnselected, tt.priority) {
+				t.Errorf("unselected card output missing priority text %q", tt.priority)
+			}
+
+			outputSelected := board.renderCard(card, true)
+			if !strings.Contains(outputSelected, tt.priority) {
+				t.Errorf("selected card output missing priority text %q", tt.priority)
+			}
+		})
+	}
+}
+
+func TestCardWithAllFieldsRenderLines(t *testing.T) {
+	card := state.Card{
+		ID:       "test-1",
+		Title:    "Fix",
+		Assignee: "alice",
+		Labels:   []string{"bug"},
+		Priority: "High",
+	}
+
+	board := NewBoardModel([]state.Item{}, state.FilterState{}, "")
+	board.Width = 100
+	board.Height = 50
+
+	tests := []struct {
+		name       string
+		isSelected bool
+	}{
+		{name: "All fields unselected with background", isSelected: false},
+		{name: "All fields selected with background", isSelected: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := board.renderCard(card, tt.isSelected)
+
+			if !strings.Contains(output, "Fix") {
+				t.Errorf("renderCard output missing card title")
+			}
+			if !strings.Contains(output, "alice") {
+				t.Errorf("renderCard output missing assignee")
+			}
+			if !strings.Contains(output, "bug") {
+				t.Errorf("renderCard output missing label")
+			}
+			if !strings.Contains(output, "High") {
+				t.Errorf("renderCard output missing priority")
+			}
+		})
+	}
+}
+
+func TestCardBackgroundDifferentBetweenStates(t *testing.T) {
+	card := state.Card{
+		ID:       "comparison-1",
+		Title:    "Test",
+		Assignee: "bob",
+		Labels:   []string{"test"},
+		Priority: "Medium",
+	}
+
+	board := NewBoardModel([]state.Item{}, state.FilterState{}, "")
+	board.Width = 80
+	board.Height = 40
+
+	unselectedOutput := board.renderCard(card, false)
+	selectedOutput := board.renderCard(card, true)
+
+	if len(unselectedOutput) == 0 {
+		t.Errorf("unselected output is empty")
+	}
+	if len(selectedOutput) == 0 {
+		t.Errorf("selected output is empty")
+	}
+
+	if !strings.Contains(unselectedOutput, "Test") {
+		t.Errorf("unselected output missing card title")
+	}
+	if !strings.Contains(selectedOutput, "Test") {
+		t.Errorf("selected output missing card title")
+	}
+
+	if !strings.Contains(unselectedOutput, "bob") {
+		t.Errorf("unselected output missing assignee")
+	}
+	if !strings.Contains(selectedOutput, "bob") {
+		t.Errorf("selected output missing assignee")
 	}
 }

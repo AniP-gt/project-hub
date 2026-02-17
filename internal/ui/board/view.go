@@ -305,15 +305,19 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 	if contentWidth < 12 {
 		contentWidth = 12
 	}
-	wrap := func(value string, maxLines int) string {
+	wrap := func(value string, maxLines int, isSelected bool) string {
 		if value == "" {
 			return ""
 		}
-		rendered := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Render(value)
+		bg := components.ColorGray800
+		if isSelected {
+			bg = components.ColorGray700
+		}
+		rendered := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Background(bg).Render(value)
 		return clampRenderedLines(rendered, maxLines, contentWidth)
 	}
 
-	title := wrap(card.Title, maxTitleLines)
+	title := wrap(card.Title, maxTitleLines, isSelected)
 
 	var contentBlocks []string
 	if title != "" {
@@ -321,14 +325,14 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 	}
 
 	if card.Assignee != "" {
-		assignee := wrap("@"+card.Assignee, maxMetaLines)
+		assignee := wrap("@"+card.Assignee, maxMetaLines, isSelected)
 		if assignee != "" {
 			contentBlocks = append(contentBlocks, assignee)
 		}
 	}
 
 	if len(card.Labels) > 0 {
-		labels := wrap("["+strings.Join(card.Labels, ", ")+"]", maxMetaLines)
+		labels := wrap("["+strings.Join(card.Labels, ", ")+"]", maxMetaLines, isSelected)
 		if labels != "" {
 			contentBlocks = append(contentBlocks, labels)
 		}
@@ -344,7 +348,7 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		case "Low":
 			priorityStyle = priorityStyle.Foreground(components.ColorGreen400)
 		}
-		priority := wrap(priorityStyle.Render(card.Priority), maxMetaLines)
+		priority := wrap(priorityStyle.Render(card.Priority), maxMetaLines, isSelected)
 		if priority != "" {
 			contentBlocks = append(contentBlocks, priority)
 		}
