@@ -40,7 +40,6 @@ var (
 
 	// Header Styles
 	HeaderStyle = lipgloss.NewStyle().
-			Background(ColorGray900).
 			Foreground(ColorGreen400).
 			Padding(1, 2).
 			Border(lipgloss.NormalBorder(), false, false, true, false).

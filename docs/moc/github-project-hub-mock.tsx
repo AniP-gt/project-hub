@@ -98,15 +98,15 @@ const GitHubProjectsTUI = () => {
 
   const renderTableView = () => (
     <div className="font-mono text-sm overflow-auto">
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse border-2 border-gray-600">
         <thead>
           <tr className="bg-gray-800 text-blue-300">
-            <th className="border border-gray-700 px-3 py-2 text-left">ID</th>
-            <th className="border border-gray-700 px-3 py-2 text-left">Title</th>
-            <th className="border border-gray-700 px-3 py-2 text-left">Status</th>
-            <th className="border border-gray-700 px-3 py-2 text-left">Assignee</th>
-            <th className="border border-gray-700 px-3 py-2 text-left">Priority</th>
-            <th className="border border-gray-700 px-3 py-2 text-left">Updated</th>
+            <th className="border border-gray-600 px-3 py-2 text-left bg-gray-750 border-b-2 border-gray-500">ID</th>
+            <th className="border border-gray-600 px-3 py-2 text-left bg-gray-750 border-b-2 border-gray-500">Title</th>
+            <th className="border border-gray-600 px-3 py-2 text-left bg-gray-750 border-b-2 border-gray-500">Status</th>
+            <th className="border border-gray-600 px-3 py-2 text-left bg-gray-750 border-b-2 border-gray-500">Assignee</th>
+            <th className="border border-gray-600 px-3 py-2 text-left bg-gray-750 border-b-2 border-gray-500">Priority</th>
+            <th className="border border-gray-600 px-3 py-2 text-left bg-gray-750 border-b-2 border-gray-500">Updated</th>
           </tr>
         </thead>
         <tbody>
@@ -114,20 +114,20 @@ const GitHubProjectsTUI = () => {
             <tr
               key={idx}
               className={`${
-                idx === selectedCard.row ? 'bg-gray-700 text-yellow-400' : 'bg-gray-900 text-gray-300'
+                idx === selectedCard.row ? 'bg-gray-700 text-yellow-400' : idx % 2 === 0 ? 'bg-gray-900 text-gray-300' : 'bg-gray-850 text-gray-300'
               } hover:bg-gray-800 cursor-pointer`}
               onClick={() => setSelectedCard({ ...selectedCard, row: idx })}
             >
-              <td className="border border-gray-700 px-3 py-2 text-green-400">{row.id}</td>
-              <td className="border border-gray-700 px-3 py-2">{row.title}</td>
-              <td className="border border-gray-700 px-3 py-2 text-cyan-400">{row.status}</td>
-              <td className="border border-gray-700 px-3 py-2 text-purple-400">{row.assignee}</td>
-              <td className="border border-gray-700 px-3 py-2">
+              <td className="border border-gray-600 px-3 py-2 text-green-400 font-semibold">{row.id}</td>
+              <td className="border border-gray-600 px-3 py-2">{row.title}</td>
+              <td className="border border-gray-600 px-3 py-2 text-cyan-400">{row.status}</td>
+              <td className="border border-gray-600 px-3 py-2 text-purple-400">{row.assignee}</td>
+              <td className="border border-gray-600 px-3 py-2">
                 <span className={row.priority === 'High' ? 'text-red-400' : row.priority === 'Medium' ? 'text-yellow-400' : 'text-green-400'}>
                   {row.priority}
                 </span>
               </td>
-              <td className="border border-gray-700 px-3 py-2 text-gray-500">{row.updated}</td>
+              <td className="border border-gray-600 px-3 py-2 text-gray-500">{row.updated}</td>
             </tr>
           ))}
         </tbody>
