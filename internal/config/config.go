@@ -8,20 +8,28 @@ import (
 )
 
 const (
-	// AppName is the application name used in config directories.
-	AppName = "project-hub"
-	// ConfigFileName is the canonical JSON file name for projects configuration.
-	ConfigFileName = "projects-tui.json"
+	AppName        = "project-hub"
+	ConfigFileName = "project-hub.json"
 )
 
-// Config holds default settings for the projects-tui application.
 type Config struct {
-	// DefaultProjectID is the ID of the project to load on startup.
-	DefaultProjectID string `json:"defaultProjectID"`
-	// DefaultOwner is the GitHub owner to use for project queries.
-	DefaultOwner string `json:"defaultOwner"`
-	// DisableNotifications suppresses info-level notification messages in the UI.
-	DisableNotifications bool `json:"disableNotifications"`
+	DefaultProjectID     string `json:"defaultProjectID"`
+	DefaultOwner         string `json:"defaultOwner"`
+	DisableNotifications bool   `json:"disableNotifications"`
+}
+
+// ResolvePath returns the canonical config file path using XDG Base Directory spec.
+// Always uses ~/.config/project-hub/ regardless of OS.
+func ResolvePath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+	}
+
+	appConfigDir := filepath.Join(homeDir, ".config", AppName)
+	configPath := filepath.Join(appConfigDir, ConfigFileName)
+
+	return configPath, nil
 }
 
 // Load reads configuration from a JSON file.
@@ -30,11 +38,9 @@ type Config struct {
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// File not found is not an error - return empty config
 		if os.IsNotExist(err) {
 			return Config{}, nil
 		}
-		// Other errors (permissions, etc.) are reported
 		return Config{}, fmt.Errorf("failed to read config file: %w", err)
 	}
 
@@ -50,42 +56,19 @@ func Load(path string) (Config, error) {
 // Creates parent directories if they don't exist.
 // Returns a descriptive error if the operation fails.
 func Save(path string, cfg Config) error {
-	// Create parent directories if needed
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Marshal config to JSON with indentation for readability
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config to JSON: %w", err)
 	}
 
-	// Write to file
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
-}
-
-// ResolvePath returns the canonical config file path using os.UserConfigDir()
-// for cross-platform compatibility.
-//
-// Returns path like: <UserConfigDir>/project-hub/projects-tui.json
-// Example: ~/.config/project-hub/projects-tui.json (Linux)
-//
-//	~/Library/Application Support/project-hub/projects-tui.json (macOS)
-//	%APPDATA%\project-hub\projects-tui.json (Windows)
-func ResolvePath() (string, error) {
-	userConfigDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve user config directory: %w", err)
-	}
-
-	appConfigDir := filepath.Join(userConfigDir, AppName)
-	configPath := filepath.Join(appConfigDir, ConfigFileName)
-
-	return configPath, nil
 }

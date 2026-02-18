@@ -93,9 +93,9 @@ project-hub --project 12345 --iteration @current "Iteration 1" "Iteration 2"
 
 Config file path:
 
-- macOS: `~/Library/Application Support/project-hub/projects-tui.json`
-- Linux: `~/.config/project-hub/projects-tui.json`
-- Windows: `%APPDATA%\project-hub\projects-tui.json`
+- macOS: `~/Library/Application Support/project-hub/project-hub.json`
+- Linux: `~/.config/project-hub/project-hub.json`
+- Windows: `%APPDATA%\project-hub\project-hub.json`
 
 Example config:
 
@@ -113,7 +113,7 @@ Press `4` in the TUI to open the Settings panel. Here you can view and manage yo
 - **Default Project**: The default project ID saved in your config file
 - **Default Owner**: The default owner (org/user) saved in your config file
 
-Changes made in Settings are persisted to `projects-tui.json`. Note that **CLI overrides config**—if you pass `--project` or `--owner` on the command line, those values take precedence.
+Changes made in Settings are persisted to `project-hub.json`. Note that **CLI overrides config**—if you pass `--project` or `--owner` on the command line, those values take precedence.
 
 ### Configuration Errors
 

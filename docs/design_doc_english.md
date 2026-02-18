@@ -30,10 +30,10 @@
 
 ### 2.3. Iteration Filter CLI (Planned)
 
-- **Goal:** Allow `projects-tui` to launch with iteration-scoped data using a new `--iteration` flag that accepts multiple values (e.g., `current next previous`).
+- **Goal:** Allow `project-hub` to launch with iteration-scoped data using a new `--iteration` flag that accepts multiple values (e.g., `current next previous`).
 - **Accepted inputs:** Literal iteration titles (e.g., `Sprint 28`) and shorthand keywords with or without `@` prefixes (`current`, `@current`, `next`, etc.).
 - **Resolution flow:**
-  1. CLI parses the flag values in `cmd/projects-tui/main.go` and stores them in the initial `FilterState.Iterations` so the UI applies them consistently.
+  1. CLI parses the flag values in `cmd/project-hub/main.go` and stores them in the initial `FilterState.Iterations` so the UI applies them consistently.
   2. `internal/github/client.go` always fetches the full item list, but augments each item with iteration metadata (ID, title, start date, duration) extracted from the JSON payload.
   3. Keywords resolve locally by comparing `time.Now()` to the iteration window (`@current` matches items whose iteration is in progress, `@next` matches iterations with a start date in the future, `@previous` matches iterations that ended in the past).
   4. Literal values (e.g., `Sprint 12`) are matched case-insensitively against the iteration title or ID.
@@ -91,7 +91,7 @@ The UI consists of three sections:
 
 ### 5.3 Mock
 
-- `docs/moc/github-projects-tui-mock.tsx`
+- `docs/moc/github-project-hub-mock.tsx`
 - Although the mock is written in TSX, it will be implemented in Go.
 
 ---
@@ -121,6 +121,6 @@ The UI consists of three sections:
 ### 6.3. Startup Defaults (Project/Owner)
 
 - Users can open **Settings** (key `4`) and save default `project` and `owner` values.
-- Saved config path (Linux): `~/.config/project-hub/projects-tui.json`.
+- Saved config path (Linux): `~/.config/project-hub/project-hub.json`.
 - Precedence rule at startup: **CLI flags override saved config**.
 - If config is malformed, the app prints a warning and continues.
