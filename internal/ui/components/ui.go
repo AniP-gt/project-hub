@@ -28,6 +28,7 @@ var (
 	ColorCyan400   = lipgloss.Color("#22D3EE") // text-cyan-400
 	ColorPurple400 = lipgloss.Color("#C084FC") // text-purple-400
 	ColorAccent    = lipgloss.Color("#7c3aed")
+	ColorWhite     = lipgloss.Color("#FFFFFF")
 	ColorText      = lipgloss.Color("#e5e7eb")
 	ColorMuted     = lipgloss.Color("#9ca3af")
 	ColorSurface   = lipgloss.Color("#0f172a")
@@ -71,7 +72,7 @@ var (
 			Foreground(ColorGreen500)
 
 	FooterKeybindsStyle = lipgloss.NewStyle().
-				Foreground(ColorGray500)
+				Foreground(ColorWhite)
 
 	// Card Styles (Kanban & Roadmap)
 	CardBaseStyle = lipgloss.NewStyle().
