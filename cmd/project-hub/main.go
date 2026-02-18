@@ -83,9 +83,9 @@ func main() {
 	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, *ownerFlag, cfg)
 
 	// Resolve notification setting: CLI flag takes precedence over config
-	disableNotifications := cfg.DisableNotifications
+	suppressHints := cfg.SuppressHints
 	if *disableNotificationsFlag {
-		disableNotifications = true
+		suppressHints = true
 	}
 
 	// Resolve item limit: CLI flag takes precedence over config
@@ -127,10 +127,10 @@ func main() {
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},
 			{ID: "3", Title: "Roadmap draft", Status: "Review", Labels: []string{"roadmap"}},
 		},
-		View:                 state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
-		ItemLimit:            itemLimit,
-		DisableNotifications: disableNotifications,
-		ExcludeDone:          excludeDone,
+		View:          state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
+		ItemLimit:     itemLimit,
+		SuppressHints: suppressHints,
+		ExcludeDone:   excludeDone,
 	}
 	initial.View.Filter.Iterations = iterationFilters
 

@@ -47,7 +47,7 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 	ti.CharLimit = 500
 	roadmapVP := viewport.New(0, 0)
 	tableVP := viewport.New(0, 0)
-	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner, initial.DisableNotifications, initial.ItemLimit, initial.ExcludeDone)
+	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner, initial.SuppressHints, initial.ItemLimit, initial.ExcludeDone)
 	return App{
 		state:           initial,
 		github:          client,
@@ -337,14 +337,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
-		if !a.state.DisableNotifications {
+		if !a.state.SuppressHints {
 			notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 			a.state.Notifications = append(a.state.Notifications, notif)
 			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 		}
 	case DetailReadyMsg:
 		a.detailPanel = components.NewDetailPanelModel(m.Item, a.state.Width, a.state.Height)
-		if !a.state.DisableNotifications {
+		if !a.state.SuppressHints {
 			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc/q to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 			a.state.Notifications = append(a.state.Notifications, detailNotif)
 			cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
@@ -433,17 +433,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		configPath, err := config.ResolvePath()
 		if err == nil {
 			cfg := config.Config{
-				DefaultProjectID:     m.ProjectID,
-				DefaultOwner:         m.Owner,
-				DisableNotifications: m.DisableNotifications,
-				DefaultItemLimit:     m.ItemLimit,
-				DefaultExcludeDone:   m.ExcludeDone,
+				DefaultProjectID:   m.ProjectID,
+				DefaultOwner:       m.Owner,
+				SuppressHints:      m.SuppressHints,
+				DefaultItemLimit:   m.ItemLimit,
+				DefaultExcludeDone: m.ExcludeDone,
 			}
 			if saveErr := config.Save(configPath, cfg); saveErr == nil {
-				a.state.DisableNotifications = m.DisableNotifications
+				a.state.SuppressHints = m.SuppressHints
 				a.state.ItemLimit = m.ItemLimit
 				a.state.ExcludeDone = m.ExcludeDone
-				if !a.state.DisableNotifications {
+				if !a.state.SuppressHints {
 					notif := state.Notification{
 						Message:      "Settings saved successfully",
 						Level:        "info",
@@ -574,7 +574,7 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// exit sort mode
 		a.state.View.Mode = state.ModeNormal
 		// notify
-		if !a.state.DisableNotifications {
+		if !a.state.SuppressHints {
 			notif := state.Notification{Message: fmt.Sprintf("Sort: %s %s", a.state.View.TableSort.Field, func() string {
 				if a.state.View.TableSort.Asc {
 					return "↑"
@@ -641,7 +641,7 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if a.state.View.CurrentView == state.ViewTable {
 			a.state.View.Mode = state.ModeSort
 			// notify instructions
-			if !a.state.DisableNotifications {
+			if !a.state.SuppressHints {
 				notif := state.Notification{Message: "Sort mode: t=Title s=Status r=Repository l=Labels m=Milestone p=Priority n=Number c=CreatedAt u=UpdatedAt (esc to cancel)", Level: "info", At: time.Now(), DismissAfter: 5 * time.Second}
 				a.state.Notifications = append(a.state.Notifications, notif)
 				return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
@@ -1070,7 +1070,7 @@ func (a App) handleEnterStatusSelectMode(msg EnterStatusSelectModeMsg) (tea.Mode
 	a.state.View.Mode = state.ModeStatusSelect
 
 	// Optionally provide a notification to the user
-	if !a.state.DisableNotifications {
+	if !a.state.SuppressHints {
 		notif := state.Notification{
 			Message:      "Status select mode: Use arrow keys to select, enter to confirm, esc to cancel",
 			Level:        "info",
@@ -1133,7 +1133,7 @@ func (a App) handleEnterLabelSelectMode(msg EnterLabelSelectModeMsg) (tea.Model,
 	a.fieldSelector = components.NewFieldSelectorModel(focusedItem, labelField, a.state.Width, a.state.Height)
 	a.state.View.Mode = state.ModeLabelSelect
 
-	if !a.state.DisableNotifications {
+	if !a.state.SuppressHints {
 		notif := state.Notification{
 			Message:      "Label select mode: Use arrow keys to select, enter to confirm, esc to cancel",
 			Level:        "info",
@@ -1171,7 +1171,7 @@ func (a App) handleEnterMilestoneSelectMode(msg EnterMilestoneSelectModeMsg) (te
 	a.fieldSelector = components.NewFieldSelectorModel(focusedItem, milestoneField, a.state.Width, a.state.Height)
 	a.state.View.Mode = state.ModeMilestoneSelect
 
-	if !a.state.DisableNotifications {
+	if !a.state.SuppressHints {
 		notif := state.Notification{
 			Message:      "Milestone select mode: Use arrow keys to select, enter to confirm, esc to cancel",
 			Level:        "info",
@@ -1209,7 +1209,7 @@ func (a App) handleEnterPrioritySelectMode(msg EnterPrioritySelectModeMsg) (tea.
 	a.fieldSelector = components.NewFieldSelectorModel(focusedItem, priorityField, a.state.Width, a.state.Height)
 	a.state.View.Mode = state.ModePrioritySelect
 
-	if !a.state.DisableNotifications {
+	if !a.state.SuppressHints {
 		notif := state.Notification{
 			Message:      "Priority select mode: Use arrow keys to select, enter to confirm, esc to cancel",
 			Level:        "info",
@@ -1257,7 +1257,7 @@ func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
 
 	a.detailPanel = components.NewDetailPanelModel(focusedItem, a.state.Width, a.state.Height)
 	a.state.View.Mode = state.ModeDetail
-	if !a.state.DisableNotifications {
+	if !a.state.SuppressHints {
 		detailNotif := state.Notification{
 			Message:      "Detail mode: j/k to scroll, esc/q to close",
 			Level:        "info",

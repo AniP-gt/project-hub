@@ -155,13 +155,13 @@ type Column struct {
 
 // Model is the root state for Bubbletea Update/View.
 type Model struct {
-	Project              Project
-	Items                []Item
-	View                 ViewContext
-	Notifications        []Notification
-	Width                int
-	Height               int
-	ItemLimit            int
-	DisableNotifications bool
-	ExcludeDone          bool
+	Project       Project
+	Items         []Item
+	View          ViewContext
+	Notifications []Notification
+	Width         int
+	Height        int
+	ItemLimit     int
+	SuppressHints bool
+	ExcludeDone   bool
 }

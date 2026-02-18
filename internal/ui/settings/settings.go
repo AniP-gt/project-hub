@@ -10,11 +10,11 @@ import (
 
 // SaveMsg is sent when user confirms settings save
 type SaveMsg struct {
-	ProjectID            string
-	Owner                string
-	DisableNotifications bool
-	ItemLimit            int
-	ExcludeDone          bool
+	ProjectID     string
+	Owner         string
+	SuppressHints bool
+	ItemLimit     int
+	ExcludeDone   bool
 }
 
 // CancelMsg is sent when user cancels settings
@@ -49,9 +49,9 @@ func New(projectID, owner string, disableNotifications bool, itemLimit int, excl
 	oi.CharLimit = 50
 	oi.Width = 50
 
-	// Item limit input
+	// Item limit input (GitHub GraphQL API max: 100)
 	li := textinput.New()
-	li.Placeholder = "Item limit (e.g., 100)"
+	li.Placeholder = "Item limit (max 100)"
 	li.SetValue(fmt.Sprintf("%d", itemLimit))
 	li.CharLimit = 10
 	li.Width = 50
@@ -67,9 +67,9 @@ func New(projectID, owner string, disableNotifications bool, itemLimit int, excl
 	ed.CharLimit = 1
 	ed.Width = 50
 
-	// Disable notifications input (toggle)
+	// Suppress hints (y/n toggle)
 	dn := textinput.New()
-	dn.Placeholder = "Disable notifications (y/n)"
+	dn.Placeholder = "Suppress hints (y/n)"
 	if disableNotifications {
 		dn.SetValue("y")
 	} else {
@@ -143,11 +143,11 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 			disableNotifications := m.disableNotificationsInput.Value() == "y"
 			return m, func() tea.Msg {
 				return SaveMsg{
-					ProjectID:            m.projectInput.Value(),
-					Owner:                m.ownerInput.Value(),
-					ItemLimit:            itemLimit,
-					ExcludeDone:          excludeDone,
-					DisableNotifications: disableNotifications,
+					ProjectID:     m.projectInput.Value(),
+					Owner:         m.ownerInput.Value(),
+					ItemLimit:     itemLimit,
+					ExcludeDone:   excludeDone,
+					SuppressHints: disableNotifications,
 				}
 			}
 
@@ -222,7 +222,7 @@ func (m SettingsModel) View() string {
 	ownerLabel := labels[1] + "Owner:"
 	itemLimitLabel := labels[2] + "Item Limit:"
 	excludeDoneLabel := labels[3] + "Exclude Done:"
-	disableNotificationsLabel := labels[4] + "Disable Notifications:"
+	suppressHintsLabel := labels[4] + "Suppress Hints:"
 
 	helpText := "tab: switch field • space: toggle y/n • enter: save • esc: cancel"
 
@@ -242,7 +242,7 @@ func (m SettingsModel) View() string {
 		excludeDoneLabel,
 		m.excludeDoneInput.View(),
 		"",
-		disableNotificationsLabel,
+		suppressHintsLabel,
 		m.disableNotificationsInput.View(),
 		"",
 		helpStyle.Render(helpText),
@@ -264,7 +264,7 @@ func (m *SettingsModel) SetSize(width, height int) {
 }
 
 // GetValues returns current input values
-func (m SettingsModel) GetValues() (projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool) {
+func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool, itemLimit int, excludeDone bool) {
 	itemLimit = 100
 	if val := m.itemLimitInput.Value(); val != "" {
 		if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
@@ -272,6 +272,6 @@ func (m SettingsModel) GetValues() (projectID, owner string, disableNotification
 		}
 	}
 	excludeDone = m.excludeDoneInput.Value() == "y"
-	disableNotifications = m.disableNotificationsInput.Value() == "y"
-	return m.projectInput.Value(), m.ownerInput.Value(), disableNotifications, itemLimit, excludeDone
+	suppressHints = m.disableNotificationsInput.Value() == "y"
+	return m.projectInput.Value(), m.ownerInput.Value(), suppressHints, itemLimit, excludeDone
 }
