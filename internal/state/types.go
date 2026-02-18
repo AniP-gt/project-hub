@@ -8,13 +8,16 @@ import (
 type ViewMode string
 
 const (
-	ModeNormal       ViewMode = "normal"
-	ModeFiltering    ViewMode = "filtering"
-	ModeEdit         ViewMode = "edit"
-	ModeSort         ViewMode = "sort"
-	ModeStatusSelect ViewMode = "statusSelect"
-	ModeSettings     ViewMode = "settings"
-	ModeDetail       ViewMode = "detail"
+	ModeNormal          ViewMode = "normal"
+	ModeFiltering       ViewMode = "filtering"
+	ModeEdit            ViewMode = "edit"
+	ModeSort            ViewMode = "sort"
+	ModeStatusSelect    ViewMode = "statusSelect"
+	ModeLabelSelect     ViewMode = "labelSelect"
+	ModeMilestoneSelect ViewMode = "milestoneSelect"
+	ModePrioritySelect  ViewMode = "prioritySelect"
+	ModeSettings        ViewMode = "settings"
+	ModeDetail          ViewMode = "detail"
 )
 
 // ViewType represents the active view.
@@ -102,6 +105,18 @@ type Option struct {
 	Name string
 }
 
+// Column indices for table view
+const (
+	ColumnTitle      = 0
+	ColumnStatus     = 1
+	ColumnRepository = 2
+	ColumnLabels     = 3
+	ColumnMilestone  = 4
+	ColumnPriority   = 5
+	ColumnAssignees  = 6
+	ColumnCount      = 7
+)
+
 // ViewContext holds transient UI state.
 type ViewContext struct {
 	CurrentView        ViewType
@@ -148,4 +163,5 @@ type Model struct {
 	Height               int
 	ItemLimit            int
 	DisableNotifications bool
+	ExcludeDone          bool
 }

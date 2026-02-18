@@ -47,7 +47,7 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 	ti.CharLimit = 500
 	roadmapVP := viewport.New(0, 0)
 	tableVP := viewport.New(0, 0)
-	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner)
+	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner, initial.DisableNotifications, initial.ItemLimit, initial.ExcludeDone)
 	return App{
 		state:           initial,
 		github:          client,
@@ -282,6 +282,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FetchProjectMsg:
 		a.state.Project = m.Project
 		a.state.Items = m.Items
+		if a.state.ExcludeDone {
+			var filtered []state.Item
+			for _, item := range a.state.Items {
+				if item.Status != "Done" {
+					filtered = append(filtered, item)
+				}
+			}
+			a.state.Items = filtered
+		}
 		if len(a.state.Items) > 0 {
 			a.state.View.FocusedItemID = a.state.Items[0].ID
 		}
@@ -421,14 +430,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a = model.(App)
 		cmds = append(cmds, cmd)
 	case settings.SaveMsg:
-		// Save settings to config
 		configPath, err := config.ResolvePath()
 		if err == nil {
 			cfg := config.Config{
-				DefaultProjectID: m.ProjectID,
-				DefaultOwner:     m.Owner,
+				DefaultProjectID:     m.ProjectID,
+				DefaultOwner:         m.Owner,
+				DisableNotifications: m.DisableNotifications,
+				DefaultItemLimit:     m.ItemLimit,
+				DefaultExcludeDone:   m.ExcludeDone,
 			}
 			if saveErr := config.Save(configPath, cfg); saveErr == nil {
+				a.state.DisableNotifications = m.DisableNotifications
+				a.state.ItemLimit = m.ItemLimit
+				a.state.ExcludeDone = m.ExcludeDone
 				if !a.state.DisableNotifications {
 					notif := state.Notification{
 						Message:      "Settings saved successfully",

@@ -16,6 +16,8 @@ type Config struct {
 	DefaultProjectID     string `json:"defaultProjectID"`
 	DefaultOwner         string `json:"defaultOwner"`
 	DisableNotifications bool   `json:"disableNotifications"`
+	DefaultItemLimit     int    `json:"defaultItemLimit"`
+	DefaultExcludeDone   bool   `json:"defaultExcludeDone"`
 }
 
 // ResolvePath returns the canonical config file path using XDG Base Directory spec.

@@ -62,6 +62,7 @@ func main() {
 	ghPathFlag := flag.String("gh-path", "", "Path to the gh CLI executable (default: \"gh\")")
 	itemLimitFlag := flag.Int("item-limit", 100, "Maximum number of items to fetch (default: 100)")
 	disableNotificationsFlag := flag.Bool("disable-notifications", false, "Suppress info-level notifications in the UI")
+	excludeDoneFlag := flag.Bool("exclude-done", false, "Exclude items with 'Done' status")
 	var iterationFlag multiValueFlag
 	flag.Var(&iterationFlag, "iteration", "Iteration filters (repeat flag or pass values after it)")
 	flag.Parse()
@@ -85,6 +86,20 @@ func main() {
 	disableNotifications := cfg.DisableNotifications
 	if *disableNotificationsFlag {
 		disableNotifications = true
+	}
+
+	// Resolve item limit: CLI flag takes precedence over config
+	itemLimit := cfg.DefaultItemLimit
+	if *itemLimitFlag != 100 {
+		itemLimit = *itemLimitFlag
+	} else if itemLimit == 0 {
+		itemLimit = 100
+	}
+
+	// Resolve exclude done: CLI flag takes precedence over config
+	excludeDone := cfg.DefaultExcludeDone
+	if *excludeDoneFlag {
+		excludeDone = true
 	}
 
 	// Check that project is now satisfied (either from CLI or config)
@@ -113,13 +128,14 @@ func main() {
 			{ID: "3", Title: "Roadmap draft", Status: "Review", Labels: []string{"roadmap"}},
 		},
 		View:                 state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
-		ItemLimit:            *itemLimitFlag,
+		ItemLimit:            itemLimit,
 		DisableNotifications: disableNotifications,
+		ExcludeDone:          excludeDone,
 	}
 	initial.View.Filter.Iterations = iterationFilters
 
 	// Try to load real project data via gh; fallback to sample on error.
-	if proj, items, err := client.FetchProject(context.Background(), projID, owner, *itemLimitFlag); err == nil {
+	if proj, items, err := client.FetchProject(context.Background(), projID, owner, itemLimit); err == nil {
 		if proj.Name != "" {
 			initial.Project = proj
 		}
@@ -134,7 +150,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, "warning: gh fetch failed, using sample data:", err)
 	}
 
-	p := tea.NewProgram(app.New(initial, client, *itemLimitFlag), tea.WithAltScreen())
+	if excludeDone {
+		var filtered []state.Item
+		for _, item := range initial.Items {
+			if item.Status != "Done" {
+				filtered = append(filtered, item)
+			}
+		}
+		initial.Items = filtered
+	}
+
+	p := tea.NewProgram(app.New(initial, client, itemLimit), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "failed to start program:", err)
 		os.Exit(1)

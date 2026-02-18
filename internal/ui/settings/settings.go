@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -8,8 +10,11 @@ import (
 
 // SaveMsg is sent when user confirms settings save
 type SaveMsg struct {
-	ProjectID string
-	Owner     string
+	ProjectID            string
+	Owner                string
+	DisableNotifications bool
+	ItemLimit            int
+	ExcludeDone          bool
 }
 
 // CancelMsg is sent when user cancels settings
@@ -17,15 +22,18 @@ type CancelMsg struct{}
 
 // SettingsModel manages the settings form UI
 type SettingsModel struct {
-	projectInput textinput.Model
-	ownerInput   textinput.Model
-	focusedField int // 0=project, 1=owner
-	width        int
-	height       int
+	projectInput              textinput.Model
+	ownerInput                textinput.Model
+	itemLimitInput            textinput.Model
+	excludeDoneInput          textinput.Model
+	disableNotificationsInput textinput.Model
+	focusedField              int // 0=project, 1=owner, 2=itemLimit, 3=excludeDone, 4=disableNotifications
+	width                     int
+	height                    int
 }
 
 // New creates a new SettingsModel with initial values
-func New(projectID, owner string) SettingsModel {
+func New(projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool) SettingsModel {
 	// Project input
 	pi := textinput.New()
 	pi.Placeholder = "Project ID (e.g., 9 or PVT_xxx)"
@@ -41,10 +49,42 @@ func New(projectID, owner string) SettingsModel {
 	oi.CharLimit = 50
 	oi.Width = 50
 
+	// Item limit input
+	li := textinput.New()
+	li.Placeholder = "Item limit (e.g., 100)"
+	li.SetValue(fmt.Sprintf("%d", itemLimit))
+	li.CharLimit = 10
+	li.Width = 50
+
+	// Exclude done input (toggle)
+	ed := textinput.New()
+	ed.Placeholder = "Exclude done items (y/n)"
+	if excludeDone {
+		ed.SetValue("y")
+	} else {
+		ed.SetValue("n")
+	}
+	ed.CharLimit = 1
+	ed.Width = 50
+
+	// Disable notifications input (toggle)
+	dn := textinput.New()
+	dn.Placeholder = "Disable notifications (y/n)"
+	if disableNotifications {
+		dn.SetValue("y")
+	} else {
+		dn.SetValue("n")
+	}
+	dn.CharLimit = 1
+	dn.Width = 50
+
 	return SettingsModel{
-		projectInput: pi,
-		ownerInput:   oi,
-		focusedField: 0,
+		projectInput:              pi,
+		ownerInput:                oi,
+		itemLimitInput:            li,
+		excludeDoneInput:          ed,
+		disableNotificationsInput: dn,
+		focusedField:              0,
 	}
 }
 
@@ -65,82 +105,126 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
-			// Switch focus to next field
-			m.focusedField = (m.focusedField + 1) % 2
-			if m.focusedField == 0 {
-				m.projectInput.Focus()
-				m.ownerInput.Blur()
-			} else {
-				m.projectInput.Blur()
-				m.ownerInput.Focus()
-			}
+			m.focusedField = (m.focusedField + 1) % 5
+			m.focusField(m.focusedField)
 			return m, nil
 
 		case tea.KeyShiftTab:
-			// Switch focus to previous field
-			m.focusedField = (m.focusedField - 1 + 2) % 2
-			if m.focusedField == 0 {
-				m.projectInput.Focus()
-				m.ownerInput.Blur()
-			} else {
-				m.projectInput.Blur()
-				m.ownerInput.Focus()
+			m.focusedField = (m.focusedField - 1 + 5) % 5
+			m.focusField(m.focusedField)
+			return m, nil
+
+		case tea.KeySpace:
+			if m.focusedField == 3 {
+				current := m.excludeDoneInput.Value()
+				if current == "y" {
+					m.excludeDoneInput.SetValue("n")
+				} else {
+					m.excludeDoneInput.SetValue("y")
+				}
+			} else if m.focusedField == 4 {
+				current := m.disableNotificationsInput.Value()
+				if current == "y" {
+					m.disableNotificationsInput.SetValue("n")
+				} else {
+					m.disableNotificationsInput.SetValue("y")
+				}
 			}
 			return m, nil
 
 		case tea.KeyEnter:
-			// Save settings
+			itemLimit := 100
+			if val := m.itemLimitInput.Value(); val != "" {
+				if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
+					itemLimit = 100
+				}
+			}
+			excludeDone := m.excludeDoneInput.Value() == "y"
+			disableNotifications := m.disableNotificationsInput.Value() == "y"
 			return m, func() tea.Msg {
 				return SaveMsg{
-					ProjectID: m.projectInput.Value(),
-					Owner:     m.ownerInput.Value(),
+					ProjectID:            m.projectInput.Value(),
+					Owner:                m.ownerInput.Value(),
+					ItemLimit:            itemLimit,
+					ExcludeDone:          excludeDone,
+					DisableNotifications: disableNotifications,
 				}
 			}
 
 		case tea.KeyEscape:
-			// Cancel settings
 			return m, func() tea.Msg {
 				return CancelMsg{}
 			}
 		}
 	}
 
-	// Update focused input
-	if m.focusedField == 0 {
-		m.projectInput, _ = m.projectInput.Update(msg)
-	} else {
-		m.ownerInput, _ = m.ownerInput.Update(msg)
-	}
-
+	m.updateFocusedInput(msg)
 	return m, tea.Batch(cmds...)
+}
+
+func (m *SettingsModel) focusField(idx int) {
+	m.projectInput.Blur()
+	m.ownerInput.Blur()
+	m.itemLimitInput.Blur()
+	m.excludeDoneInput.Blur()
+	m.disableNotificationsInput.Blur()
+
+	switch idx {
+	case 0:
+		m.projectInput.Focus()
+	case 1:
+		m.ownerInput.Focus()
+	case 2:
+		m.itemLimitInput.Focus()
+	case 3:
+		m.excludeDoneInput.Focus()
+	case 4:
+		m.disableNotificationsInput.Focus()
+	}
+}
+
+func (m *SettingsModel) updateFocusedInput(msg tea.Msg) {
+	switch m.focusedField {
+	case 0:
+		m.projectInput, _ = m.projectInput.Update(msg)
+	case 1:
+		m.ownerInput, _ = m.ownerInput.Update(msg)
+	case 2:
+		m.itemLimitInput, _ = m.itemLimitInput.Update(msg)
+	case 3:
+		m.excludeDoneInput, _ = m.excludeDoneInput.Update(msg)
+	case 4:
+		m.disableNotificationsInput, _ = m.disableNotificationsInput.Update(msg)
+	}
 }
 
 // View renders the settings form
 func (m SettingsModel) View() string {
-	// Title
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#7c3aed")).
 		MarginBottom(1)
 
-	// Label style
 	labelStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#9ca3af"))
 
-	// Help text
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6b7280")).
 		MarginTop(1)
 
-	// Build form
-	var projectLabel, ownerLabel string
-	if m.focusedField == 0 {
-		projectLabel = labelStyle.Foreground(lipgloss.Color("#facc15")).Render("▸ Project ID:")
-		ownerLabel = labelStyle.Render("  Owner:")
-	} else {
-		projectLabel = labelStyle.Render("  Project ID:")
-		ownerLabel = labelStyle.Foreground(lipgloss.Color("#facc15")).Render("▸ Owner:")
+	labels := make([]string, 5)
+	for i := range labels {
+		labels[i] = labelStyle.Render("  ")
 	}
+	labels[m.focusedField] = labelStyle.Foreground(lipgloss.Color("#facc15")).Render("▸ ")
+
+	projectLabel := labels[0] + "Project ID:"
+	ownerLabel := labels[1] + "Owner:"
+	itemLimitLabel := labels[2] + "Item Limit:"
+	excludeDoneLabel := labels[3] + "Exclude Done:"
+	disableNotificationsLabel := labels[4] + "Disable Notifications:"
+
+	helpText := "tab: switch field • space: toggle y/n • enter: save • esc: cancel"
 
 	form := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -152,10 +236,18 @@ func (m SettingsModel) View() string {
 		ownerLabel,
 		m.ownerInput.View(),
 		"",
-		helpStyle.Render("tab: switch field • enter: save • esc: cancel"),
+		itemLimitLabel,
+		m.itemLimitInput.View(),
+		"",
+		excludeDoneLabel,
+		m.excludeDoneInput.View(),
+		"",
+		disableNotificationsLabel,
+		m.disableNotificationsInput.View(),
+		"",
+		helpStyle.Render(helpText),
 	)
 
-	// Center the form
 	return lipgloss.Place(
 		m.width,
 		m.height,
@@ -172,6 +264,14 @@ func (m *SettingsModel) SetSize(width, height int) {
 }
 
 // GetValues returns current input values
-func (m SettingsModel) GetValues() (projectID, owner string) {
-	return m.projectInput.Value(), m.ownerInput.Value()
+func (m SettingsModel) GetValues() (projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool) {
+	itemLimit = 100
+	if val := m.itemLimitInput.Value(); val != "" {
+		if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
+			itemLimit = 100
+		}
+	}
+	excludeDone = m.excludeDoneInput.Value() == "y"
+	disableNotifications = m.disableNotificationsInput.Value() == "y"
+	return m.projectInput.Value(), m.ownerInput.Value(), disableNotifications, itemLimit, excludeDone
 }

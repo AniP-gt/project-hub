@@ -7,7 +7,7 @@ import (
 
 // TestRenderSettingsForm verifies that View() contains required form labels
 func TestRenderSettingsForm(t *testing.T) {
-	m := New("12345", "test-owner")
+	m := New("12345", "test-owner", false, 100, false)
 	m.SetSize(80, 24)
 
 	output := m.View()
@@ -25,13 +25,13 @@ func TestRenderSettingsForm(t *testing.T) {
 
 // TestRenderValidationHint verifies that View() contains help text with keyboard instructions
 func TestRenderValidationHint(t *testing.T) {
-	m := New("", "")
+	m := New("", "", false, 100, false)
 	m.SetSize(80, 24)
 
 	output := m.View()
 
 	// Verify help text is present
-	helpText := "tab: switch field • enter: save • esc: cancel"
+	helpText := "tab: switch field • space: toggle y/n • enter: save • esc: cancel"
 	if !strings.Contains(output, helpText) {
 		t.Errorf("View() output does not contain help text '%s'\nGot:\n%s", helpText, output)
 	}
