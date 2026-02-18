@@ -13,7 +13,6 @@ import (
 var DetailPanelStyle = lipgloss.NewStyle().
 	Border(lipgloss.RoundedBorder()).
 	BorderForeground(ColorGray700).
-	Background(ColorGray900).
 	Foreground(ColorGray200)
 
 var DetailTitleStyle = lipgloss.NewStyle().
