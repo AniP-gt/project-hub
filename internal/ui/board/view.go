@@ -566,9 +566,8 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 			if priority == "" {
 				priority = inferPriorityFromLabels(item.Labels)
 			}
-			if priority == "" {
-				priority = "Medium"
-			}
+			// Don't hardcode default priority - leave empty if no priority is set
+			// GitHub Projects may have custom priority names beyond High/Medium/Low
 			card := state.Card{
 				ID:       item.ID,
 				Title:    item.Title,
