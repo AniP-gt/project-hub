@@ -125,7 +125,7 @@ func main() {
 		Items: []state.Item{
 			{ID: "1", Title: "Design board", Status: "Backlog", Labels: []string{"design"}},
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},
-			{ID: "3", Title: "Roadmap draft", Status: "Review", Labels: []string{"roadmap"}},
+			{ID: "3", Title: "Add filtering", Status: "Review", Labels: []string{"feature"}},
 		},
 		View:          state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
 		ItemLimit:     itemLimit,

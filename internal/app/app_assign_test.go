@@ -19,15 +19,21 @@ func (n *noopClient) FetchItems(ctx context.Context, projectID string, owner str
 func (n *noopClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
 	return state.Item{}, nil
 }
+func (n *noopClient) UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error) {
+	return state.Item{}, nil
+}
+func (n *noopClient) UpdateLabels(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, labels []string) (state.Item, error) {
+	return state.Item{}, nil
+}
+func (n *noopClient) UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error) {
+	return state.Item{}, nil
+}
 func (n *noopClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error) {
 	// Return an item with the assignees populated, simulate partial update.
 	return state.Item{ID: itemID, Assignees: userLogins}, nil
 }
 func (n *noopClient) UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error) {
 	return item, nil
-}
-func (n *noopClient) FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error) {
-	return nil, nil, nil
 }
 func (n *noopClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
 	return "", nil

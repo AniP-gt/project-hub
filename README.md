@@ -108,7 +108,7 @@ Example config:
 
 ## Settings
 
-Press `4` in the TUI to open the Settings panel. Here you can view and manage your defaults:
+Press `3` in the TUI to open the Settings panel. Here you can view and manage your defaults:
 
 - **Default Project**: The default project ID saved in your config file
 - **Default Owner**: The default owner (org/user) saved in your config file

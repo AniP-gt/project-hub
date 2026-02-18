@@ -7,7 +7,7 @@ import (
 	"project-hub/internal/state"
 )
 
-// TestRenderViewTabsIncludesSettings verifies that ViewTabs output includes "[4:Settings]"
+// TestRenderViewTabsIncludesSettings verifies that ViewTabs output includes "[3:Settings]"
 func TestRenderViewTabsIncludesSettings(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -17,22 +17,17 @@ func TestRenderViewTabsIncludesSettings(t *testing.T) {
 		{
 			name:        "Board view shows Settings tab",
 			currentView: state.ViewBoard,
-			want:        "[4:Settings]",
+			want:        "[3:Settings]",
 		},
 		{
 			name:        "Table view shows Settings tab",
 			currentView: state.ViewTable,
-			want:        "[4:Settings]",
-		},
-		{
-			name:        "Roadmap view shows Settings tab",
-			currentView: state.ViewRoadmap,
-			want:        "[4:Settings]",
+			want:        "[3:Settings]",
 		},
 		{
 			name:        "Settings view shows Settings tab",
 			currentView: state.ViewSettings,
-			want:        "[4:Settings]",
+			want:        "[3:Settings]",
 		},
 	}
 
@@ -50,12 +45,8 @@ func TestRenderViewTabsIncludesSettings(t *testing.T) {
 func TestRenderFooterKeyHints(t *testing.T) {
 	output := RenderFooter("normal", "board", 80, "")
 
-	// Check for view switch hint (either 1-4 or individual hints)
-	hasViewSwitch := strings.Contains(output, "1-4") ||
-		strings.Contains(output, "[1:") ||
-		strings.Contains(output, "[4:")
-
-	if !hasViewSwitch {
+	// Check for view switch hint (1-3 for 3 views)
+	if !strings.Contains(output, "1-3") {
 		t.Errorf("RenderFooter does not contain view switch hint\nGot: %s", output)
 	}
 }

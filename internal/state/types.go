@@ -26,7 +26,6 @@ type ViewType string
 const (
 	ViewBoard    ViewType = "board"
 	ViewTable    ViewType = "table"
-	ViewRoadmap  ViewType = "roadmap"
 	ViewSettings ViewType = "settings"
 )
 
@@ -45,7 +44,7 @@ type TableSort struct {
 	Asc   bool
 }
 
-// Timeline represents an iteration or timebox for roadmap view.
+// Timeline represents an iteration or timebox.
 type Timeline struct {
 	ID       string
 	Name     string

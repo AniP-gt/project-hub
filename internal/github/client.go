@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -31,7 +30,6 @@ type Client interface {
 	UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error)
 	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error)
 	UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error)
-	FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error)
 	FetchIssueDetail(ctx context.Context, repo string, number int) (string, error)
 }
 
@@ -374,12 +372,6 @@ func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, owner stri
 	}
 
 	return updatedItem, nil
-}
-
-func (c *CLIClient) FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error) {
-	_ = projectID
-	_ = owner
-	return nil, nil, errors.New("FetchRoadmap not implemented yet")
 }
 
 func (c *CLIClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {

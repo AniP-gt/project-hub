@@ -22,16 +22,24 @@ func (m *mockClient) UpdateStatus(ctx context.Context, projectID string, owner s
 	return state.Item{}, nil
 }
 
+func (m *mockClient) UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateLabels(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, labels []string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
 func (m *mockClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error) {
 	return state.Item{}, nil
 }
 
 func (m *mockClient) UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error) {
 	return state.Item{}, nil
-}
-
-func (m *mockClient) FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error) {
-	return nil, nil, nil
 }
 
 func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {

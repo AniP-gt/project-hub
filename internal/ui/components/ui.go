@@ -72,7 +72,7 @@ var (
 	FooterKeybindsStyle = lipgloss.NewStyle().
 				Foreground(ColorWhite)
 
-	// Card Styles (Kanban & Roadmap)
+	// Card Styles (Kanban Board)
 	CardBaseStyle = lipgloss.NewStyle().
 			Background(ColorGray800).
 			Border(lipgloss.NormalBorder(), true, true, true, true).
@@ -161,45 +161,6 @@ var (
 
 	TableCellUpdatedStyle = lipgloss.NewStyle().
 				Foreground(ColorGray500)
-
-	// Roadmap Styles
-	RoadmapTimelineStyle = lipgloss.NewStyle().
-				Background(ColorGray800).
-				Foreground(ColorBlue300).
-				Padding(1, 2). // px-4 py-2
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700)
-
-	RoadmapItemBaseStyle = lipgloss.NewStyle().
-				Background(ColorGray800).
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorGray700).
-				Padding(1, 2). // px-4 py-3
-				Foreground(ColorGray200)
-
-	RoadmapItemSelectedStyle = RoadmapItemBaseStyle.Copy().
-					BorderForeground(ColorYellow400).
-					Background(ColorGray700)
-
-	RoadmapItemHoverStyle = RoadmapItemBaseStyle.Copy(). // Simulated by selection
-				BorderForeground(ColorGray500)
-
-	RoadmapItemSprintStyle = lipgloss.NewStyle().
-				Foreground(ColorCyan400)
-
-	RoadmapProgressBarStyle = lipgloss.NewStyle().
-				Foreground(ColorGreen400)
-
-	RoadmapProgressPercentStyle = lipgloss.NewStyle().
-					Foreground(ColorYellow400)
-
-	RoadmapOverviewHeaderStyle = lipgloss.NewStyle().
-					Foreground(ColorGray400).
-					MarginBottom(1)
-
-	RoadmapOverviewSprintNameStyle = lipgloss.NewStyle().
-					Foreground(ColorCyan400).
-					Width(10) // w-24 (approx 10 chars)
 )
 
 var (
@@ -285,27 +246,24 @@ func RenderHeader(project state.Project, view state.ViewContext, width int) stri
 func renderViewTabs(currentView state.ViewType) string {
 	boardTab := HeaderViewUnselectedStyle.Render("[1:Board]")
 	tableTab := HeaderViewUnselectedStyle.Render("[2:Table]")
-	roadmapTab := HeaderViewUnselectedStyle.Render("[3:Roadmap]")
-	settingsTab := HeaderViewUnselectedStyle.Render("[4:Settings]")
+	settingsTab := HeaderViewUnselectedStyle.Render("[3:Settings]")
 
 	switch currentView {
 	case state.ViewBoard:
 		boardTab = HeaderViewSelectedStyle.Render("[1:Board]")
 	case state.ViewTable:
 		tableTab = HeaderViewSelectedStyle.Render("[2:Table]")
-	case state.ViewRoadmap:
-		roadmapTab = HeaderViewSelectedStyle.Render("[3:Roadmap]")
 	case state.ViewSettings:
-		settingsTab = HeaderViewSelectedStyle.Render("[4:Settings]")
+		settingsTab = HeaderViewSelectedStyle.Render("[3:Settings]")
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, boardTab, tableTab, roadmapTab, settingsTab)
+	return lipgloss.JoinHorizontal(lipgloss.Top, boardTab, tableTab, settingsTab)
 }
 
 // RenderFooter shows key hints and mode status.
 func RenderFooter(mode, view string, width int, editTitle string) string {
-	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-4:ビュー切替 q:終了
-	keybinds := FooterKeybindsStyle.Render("j/k:move i:edit /:filter a:assign o:detail 1-4:view q:quit")
+	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
+	keybinds := FooterKeybindsStyle.Render("j/k:move i:edit /:filter a:assign o:detail 1-3:view q:quit")
 	var modeLabel string
 	modeStyle := FooterModeStyle
 	switch strings.ToLower(mode) {

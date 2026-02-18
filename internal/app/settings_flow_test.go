@@ -22,7 +22,7 @@ func TestSwitchToSettingsView(t *testing.T) {
 	}
 
 	a := New(initialState, &mockClient{}, 100)
-	updated, _ := a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'4'}})
+	updated, _ := a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}})
 	appModel := updated.(App)
 
 	if appModel.state.View.CurrentView != state.ViewSettings {

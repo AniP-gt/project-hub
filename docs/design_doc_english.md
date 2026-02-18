@@ -5,7 +5,7 @@
 | Item             | Details                                                                                                                                                                                                                                      |
 | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Project Name** | GitHub Projects TUI Management Tool                                                                                                                                                                                                          |
-| **Purpose**      | A TUI (Text-based User Interface) application for operating GitHub Projects (Board, Table, Roadmap) directly in the terminal. It eliminates mouse operations and enables **fast, efficient project management** with Vim-style key bindings. |
+| **Purpose**      | A TUI (Text-based User Interface) application for operating GitHub Projects (Board, Table) directly in the terminal. It eliminates mouse operations and enables **fast, efficient project management** with Vim-style key bindings. |
 | **Target Users** | Developers, engineers, and product managers who use GitHub Projects.                                                                                                                                                                         |
 
 ---
@@ -14,10 +14,9 @@
 
 ### 2.1. Required Features (MVP: Minimum Viable Product)
 
-1. **Multi-view support:** The following three views should be supported and switchable via keyboard:
+1. **Multi-view support:** The following two views should be supported and switchable via keyboard:
    - **Board View**
    - **Table View**
-   - **Roadmap View**
 
 2. **Vim-style operation:** All operations are controlled using keyboard shortcuts following Vim conventions such as `j`, `k`, `h`, `l`.
 3. **Fast filtering:** Quickly filter boards and tables by labels, assignees, or issue states (triggered with `/`).
@@ -25,7 +24,6 @@
 
 ### 2.2. Killer Features
 
-- **Progress visualization:** Display iteration-based task placement and progress using text-based graphs in the Roadmap view.
 - **High-speed inline editing:** Edit titles and descriptions of the selected issue inline, similar to Vim insert mode.
 
 ### 2.3. Iteration Filter CLI (Planned)
@@ -37,7 +35,7 @@
   2. `internal/github/client.go` always fetches the full item list, but augments each item with iteration metadata (ID, title, start date, duration) extracted from the JSON payload.
   3. Keywords resolve locally by comparing `time.Now()` to the iteration window (`@current` matches items whose iteration is in progress, `@next` matches iterations with a start date in the future, `@previous` matches iterations that ended in the past).
   4. Literal values (e.g., `Sprint 12`) are matched case-insensitively against the iteration title or ID.
-- **UI impact:** All views (Board/Table/Roadmap) evaluate the same in-memory filters, so reloading or switching views preserves the CLI-provided iteration context.
+- **UI impact:** All views (Board/Table) evaluate the same in-memory filters, so reloading or switching views preserves the CLI-provided iteration context.
 
 ---
 
@@ -77,7 +75,7 @@ The UI consists of three sections:
 
 - **Header:** Project name, current view mode, active filters.
 - **Footer:** Current mode, hints for essential Vim-style shortcuts.
-- **Main View:** Switchable between Board, Table, and Roadmap.
+- **Main View:** Switchable between Board and Table.
 
 ### 5.2. Multi-view Details
 
@@ -85,7 +83,6 @@ The UI consists of three sections:
 | :------------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
 | **1. Board**   | Status-based flow management  | Issues placed in columns by status. Cards display **assignees and labels** concisely.                                                 |
 | **2. Table**   | Sorting & comparing details   | Issues displayed as **rows and columns** with all fields (created/updated dates, estimates, etc.). Future plan: customizable columns. |
-| **3. Roadmap** | Iteration & timeline tracking | Tasks positioned on a **timeline** (sprints, months) similar to a text-based Gantt chart.                                             |
 
 ---
 
@@ -110,7 +107,7 @@ The UI consists of three sections:
 | :---------------- | :------------------------ | :----------------------------------- |
 | **Navigation**    | Move up/down              | `k` / `j`                            |
 | **Status Change** | Move to left/right column | `h` / `l`                            |
-| **View Switch**   | Board / Table / Roadmap / Settings | `1` or `b` / `2` or `t` / `3` or `r` / `4` |
+| **View Switch**   | Board / Table / Settings | `1` or `b` / `2` or `t` / `3` |
 | **Editing**       | Enter editing mode        | `i` / `Enter`                        |
 | **Filter**        | Enter filtering mode      | `/`                                  |
 | **Assign**        | Assign assignee           | `a`                                  |
@@ -120,7 +117,7 @@ The UI consists of three sections:
 
 ### 6.3. Startup Defaults (Project/Owner)
 
-- Users can open **Settings** (key `4`) and save default `project` and `owner` values.
+- Users can open **Settings** (key `3`) and save default `project` and `owner` values.
 - Saved config path (Linux): `~/.config/project-hub/project-hub.json`.
 - Precedence rule at startup: **CLI flags override saved config**.
 - If config is malformed, the app prints a warning and continues.
