@@ -323,6 +323,20 @@ func RenderFooter(mode, view string, width int, editTitle string) string {
 			modeLabel = "ASSIGN MODE"
 		}
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorCyan400)
+	case "labelsinput":
+		if editTitle != "" {
+			modeLabel = "INSERT LABELS " + editTitle
+		} else {
+			modeLabel = "INSERT LABELS"
+		}
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorGreen400)
+	case "milestoneinput":
+		if editTitle != "" {
+			modeLabel = "INSERT MILESTONE " + editTitle
+		} else {
+			modeLabel = "INSERT MILESTONE"
+		}
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorPurple400)
 	case "filtering":
 		modeLabel = "FILTER MODE"
 	case "detail":

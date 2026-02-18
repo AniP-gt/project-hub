@@ -26,6 +26,9 @@ type Client interface {
 	FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error)
 	FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error)
 	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error)
+	UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error)
+	UpdateLabels(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, labels []string) (state.Item, error)
+	UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error)
 	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error)
 	UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error)
 	FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error)
@@ -173,6 +176,112 @@ func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner st
 		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output for status")
 	}
 
+	return item, nil
+}
+
+func (c *CLIClient) UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error) {
+	if itemID == "" {
+		return state.Item{}, fmt.Errorf("item ID is required")
+	}
+	if fieldID == "" {
+		return state.Item{}, fmt.Errorf("field ID is required")
+	}
+	if optionID == "" {
+		return state.Item{}, fmt.Errorf("option ID is required")
+	}
+
+	args := []string{
+		"project", "item-edit",
+		"--id", itemID,
+		"--project-id", projectID,
+		"--field-id", fieldID,
+		"--single-select-option-id", optionID,
+		"--format", "json",
+	}
+
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh project item-edit for %s failed: %w", fieldName, err)
+	}
+
+	var rawItem map[string]any
+	if err := json.Unmarshal(out, &rawItem); err != nil {
+		return state.Item{}, fmt.Errorf("parse gh project item-edit json for %s: %w", fieldName, err)
+	}
+
+	item, ok := parseItemMap(rawItem)
+	if !ok {
+		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output for %s", fieldName)
+	}
+
+	switch fieldName {
+	case "Priority":
+		item.Priority = optionID
+	case "Milestone":
+		item.Milestone = optionID
+	case "Labels":
+		item.Labels = []string{optionID}
+	}
+
+	return item, nil
+}
+
+func (c *CLIClient) UpdateLabels(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, labels []string) (state.Item, error) {
+	if itemType != "Issue" && itemType != "PullRequest" {
+		return state.Item{}, fmt.Errorf("cannot edit labels for item of type: %s (only Issues and PullRequests can have labels)", itemType)
+	}
+
+	if repo == "" || number == 0 {
+		return state.Item{}, fmt.Errorf("cannot edit labels: missing repository or issue number")
+	}
+
+	args := []string{"issue", "edit", strconv.Itoa(number), "--repo", repo}
+
+	if len(labels) > 0 {
+		args = append(args, "--add-label")
+		args = append(args, strings.Join(labels, ","))
+	}
+
+	_, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh issue edit for labels failed: %w", err)
+	}
+
+	return state.Item{ID: itemID, Labels: labels}, nil
+}
+
+func (c *CLIClient) UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error) {
+	if itemID == "" {
+		return state.Item{}, fmt.Errorf("item ID is required")
+	}
+
+	args := []string{
+		"project", "item-edit",
+		"--id", itemID,
+		"--project-id", projectID,
+		"--format", "json",
+	}
+
+	if milestone != "" {
+		args = append(args, "--milestone", milestone)
+	}
+
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh project item-edit for milestone failed: %w", err)
+	}
+
+	var rawItem map[string]any
+	if err := json.Unmarshal(out, &rawItem); err != nil {
+		return state.Item{}, fmt.Errorf("parse gh project item-edit json for milestone: %w", err)
+	}
+
+	item, ok := parseItemMap(rawItem)
+	if !ok {
+		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output for milestone")
+	}
+
+	item.Milestone = milestone
 	return item, nil
 }
 
