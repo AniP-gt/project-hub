@@ -662,12 +662,13 @@ func (a App) View() string {
 	case state.ViewTable:
 		tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
 		headerHeight := lipgloss.Height(tableView.Header)
-		rowsHeight := bodyHeight - headerHeight
+		rowsHeight := bodyHeight - headerHeight - frameVertical
 		if rowsHeight < 3 {
 			rowsHeight = 3
 		}
 		if a.tableViewport != nil {
-			rowsContent := strings.Join(tableView.Rows, "\n")
+			// Add trailing newline to ensure viewport properly calculates all lines
+			rowsContent := strings.Join(tableView.Rows, "\n") + "\n"
 			a.ensureTableViewportSize(innerWidth, rowsHeight)
 			a.tableViewport.SetContent(rowsContent)
 			focusedRow := focusedRowIndex(items, a.state.View.FocusedItemID)
@@ -1101,23 +1102,27 @@ func (a App) syncTableViewportToFocus(focusTop, focusBottom, totalLines int) {
 		return
 	}
 	vp := a.tableViewport
-	if totalLines <= 0 {
+	if totalLines <= 0 || focusTop < 0 || focusBottom < 0 {
 		vp.YOffset = 0
 		return
 	}
-	if totalLines <= vp.Height {
-		vp.YOffset = 0
+	visibleHeight := vp.Height
+	if visibleHeight < 1 {
+		visibleHeight = 1
+	}
+	if focusBottom-focusTop+1 > visibleHeight {
+		focusBottom = focusTop + visibleHeight - 1
+	}
+	top := vp.YOffset
+	bottom := vp.YOffset + visibleHeight - 1
+	if focusTop < top {
+		vp.SetYOffset(focusTop)
 		return
 	}
-	if focusTop < 0 || focusBottom < 0 {
-		return
+	if focusBottom > bottom {
+		vp.SetYOffset(focusBottom - visibleHeight + 1)
 	}
-	if focusTop < vp.YOffset {
-		vp.YOffset = focusTop
-	} else if focusBottom >= vp.YOffset+vp.Height {
-		vp.YOffset = focusBottom - vp.Height + 1
-	}
-	maxOffset := totalLines - vp.Height
+	maxOffset := totalLines - visibleHeight
 	if maxOffset < 0 {
 		maxOffset = 0
 	}
