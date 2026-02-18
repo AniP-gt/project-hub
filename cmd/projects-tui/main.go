@@ -127,9 +127,6 @@ func main() {
 			initial.Items = items
 			initial.View.FocusedIndex = 0
 			initial.View.FocusedItemID = items[0].ID
-			if !disableNotifications {
-				initial.Notifications = append(initial.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items from project", len(items)), Level: "info", At: time.Now()})
-			}
 		} else {
 			initial.Notifications = append(initial.Notifications, state.Notification{Message: "No items fetched (gh returned 0)", Level: "warn", At: time.Now()})
 		}
