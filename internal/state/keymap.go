@@ -15,6 +15,7 @@ type KeyMap struct {
 	FilterMode  key.Binding
 	EditMode    key.Binding
 	Assign      key.Binding
+	ViewDetail  key.Binding
 }
 
 // DefaultKeyMap returns canonical bindings per specification.
@@ -31,5 +32,6 @@ func DefaultKeyMap() KeyMap {
 		FilterMode:  key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		EditMode:    key.NewBinding(key.WithKeys("i", "enter"), key.WithHelp("i/enter", "edit")),
 		Assign:      key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "assign")),
+		ViewDetail:  key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "detail")),
 	}
 }

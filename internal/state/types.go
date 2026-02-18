@@ -12,8 +12,9 @@ const (
 	ModeFiltering    ViewMode = "filtering"
 	ModeEdit         ViewMode = "edit"
 	ModeSort         ViewMode = "sort"
-	ModeStatusSelect ViewMode = "statusSelect" // Added for status selection mode
-	ModeSettings     ViewMode = "settings"     // Added for settings view mode
+	ModeStatusSelect ViewMode = "statusSelect"
+	ModeSettings     ViewMode = "settings"
+	ModeDetail       ViewMode = "detail"
 )
 
 // ViewType represents the active view.
@@ -139,11 +140,12 @@ type Column struct {
 
 // Model is the root state for Bubbletea Update/View.
 type Model struct {
-	Project       Project
-	Items         []Item
-	View          ViewContext
-	Notifications []Notification
-	Width         int
-	Height        int
-	ItemLimit     int // Added
+	Project              Project
+	Items                []Item
+	View                 ViewContext
+	Notifications        []Notification
+	Width                int
+	Height               int
+	ItemLimit            int
+	DisableNotifications bool
 }

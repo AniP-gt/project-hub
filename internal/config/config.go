@@ -20,6 +20,8 @@ type Config struct {
 	DefaultProjectID string `json:"defaultProjectID"`
 	// DefaultOwner is the GitHub owner to use for project queries.
 	DefaultOwner string `json:"defaultOwner"`
+	// DisableNotifications suppresses info-level notification messages in the UI.
+	DisableNotifications bool `json:"disableNotifications"`
 }
 
 // Load reads configuration from a JSON file.

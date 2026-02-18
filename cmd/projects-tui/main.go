@@ -61,6 +61,7 @@ func main() {
 	ownerFlag := flag.String("owner", "", "Owner (org/user) for the project")
 	ghPathFlag := flag.String("gh-path", "", "Path to the gh CLI executable (default: \"gh\")")
 	itemLimitFlag := flag.Int("item-limit", 100, "Maximum number of items to fetch (default: 100)")
+	disableNotificationsFlag := flag.Bool("disable-notifications", false, "Suppress info-level notifications in the UI")
 	var iterationFlag multiValueFlag
 	flag.Var(&iterationFlag, "iteration", "Iteration filters (repeat flag or pass values after it)")
 	flag.Parse()
@@ -79,6 +80,12 @@ func main() {
 
 	// Resolve final project and owner values (CLI > config defaults)
 	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, *ownerFlag, cfg)
+
+	// Resolve notification setting: CLI flag takes precedence over config
+	disableNotifications := cfg.DisableNotifications
+	if *disableNotificationsFlag {
+		disableNotifications = true
+	}
 
 	// Check that project is now satisfied (either from CLI or config)
 	if resolvedProject == "" {
@@ -105,8 +112,9 @@ func main() {
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},
 			{ID: "3", Title: "Roadmap draft", Status: "Review", Labels: []string{"roadmap"}},
 		},
-		View:      state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
-		ItemLimit: *itemLimitFlag,
+		View:                 state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
+		ItemLimit:            *itemLimitFlag,
+		DisableNotifications: disableNotifications,
 	}
 	initial.View.Filter.Iterations = iterationFilters
 
@@ -119,7 +127,9 @@ func main() {
 			initial.Items = items
 			initial.View.FocusedIndex = 0
 			initial.View.FocusedItemID = items[0].ID
-			initial.Notifications = append(initial.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items from project", len(items)), Level: "info", At: time.Now()})
+			if !disableNotifications {
+				initial.Notifications = append(initial.Notifications, state.Notification{Message: fmt.Sprintf("Loaded %d items from project", len(items)), Level: "info", At: time.Now()})
+			}
 		} else {
 			initial.Notifications = append(initial.Notifications, state.Notification{Message: "No items fetched (gh returned 0)", Level: "warn", At: time.Now()})
 		}

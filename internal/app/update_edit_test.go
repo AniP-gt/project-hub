@@ -22,7 +22,7 @@ func (m *mockClient) UpdateStatus(ctx context.Context, projectID string, owner s
 	return state.Item{}, nil
 }
 
-func (m *mockClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeFieldID string, userLogins []string) (state.Item, error) {
+func (m *mockClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error) {
 	return state.Item{}, nil
 }
 
@@ -32,6 +32,10 @@ func (m *mockClient) UpdateItem(ctx context.Context, projectID string, owner str
 
 func (m *mockClient) FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error) {
 	return nil, nil, nil
+}
+
+func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
+	return "", nil
 }
 
 func TestEnterAssignMode_PrefillsWithExistingAssignee(t *testing.T) {

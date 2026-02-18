@@ -26,9 +26,10 @@ type Client interface {
 	FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error)
 	FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error)
 	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error)
-	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeFieldID string, userLogins []string) (state.Item, error)
+	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error)
 	UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error)
 	FetchRoadmap(ctx context.Context, projectID string, owner string) ([]state.Timeline, []state.Item, error)
+	FetchIssueDetail(ctx context.Context, repo string, number int) (string, error)
 }
 
 // CLIClient is a thin wrapper intended to call `gh` and parse JSON.
@@ -175,38 +176,33 @@ func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner st
 	return item, nil
 }
 
-func (c *CLIClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, assigneeFieldID string, userLogins []string) (state.Item, error) {
-	args := []string{
-		"project", "item-edit",
-		"--id", itemID,
-		"--project-id", projectID,
-		"--field-id", assigneeFieldID,
-		"--format", "json",
+func (c *CLIClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error) {
+	if itemType != "Issue" && itemType != "PullRequest" {
+		return state.Item{}, fmt.Errorf("cannot assign to item of type: %s (only Issues and PullRequests can be assigned)", itemType)
 	}
+
+	if repo == "" || number == 0 {
+		return state.Item{}, fmt.Errorf("cannot edit assignees: missing repository or issue number")
+	}
+
+	editCmd := "issue"
+	if itemType == "PullRequest" {
+		editCmd = "pr"
+	}
+
+	editArgs := []string{editCmd, "edit", strconv.Itoa(number), "--repo", repo}
 
 	if len(userLogins) > 0 && userLogins[0] != "" {
-		args = append(args, "--text", userLogins[0])
-	} else {
-		// To clear the assignee, use the --clear flag
-		args = append(args, "--clear")
+		editArgs = append(editArgs, "--add-assignee")
+		editArgs = append(editArgs, userLogins...)
 	}
 
-	out, err := c.runGh(ctx, args...)
+	_, err := c.runGh(ctx, editArgs...)
 	if err != nil {
-		return state.Item{}, fmt.Errorf("gh project item-edit for assignees failed: %w", err)
+		return state.Item{}, fmt.Errorf("gh %s edit for assignees failed: %w", editCmd, err)
 	}
 
-	var rawItem map[string]any
-	if err := json.Unmarshal(out, &rawItem); err != nil {
-		return state.Item{}, fmt.Errorf("parse gh project item-edit json for assignees: %w", err)
-	}
-
-	item, ok := parseItemMap(rawItem)
-	if !ok {
-		return state.Item{}, fmt.Errorf("failed to parse updated item from gh project item-edit output for assignees")
-	}
-
-	return item, nil
+	return state.Item{ID: itemID, Assignees: userLogins}, nil
 }
 
 func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error) {
@@ -275,6 +271,23 @@ func (c *CLIClient) FetchRoadmap(ctx context.Context, projectID string, owner st
 	_ = projectID
 	_ = owner
 	return nil, nil, errors.New("FetchRoadmap not implemented yet")
+}
+
+func (c *CLIClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
+	args := []string{"issue", "view", strconv.Itoa(number), "--repo", repo, "--json", "body"}
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return "", fmt.Errorf("gh issue view failed: %w", err)
+	}
+
+	var result struct {
+		Body string `json:"body"`
+	}
+	if err := json.Unmarshal(out, &result); err != nil {
+		return "", fmt.Errorf("parse gh issue view json: %w", err)
+	}
+
+	return result.Body, nil
 }
 
 func (c *CLIClient) runGh(ctx context.Context, args ...string) ([]byte, error) {

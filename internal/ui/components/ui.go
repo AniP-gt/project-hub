@@ -76,7 +76,7 @@ var (
 	// Card Styles (Kanban & Roadmap)
 	CardBaseStyle = lipgloss.NewStyle().
 			Background(ColorGray800).
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.NormalBorder(), true, true, true, true).
 			BorderForeground(ColorGray700).
 			Padding(0, 1).
 			Foreground(ColorGray300)
@@ -108,7 +108,7 @@ var (
 				Foreground(ColorBlue300).
 				Padding(0, 1). // px-3 py-2
 				Bold(true).
-				Border(lipgloss.NormalBorder(), true, true, false, true). // rounded-t, border
+				Border(lipgloss.NormalBorder(), true, true, true, true).
 				BorderForeground(ColorGray700)
 
 	ColumnContainerStyle = lipgloss.NewStyle().
@@ -306,7 +306,7 @@ func renderViewTabs(currentView state.ViewType) string {
 // RenderFooter shows key hints and mode status.
 func RenderFooter(mode, view string, width int, editTitle string) string {
 	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-4:ビュー切替 q:終了
-	keybinds := FooterKeybindsStyle.Render("j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-4:ビュー切替 q:終了")
+	keybinds := FooterKeybindsStyle.Render("j/k:move i:edit /:filter a:assign o:detail 1-4:view q:quit")
 	var modeLabel string
 	modeStyle := FooterModeStyle
 	switch strings.ToLower(mode) {
@@ -318,10 +318,16 @@ func RenderFooter(mode, view string, width int, editTitle string) string {
 		}
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorYellow400)
 	case "assign":
-		modeLabel = "ASSIGN MODE"
+		if editTitle != "" {
+			modeLabel = "ASSIGN MODE " + editTitle
+		} else {
+			modeLabel = "ASSIGN MODE"
+		}
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorCyan400)
 	case "filtering":
 		modeLabel = "FILTER MODE"
+	case "detail":
+		modeLabel = "DETAIL MODE"
 	default:
 		modeLabel = "NORMAL MODE"
 	}

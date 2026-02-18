@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"project-hub/internal/state"
 )
 
 // EnterEditModeMsg switches to edit mode for focused item.
@@ -81,19 +80,9 @@ func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {
 	}
 	item := a.state.Items[idx]
 
-	// Find the "Assignees" field from the project's fields
-	var assigneeField state.Field
-	found := false
-	for _, field := range a.state.Project.Fields {
-		if field.Name == "Assignees" {
-			assigneeField = field
-			found = true
-			break
-		}
-	}
-	if !found {
+	if item.Type != "Issue" && item.Type != "PullRequest" {
 		return a, func() tea.Msg {
-			return NewErrMsg(fmt.Errorf("assignees field not found in project"))
+			return NewErrMsg(fmt.Errorf("cannot assign to item of type: %s (only Issues and PullRequests can be assigned)", item.Type))
 		}
 	}
 
@@ -107,8 +96,10 @@ func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {
 			context.Background(),
 			projectMutationID(a.state.Project),
 			a.state.Project.Owner,
-			item.ID, // Use the item's node ID for field updates
-			assigneeField.ID,
+			item.ID,
+			item.Type,
+			item.Repository,
+			item.Number,
 			userLogins,
 		)
 		if err != nil {

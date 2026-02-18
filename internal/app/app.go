@@ -25,12 +25,13 @@ import (
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
 	state           state.Model
-	github          github.Client // Renamed from 'gh' to 'github' for clarity and to match the error
+	github          github.Client
 	itemLimit       int
 	boardModel      boardPkg.BoardModel
-	textInput       textinput.Model                // For edit/assign input
-	statusSelector  components.StatusSelectorModel // New field for status selection
-	settingsModel   settings.SettingsModel         // Settings form model
+	textInput       textinput.Model
+	statusSelector  components.StatusSelectorModel
+	settingsModel   settings.SettingsModel
+	detailPanel     components.DetailPanelModel
 	roadmapViewport *viewport.Model
 	tableViewport   *viewport.Model
 }
@@ -79,7 +80,11 @@ type DismissNotificationMsg struct {
 	ID int
 }
 
-type EnterStatusSelectModeMsg struct{} // New message type for entering status selection mode
+type EnterStatusSelectModeMsg struct{}
+
+type DetailReadyMsg struct {
+	Item state.Item
+}
 
 // Cmds for asynchronous operations
 func FetchProjectCmd(client github.Client, projectID, owner string, itemLimit int) tea.Cmd {
@@ -171,6 +176,24 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if a.state.View.Mode == state.ModeDetail {
+		var detailPanelCmd tea.Cmd
+		var updatedDetailPanel tea.Model
+		updatedDetailPanel, detailPanelCmd = a.detailPanel.Update(msg)
+		a.detailPanel = updatedDetailPanel.(components.DetailPanelModel)
+		if detailPanelCmd != nil {
+			cmds = append(cmds, detailPanelCmd)
+		}
+
+		switch msg.(type) {
+		case components.DetailCloseMsg:
+			a.state.View.Mode = state.ModeNormal
+			return a, tea.Batch(cmds...)
+		default:
+			return a, tea.Batch(cmds...)
+		}
+	}
+
 	switch m := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.state.Width = m.Width
@@ -202,15 +225,28 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.state.View.FocusedItemID = a.state.Items[0].ID
 		}
 		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
-		notif := state.Notification{Message: fmt.Sprintf("Loaded %d items", len(a.state.Items)), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
-		a.state.Notifications = append(a.state.Notifications, notif)
-		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+		if !a.state.DisableNotifications {
+			notif := state.Notification{Message: fmt.Sprintf("Loaded %d items", len(a.state.Items)), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			a.state.Notifications = append(a.state.Notifications, notif)
+			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+		}
 	case ItemUpdatedMsg:
 		a.state.Items[m.Index] = m.Item
 		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
-		notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
-		a.state.Notifications = append(a.state.Notifications, notif)
-		cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+		if !a.state.DisableNotifications {
+			notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			a.state.Notifications = append(a.state.Notifications, notif)
+			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+		}
+	case DetailReadyMsg:
+		a.detailPanel = components.NewDetailPanelModel(m.Item, a.state.Width, a.state.Height)
+		if !a.state.DisableNotifications {
+			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			a.state.Notifications = append(a.state.Notifications, detailNotif)
+			cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
+		} else {
+			cmds = append(cmds, a.detailPanel.Init())
+		}
 	case ErrMsg:
 		notif := state.Notification{Message: fmt.Sprintf("Error: %v", m.Err), Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
 		a.state.Notifications = append(a.state.Notifications, notif)
@@ -298,14 +334,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				DefaultOwner:     m.Owner,
 			}
 			if saveErr := config.Save(configPath, cfg); saveErr == nil {
-				notif := state.Notification{
-					Message:      "Settings saved successfully",
-					Level:        "info",
-					At:           time.Now(),
-					DismissAfter: 3 * time.Second,
+				if !a.state.DisableNotifications {
+					notif := state.Notification{
+						Message:      "Settings saved successfully",
+						Level:        "info",
+						At:           time.Now(),
+						DismissAfter: 3 * time.Second,
+					}
+					a.state.Notifications = append(a.state.Notifications, notif)
+					cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 				}
-				a.state.Notifications = append(a.state.Notifications, notif)
-				cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 			} else {
 				notif := state.Notification{
 					Message:      fmt.Sprintf("Failed to save settings: %v", saveErr),
@@ -419,14 +457,16 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// exit sort mode
 		a.state.View.Mode = state.ModeNormal
 		// notify
-		notif := state.Notification{Message: fmt.Sprintf("Sort: %s %s", a.state.View.TableSort.Field, func() string {
-			if a.state.View.TableSort.Asc {
-				return "↑"
-			}
-			return "↓"
-		}()), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
-		a.state.Notifications = append(a.state.Notifications, notif)
-		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+		if !a.state.DisableNotifications {
+			notif := state.Notification{Message: fmt.Sprintf("Sort: %s %s", a.state.View.TableSort.Field, func() string {
+				if a.state.View.TableSort.Asc {
+					return "↑"
+				}
+				return "↓"
+			}()), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			a.state.Notifications = append(a.state.Notifications, notif)
+			return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+		}
 	}
 
 	if a.state.View.CurrentView == state.ViewBoard {
@@ -484,9 +524,12 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if a.state.View.CurrentView == state.ViewTable {
 			a.state.View.Mode = state.ModeSort
 			// notify instructions
-			notif := state.Notification{Message: "Sort mode: t=Title s=Status r=Repository l=Labels m=Milestone p=Priority n=Number c=CreatedAt u=UpdatedAt (esc to cancel)", Level: "info", At: time.Now(), DismissAfter: 5 * time.Second}
-			a.state.Notifications = append(a.state.Notifications, notif)
-			return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+			if !a.state.DisableNotifications {
+				notif := state.Notification{Message: "Sort mode: t=Title s=Status r=Repository l=Labels m=Milestone p=Priority n=Number c=CreatedAt u=UpdatedAt (esc to cancel)", Level: "info", At: time.Now(), DismissAfter: 5 * time.Second}
+				a.state.Notifications = append(a.state.Notifications, notif)
+				return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+			}
+			return a, nil
 		}
 		return a, nil
 	case "esc":
@@ -495,11 +538,13 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a.handleEnterEditMode(EnterEditModeMsg{})
 	case "a":
 		return a.handleEnterAssignMode(EnterAssignModeMsg{})
-	case "w": // New: enter status select mode
-		if a.state.View.CurrentView == state.ViewTable { // Only allow in table view
+	case "w":
+		if a.state.View.CurrentView == state.ViewTable {
 			return a.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
 		}
 		return a, nil
+	case "o":
+		return a.handleEnterDetailMode()
 	default:
 		return a, nil
 	}
@@ -673,6 +718,17 @@ func (a App) View() string {
 			lipgloss.Center,
 			lipgloss.Center,
 			selectorView,
+		)
+	}
+
+	if a.state.View.Mode == state.ModeDetail {
+		detailView := a.detailPanel.View()
+		framed = lipgloss.Place(
+			frameWidth,
+			bodyHeight,
+			lipgloss.Center,
+			lipgloss.Center,
+			detailView,
 		)
 	}
 
@@ -881,14 +937,64 @@ func (a App) handleEnterStatusSelectMode(msg EnterStatusSelectModeMsg) (tea.Mode
 	a.state.View.Mode = state.ModeStatusSelect
 
 	// Optionally provide a notification to the user
-	notif := state.Notification{
-		Message:      "Status select mode: Use arrow keys to select, enter to confirm, esc to cancel",
-		Level:        "info",
-		At:           time.Now(),
-		DismissAfter: 5 * time.Second,
+	if !a.state.DisableNotifications {
+		notif := state.Notification{
+			Message:      "Status select mode: Use arrow keys to select, enter to confirm, esc to cancel",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 5 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, tea.Batch(a.statusSelector.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 	}
-	a.state.Notifications = append(a.state.Notifications, notif)
-	return a, tea.Batch(a.statusSelector.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	return a, a.statusSelector.Init()
+}
+
+func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
+	a.syncFocusedItem()
+
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+	focusedItem := a.state.Items[idx]
+
+	if focusedItem.Repository != "" && focusedItem.Number > 0 && focusedItem.Type == "Issue" {
+		fetchDescCmd := func() tea.Msg {
+			body, err := a.github.FetchIssueDetail(context.Background(), focusedItem.Repository, focusedItem.Number)
+			if err != nil {
+				return NewErrMsg(err)
+			}
+			focusedItem.Description = body
+			return DetailReadyMsg{Item: focusedItem}
+		}
+		a.state.View.Mode = state.ModeDetail
+		if !a.state.DisableNotifications {
+			loadingNotif := state.Notification{
+				Message:      "Loading detail...",
+				Level:        "info",
+				At:           time.Now(),
+				DismissAfter: 3 * time.Second,
+			}
+			a.state.Notifications = append(a.state.Notifications, loadingNotif)
+			return a, tea.Batch(tea.Cmd(fetchDescCmd), dismissNotificationCmd(len(a.state.Notifications)-1, loadingNotif.DismissAfter))
+		}
+		return a, tea.Cmd(fetchDescCmd)
+	}
+
+	a.detailPanel = components.NewDetailPanelModel(focusedItem, a.state.Width, a.state.Height)
+	a.state.View.Mode = state.ModeDetail
+	if !a.state.DisableNotifications {
+		detailNotif := state.Notification{
+			Message:      "Detail mode: j/k to scroll, esc to close",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 3 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, detailNotif)
+		return a, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter))
+	}
+	return a, a.detailPanel.Init()
 }
 
 func (a App) refreshBoardCmd() tea.Cmd {
