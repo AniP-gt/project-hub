@@ -144,8 +144,7 @@ func TestValidateStatusUpdateIDs(t *testing.T) {
 			itemID:    "PVTI_xyz789",
 			fieldID:   "42",
 			optionID:  "OPT_456",
-			wantErr:   true,
-			errMsg:    "numeric only",
+			wantErr:   false,
 		},
 		{
 			name:      "numeric only optionID",
@@ -153,8 +152,7 @@ func TestValidateStatusUpdateIDs(t *testing.T) {
 			itemID:    "PVTI_xyz789",
 			fieldID:   "FIELD_001",
 			optionID:  "123",
-			wantErr:   true,
-			errMsg:    "numeric only",
+			wantErr:   false,
 		},
 
 		// Invalid prefix cases
@@ -283,7 +281,7 @@ func TestValidateFieldID(t *testing.T) {
 		{"valid with letters", "FIELD_001", false},
 		{"valid with mixed", "f1i2e3ld", false},
 		{"empty", "", true},
-		{"numeric only", "123", true},
+		{"numeric only", "123", false},
 		{"whitespace", "   ", true},
 	}
 
@@ -308,7 +306,7 @@ func TestValidateOptionID(t *testing.T) {
 		{"valid single letter", "o", false},
 		{"valid mixed", "opt123", false},
 		{"empty", "", true},
-		{"numeric only", "789", true},
+		{"numeric only", "789", false},
 		{"whitespace", "\n\t", true},
 	}
 

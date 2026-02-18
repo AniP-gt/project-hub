@@ -74,27 +74,19 @@ func validateItemID(id string) error {
 	return nil
 }
 
-// validateFieldID checks that fieldID is non-empty and not numeric-only.
+// validateFieldID checks that fieldID is non-empty and not whitespace-only.
 func validateFieldID(id string) error {
 	if err := validateNonEmptyTrimmed(id, "field ID"); err != nil {
 		return err
 	}
 
-	if isNumericOnly(id) {
-		return fmt.Errorf("invalid field ID: %q is numeric only; field IDs must contain non-numeric characters", id)
-	}
-
 	return nil
 }
 
-// validateOptionID checks that optionID is non-empty and not numeric-only.
+// validateOptionID checks that optionID is non-empty and not whitespace-only.
 func validateOptionID(id string) error {
 	if err := validateNonEmptyTrimmed(id, "option ID"); err != nil {
 		return err
-	}
-
-	if isNumericOnly(id) {
-		return fmt.Errorf("invalid option ID: %q is numeric only; option IDs must contain non-numeric characters", id)
 	}
 
 	return nil
