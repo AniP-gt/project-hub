@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -226,22 +225,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.state.View.FocusedItemID = a.state.Items[0].ID
 		}
 		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
-		if !a.state.DisableNotifications {
-			notif := state.Notification{Message: fmt.Sprintf("Loaded %d items", len(a.state.Items)), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
-			a.state.Notifications = append(a.state.Notifications, notif)
-			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
-		}
 	case ItemUpdatedMsg:
-		// Debug logging to trace updates and potential remapping issues.
-		if os.Getenv("PROJECT_HUB_DEBUG") != "" {
-			fmt.Fprintf(os.Stderr, "ItemUpdatedMsg: idx=%d itemID=%s existingID=%s\n", m.Index, m.Item.ID, func() string {
-				if m.Index >= 0 && m.Index < len(a.state.Items) {
-					return a.state.Items[m.Index].ID
-				}
-				return "<out-of-range>"
-			}())
-		}
-
 		// Merge updated fields into the existing item to avoid overwriting
 		// other fields when the returned updated item is partial (e.g. only
 		// contains Assignees). This prevents transient UI remapping where an
@@ -289,11 +273,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 		}
 	case DetailReadyMsg:
-		fmt.Fprintf(os.Stderr, "DEBUG DetailReady: title=%s desc_len=%d\n", m.Item.Title, len(m.Item.Description))
 		a.detailPanel = components.NewDetailPanelModel(m.Item, a.state.Width, a.state.Height)
-		detailNotif := state.Notification{Message: fmt.Sprintf("Loaded! title=%s desc=%s", m.Item.Title, m.Item.Description[:50]), Level: "info", At: time.Now(), DismissAfter: 10 * time.Second}
-		a.state.Notifications = append(a.state.Notifications, detailNotif)
-		cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
+		if !a.state.DisableNotifications {
+			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			a.state.Notifications = append(a.state.Notifications, detailNotif)
+			cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
+		} else {
+			cmds = append(cmds, a.detailPanel.Init())
+		}
 	case ErrMsg:
 		notif := state.Notification{Message: fmt.Sprintf("Error: %v", m.Err), Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
 		a.state.Notifications = append(a.state.Notifications, notif)
@@ -1006,16 +993,25 @@ func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
 	}
 	focusedItem := a.state.Items[idx]
 
-	fmt.Fprintf(os.Stderr, "DEBUG DetailMode: repo=%s num=%d type=%s\n", focusedItem.Repository, focusedItem.Number, focusedItem.Type)
-
-	if focusedItem.Repository != "" && focusedItem.Number > 0 && focusedItem.Type == "Issue" {
+	if focusedItem.Repository != "" && focusedItem.Number > 0 {
+		a.detailPanel = components.NewDetailPanelModel(focusedItem, a.state.Width, a.state.Height)
 		fetchDescCmd := func() tea.Msg {
 			body, err := a.github.FetchIssueDetail(context.Background(), focusedItem.Repository, focusedItem.Number)
 			if err != nil {
 				return NewErrMsg(err)
 			}
-			focusedItem.Description = body
-			return DetailReadyMsg{Item: focusedItem}
+			return DetailReadyMsg{Item: state.Item{
+				Title:       focusedItem.Title,
+				Description: body,
+				Number:      focusedItem.Number,
+				Repository:  focusedItem.Repository,
+				Status:      focusedItem.Status,
+				Assignees:   focusedItem.Assignees,
+				Labels:      focusedItem.Labels,
+				Priority:    focusedItem.Priority,
+				Milestone:   focusedItem.Milestone,
+				URL:         focusedItem.URL,
+			}}
 		}
 		a.state.View.Mode = state.ModeDetail
 		if !a.state.DisableNotifications {

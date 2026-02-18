@@ -2,7 +2,6 @@ package board
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -495,18 +494,6 @@ func NewBoardModel(items []state.Item, fields []state.Field, filter state.Filter
 		FocusedCardIndex:   focusedCardIndex,
 		ColumnOffset:       0,
 		CardOffset:         0,
-	}
-
-	// Optional debug output to help trace remapping issues when items are
-	// updated. Enable by setting PROJECT_HUB_DEBUG=1 in the environment.
-	if os.Getenv("PROJECT_HUB_DEBUG") != "" {
-		fmt.Fprintf(os.Stderr, "NewBoardModel: columns=%d focusedCol=%d focusedCard=%d focusedItemID=%s\n", len(bm.Columns), bm.FocusedColumnIndex, bm.FocusedCardIndex, focusedItemID)
-		for i, c := range bm.Columns {
-			fmt.Fprintf(os.Stderr, "  col[%d] name=%s cards=%d\n", i, c.Name, len(c.Cards))
-			for j, card := range c.Cards {
-				fmt.Fprintf(os.Stderr, "    card[%d][%d].id=%s title=%s assignee=%s\n", i, j, card.ID, card.Title, card.Assignee)
-			}
-		}
 	}
 
 	return bm

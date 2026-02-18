@@ -38,9 +38,10 @@ func NewDetailPanelModel(item state.Item, width, height int) DetailPanelModel {
 	vp.Style = DetailPanelStyle
 
 	m := DetailPanelModel{
-		item:   item,
-		width:  width,
-		height: height,
+		item:     item,
+		width:    width,
+		height:   height,
+		viewport: vp,
 	}
 	m.updateContent()
 	return m
@@ -70,6 +71,9 @@ func (m DetailPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *DetailPanelModel) updateContent() {
 	var s strings.Builder
 
+	if m.item.Title == "" {
+		m.item.Title = "(No title)"
+	}
 	s.WriteString(DetailTitleStyle.Render(m.item.Title))
 	s.WriteString("\n\n")
 
@@ -77,6 +81,10 @@ func (m *DetailPanelModel) updateContent() {
 		s.WriteString(DetailLabelStyle.Render("#: "))
 		s.WriteString(DetailValueStyle.Render(fmt.Sprintf("%d", m.item.Number)))
 		s.WriteString(" | ")
+	}
+
+	if m.item.Status == "" {
+		m.item.Status = "No status"
 	}
 	s.WriteString(DetailLabelStyle.Render("Status: "))
 	s.WriteString(DetailValueStyle.Render(m.item.Status))
