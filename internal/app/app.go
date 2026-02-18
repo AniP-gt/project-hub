@@ -242,7 +242,46 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}())
 		}
 
-		a.state.Items[m.Index] = m.Item
+		// Merge updated fields into the existing item to avoid overwriting
+		// other fields when the returned updated item is partial (e.g. only
+		// contains Assignees). This prevents transient UI remapping where an
+		// item loses its Status or other metadata.
+		if m.Index >= 0 && m.Index < len(a.state.Items) {
+			existing := a.state.Items[m.Index]
+			// Merge assignees if provided
+			if len(m.Item.Assignees) > 0 {
+				existing.Assignees = m.Item.Assignees
+			}
+			// Merge labels if provided
+			if len(m.Item.Labels) > 0 {
+				existing.Labels = m.Item.Labels
+			}
+			// Merge title if provided
+			if m.Item.Title != "" {
+				existing.Title = m.Item.Title
+			}
+			// Merge status if provided
+			if m.Item.Status != "" && m.Item.Status != "Unknown" {
+				existing.Status = m.Item.Status
+			}
+			// Merge priority if provided
+			if m.Item.Priority != "" {
+				existing.Priority = m.Item.Priority
+			}
+			// Merge repository/number if provided
+			if m.Item.Repository != "" {
+				existing.Repository = m.Item.Repository
+			}
+			if m.Item.Number != 0 {
+				existing.Number = m.Item.Number
+			}
+			a.state.Items[m.Index] = existing
+		} else {
+			// Fallback: out-of-range index, replace if possible
+			if m.Index >= 0 && m.Index <= len(a.state.Items) {
+				a.state.Items[m.Index] = m.Item
+			}
+		}
 		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
 		if !a.state.DisableNotifications {
 			notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
