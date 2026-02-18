@@ -62,7 +62,6 @@ var (
 
 	// Footer Styles
 	FooterStyle = lipgloss.NewStyle().
-			Background(ColorGray900).
 			Foreground(ColorGray400).
 			Padding(1, 2).
 			Border(lipgloss.NormalBorder(), true, false, false, false).
