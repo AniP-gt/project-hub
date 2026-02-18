@@ -34,7 +34,19 @@ type DetailPanelModel struct {
 }
 
 func NewDetailPanelModel(item state.Item, width, height int) DetailPanelModel {
-	vp := viewport.New(60, 20)
+	panelWidth := width * 4 / 5
+	if panelWidth < 70 {
+		panelWidth = 70
+	}
+	panelHeight := height * 3 / 4
+	if panelHeight < 15 {
+		panelHeight = 15
+	}
+	if panelHeight > height-6 {
+		panelHeight = height - 6
+	}
+
+	vp := viewport.New(panelWidth-4, panelHeight-2)
 	vp.Style = DetailPanelStyle
 
 	m := DetailPanelModel{
@@ -55,7 +67,7 @@ func (m DetailPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "esc":
+		case "esc", "q":
 			return m, func() tea.Msg {
 				return DetailCloseMsg{}
 			}
@@ -136,14 +148,20 @@ func (m *DetailPanelModel) updateContent() {
 }
 
 func (m DetailPanelModel) View() string {
-	panelWidth := m.width * 2 / 3
-	if panelWidth < 60 {
-		panelWidth = 60
+	panelWidth := m.width * 4 / 5
+	if panelWidth < 70 {
+		panelWidth = 70
 	}
-	panelHeight := m.height * 2 / 3
+	panelHeight := m.height * 3 / 4
 	if panelHeight < 15 {
 		panelHeight = 15
 	}
+	if panelHeight > m.height-6 {
+		panelHeight = m.height - 6
+	}
+
+	m.viewport.Width = panelWidth - 4
+	m.viewport.Height = panelHeight - 2
 
 	content := m.viewport.View()
 	styled := DetailPanelStyle.Width(panelWidth).Height(panelHeight).Render(content)

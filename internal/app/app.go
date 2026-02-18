@@ -275,7 +275,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DetailReadyMsg:
 		a.detailPanel = components.NewDetailPanelModel(m.Item, a.state.Width, a.state.Height)
 		if !a.state.DisableNotifications {
-			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc/q to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 			a.state.Notifications = append(a.state.Notifications, detailNotif)
 			cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
 		} else {
@@ -1014,16 +1014,6 @@ func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
 			}}
 		}
 		a.state.View.Mode = state.ModeDetail
-		if !a.state.DisableNotifications {
-			loadingNotif := state.Notification{
-				Message:      "Loading detail...",
-				Level:        "info",
-				At:           time.Now(),
-				DismissAfter: 3 * time.Second,
-			}
-			a.state.Notifications = append(a.state.Notifications, loadingNotif)
-			return a, tea.Batch(tea.Cmd(fetchDescCmd), dismissNotificationCmd(len(a.state.Notifications)-1, loadingNotif.DismissAfter))
-		}
 		return a, tea.Cmd(fetchDescCmd)
 	}
 
@@ -1031,7 +1021,7 @@ func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
 	a.state.View.Mode = state.ModeDetail
 	if !a.state.DisableNotifications {
 		detailNotif := state.Notification{
-			Message:      "Detail mode: j/k to scroll, esc to close",
+			Message:      "Detail mode: j/k to scroll, esc/q to close",
 			Level:        "info",
 			At:           time.Now(),
 			DismissAfter: 3 * time.Second,
