@@ -11,9 +11,9 @@ import (
 // TestResolvePath verifies the config file path resolution across platforms.
 func TestResolvePath(t *testing.T) {
 	tests := []struct {
-		name      string
-		wantErr   bool
-		checks    func(t *testing.T, path string)
+		name    string
+		wantErr bool
+		checks  func(t *testing.T, path string)
 	}{
 		{
 			name:    "resolve path returns non-empty path",

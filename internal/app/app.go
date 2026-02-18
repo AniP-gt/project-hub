@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -231,6 +232,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 		}
 	case ItemUpdatedMsg:
+		// Debug logging to trace updates and potential remapping issues.
+		if os.Getenv("PROJECT_HUB_DEBUG") != "" {
+			fmt.Fprintf(os.Stderr, "ItemUpdatedMsg: idx=%d itemID=%s existingID=%s\n", m.Index, m.Item.ID, func() string {
+				if m.Index >= 0 && m.Index < len(a.state.Items) {
+					return a.state.Items[m.Index].ID
+				}
+				return "<out-of-range>"
+			}())
+		}
+
 		a.state.Items[m.Index] = m.Item
 		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
 		if !a.state.DisableNotifications {
@@ -239,14 +250,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
 		}
 	case DetailReadyMsg:
+		fmt.Fprintf(os.Stderr, "DEBUG DetailReady: title=%s desc_len=%d\n", m.Item.Title, len(m.Item.Description))
 		a.detailPanel = components.NewDetailPanelModel(m.Item, a.state.Width, a.state.Height)
-		if !a.state.DisableNotifications {
-			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
-			a.state.Notifications = append(a.state.Notifications, detailNotif)
-			cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
-		} else {
-			cmds = append(cmds, a.detailPanel.Init())
-		}
+		detailNotif := state.Notification{Message: fmt.Sprintf("Loaded! title=%s desc=%s", m.Item.Title, m.Item.Description[:50]), Level: "info", At: time.Now(), DismissAfter: 10 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, detailNotif)
+		cmds = append(cmds, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter)))
 	case ErrMsg:
 		notif := state.Notification{Message: fmt.Sprintf("Error: %v", m.Err), Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
 		a.state.Notifications = append(a.state.Notifications, notif)
@@ -958,6 +966,8 @@ func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	focusedItem := a.state.Items[idx]
+
+	fmt.Fprintf(os.Stderr, "DEBUG DetailMode: repo=%s num=%d type=%s\n", focusedItem.Repository, focusedItem.Number, focusedItem.Type)
 
 	if focusedItem.Repository != "" && focusedItem.Number > 0 && focusedItem.Type == "Issue" {
 		fetchDescCmd := func() tea.Msg {
