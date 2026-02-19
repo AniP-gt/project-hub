@@ -41,6 +41,25 @@ project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
 
 `--project` is required unless you set a default in the config file.
 
+## Board
+
+The default view is a kanban-style board. Use the following shortcuts while the board is focused:
+
+- `j` / `k`: Move between cards
+- `1` / `2` / `3`: Switch views (board / table / settings)
+- `/`: Open filter input (press Enter to apply, Esc to clear)
+- `o`: Open item detail panel
+- `i`: Edit focused item
+- `f`: Toggle card fields (enter field toggle mode)
+
+Field toggle mode (press `f` to enter, `Esc` to exit):
+
+- `m`: Milestone
+- `r`: Repository
+- `l`: Labels
+- `s`: Sub-issue count
+- `p`: Parent issue
+
 ## Table Filter
 
 Press `/` to enter Filter Mode in the TUI. The footer shows `FILTER MODE <input>` while you type. Press `Enter` to apply or `Esc` to clear.
