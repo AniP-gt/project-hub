@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"project-hub/internal/github/parse"
 	"project-hub/internal/state"
 )
 
@@ -250,7 +251,7 @@ func TestParseItemMap(t *testing.T) {
 			if err := json.Unmarshal([]byte(tt.inputJSON), &raw); err != nil {
 				t.Fatalf("Failed to unmarshal input JSON: %v", err)
 			}
-			got, ok := parseItemMap(raw)
+			got, ok := parse.ParseItemMap(raw)
 			if ok != tt.wantOK {
 				t.Errorf("parseItemMap() ok = %v, want %v", ok, tt.wantOK)
 			}
