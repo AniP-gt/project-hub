@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-02-19
-**Commit:** aaa99ff
+**Commit:** f5614c9
 **Branch:** main
 
 ## OVERVIEW
@@ -10,15 +10,18 @@ Go-based terminal UI (Bubble Tea) for GitHub Projects via `gh` CLI. Core logic i
 ## STRUCTURE
 ```
 project-hub/
-├── cmd/project-hub/        # CLI entrypoint (main.go)
+├── cmd/project-hub/        # CLI entrypoint (main.go, 250 lines)
 ├── internal/app/           # App model/update loop, flows
+│   ├── update/             # Feature handlers (edit, assign, status, filter, view)
+│   └── core/               # Commands, messages, metrics, helpers
 ├── internal/ui/            # Board/Table/Settings views + components
 ├── internal/github/        # gh CLI client + validators
+│   └── parse/              # JSON parsing helpers
 ├── internal/state/         # Domain types, filters, keymap
 ├── internal/config/        # Config load/save
 ├── docs/                   # Design doc
 ├── .specify/               # Spec/plan tooling scripts + templates
-├── .opencode/              # Tooling metadata (includes node_modules)
+├── .opencode/              # Tooling metadata
 ├── build/                  # Local build artifacts
 └── bin/                    # Local tool binaries
 ```
@@ -27,24 +30,26 @@ project-hub/
 | Task | Location | Notes |
 |------|----------|-------|
 | CLI flags/startup | cmd/project-hub/main.go | parses flags, loads config, starts app |
-| App update loop | internal/app/app.go | Init/Update/View, message routing |
-| Feature handlers | internal/app/update_*.go | edit/assign/status/filter/view switch |
+| App lifecycle | internal/app/app.go | Init/Update/View, wrapper around update.State |
+| Feature handlers | internal/app/update/*.go | edit/assign/status/filter/view switch |
 | GitHub data | internal/github/client.go | `gh` CLI calls, fetch/update |
 | Validation | internal/github/validator.go | input checks for fields/IDs |
-| UI board | internal/ui/board/view.go | kanban view logic |
+| UI board | internal/ui/board/*.go | model, view, logic, render, layout |
 | UI table | internal/ui/table/view.go | table rendering |
 | UI settings | internal/ui/settings/settings.go | config editing |
-| UI components | internal/ui/components/*.go | panels/selectors |
-| Types/state | internal/state/types.go | domain structs + enums |
+| UI components | internal/ui/components/*.go | panels, selectors, empty state |
+| Types/state | internal/state/types.go | domain structs + enums (Item, Project, FilterState) |
 | Filters | internal/state/filter.go | filter parsing/logic |
 | Config | internal/config/config.go | config path/load/save |
-| Tests | **/*_test.go | Go stdlib testing |
+| Tests | **/*_test.go | Go stdlib testing, table-driven |
 
 ## CONVENTIONS
-- Feature branches: `NNN-short-slug` (validated by `.specify/scripts/bash/common.sh`).
-- Feature specs live under `specs/NNN-...` with `spec.md`, `plan.md`, `tasks.md`.
-- `.specify/scripts/bash/create-new-feature.sh` generates branch + spec dir.
-- No ESLint/Prettier/pyproject/Makefile configs present.
+- **Feature branches:** `NNN-short-slug` (validated by `.specify/scripts/bash/common.sh`).
+- **Feature specs:** live under `specs/NNN-...` with `spec.md`, `plan.md`, `tasks.md`.
+- **Tests:** table-driven, stdlib `testing` only, no third-party test libs.
+- **UI tests:** assert rendered string output with `strings.Contains()`.
+- **Import grouping:** stdlib → external (charmbracelet) → internal, blank line separators.
+- **Module path:** `project-hub` (local only; must change to `github.com/AniP-gt/project-hub` for remote install).
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - "DO NOT keep these sample items in the generated checklist file." — `.specify/templates/checklist-template.md`
@@ -55,8 +60,10 @@ project-hub/
 - "NEVER hallucinate missing sections (if absent, report them accurately)" — `.opencode/command/speckit.analyze.md`
 
 ## UNIQUE STYLES
-- Bubble Tea model/update/view architecture; app logic split into `update_*.go` handlers.
+- Bubble Tea model/update/view architecture; app logic split into `update/*.go` handlers.
+- `internal/app/app.go` wraps `update.State` with conversion helpers (toUpdateState/applyUpdateState/fromUpdateState).
 - UI rendering is string-based; UI tests assert rendered output.
+- `main.go` contains sample data fallback (items "1", "2", "3") loaded before real gh fetch.
 
 ## COMMANDS
 ```bash
@@ -68,6 +75,7 @@ go test ./internal/github
 ```
 
 ## NOTES
-- `go.mod` module path is `project-hub`; README notes it must be the repo import path for remote `go install` by tag.
-- Config file path (README): macOS `~/Library/Application Support/project-hub/project-hub.json`, Linux `~/.config/project-hub/project-hub.json`, Windows `%APPDATA%\project-hub\project-hub.json`.
-- Ignore `.opencode/node_modules`, `build/`, and `bin/` for code search unless troubleshooting tooling.
+- `go.mod` module path is `project-hub`; README notes it must be `github.com/AniP-gt/project-hub` for remote `go install`.
+- Config file path: macOS `~/Library/Application Support/project-hub/project-hub.json`, Linux `~/.config/project-hub/project-hub.json`, Windows `%APPDATA%\project-hub\project-hub.json`.
+- Ignore `.opencode/node_modules`, `build/`, `bin/` for code search unless troubleshooting tooling.
+- 56 Go files, ~9,324 lines of code, 18 directories.
