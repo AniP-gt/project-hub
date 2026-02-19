@@ -39,21 +39,21 @@ func resolveStartupOptions(cliProject, cliOwner string, cfg config.Config) (proj
 	return project, owner
 }
 
-func loadStartupConfig(errOut io.Writer) config.Config {
+func loadStartupConfig(errOut io.Writer) (config.Config, bool) {
 	cfg := config.Config{}
 	configPath, err := config.ResolvePath()
 	if err != nil {
 		fmt.Fprintln(errOut, "warning: failed to resolve config path:", err)
-		return cfg
+		return cfg, false
 	}
 	loadedCfg, err := config.Load(configPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			fmt.Fprintln(errOut, "warning: failed to load config:", err)
 		}
-		return cfg
+		return cfg, false
 	}
-	return loadedCfg
+	return loadedCfg, config.Exists(configPath)
 }
 
 func main() {
@@ -77,7 +77,7 @@ func main() {
 	iterationFilters := normalizeIterationFilters(iterationTokens)
 
 	// Load and use configuration
-	cfg := loadStartupConfig(os.Stderr)
+	cfg, configExists := loadStartupConfig(os.Stderr)
 
 	// Resolve final project and owner values (CLI > config defaults)
 	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, *ownerFlag, cfg)
@@ -120,6 +120,18 @@ func main() {
 	}
 
 	client := github.NewCLIClient(*ghPathFlag)
+
+	cardFieldVis := state.DefaultCardFieldVisibility()
+	if configExists {
+		cardFieldVis = state.CardFieldVisibility{
+			ShowMilestone:        cfg.CardFieldVisibility.ShowMilestone,
+			ShowRepository:       cfg.CardFieldVisibility.ShowRepository,
+			ShowSubIssueProgress: cfg.CardFieldVisibility.ShowSubIssueProgress,
+			ShowParentIssue:      cfg.CardFieldVisibility.ShowParentIssue,
+			ShowLabels:           cfg.CardFieldVisibility.ShowLabels,
+		}
+	}
+
 	initial := state.Model{
 		Project: state.Project{ID: projID, Owner: owner, Name: "GitHub Projects TUI"},
 		Items: []state.Item{
@@ -127,7 +139,13 @@ func main() {
 			{ID: "2", Title: "Wire table view", Status: "InProgress", Labels: []string{"ui"}},
 			{ID: "3", Title: "Add filtering", Status: "Review", Labels: []string{"feature"}},
 		},
-		View:          state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
+		View: state.ViewContext{
+			CurrentView:         state.ViewBoard,
+			Mode:                state.ModeNormal,
+			FocusedIndex:        0,
+			FocusedItemID:       "1",
+			CardFieldVisibility: cardFieldVis,
+		},
 		ItemLimit:     itemLimit,
 		SuppressHints: suppressHints,
 		ExcludeDone:   excludeDone,

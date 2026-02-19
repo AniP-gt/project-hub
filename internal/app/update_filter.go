@@ -26,7 +26,10 @@ func (a App) handleEnterFilterMode(msg EnterFilterModeMsg) (tea.Model, tea.Cmd) 
 func (a App) handleApplyFilter(msg ApplyFilterMsg) (tea.Model, tea.Cmd) {
 	fs := state.ParseFilter(msg.Query)
 	a.state.View.Filter = fs
-	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, fs, a.state.View.FocusedItemID)
+	if fs.GroupBy != "" {
+		a.state.View.TableGroupBy = fs.GroupBy
+	}
+	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, fs, a.state.View.FocusedItemID, a.state.View.CardFieldVisibility)
 	if fs.Query == "" {
 		a.state.View.Mode = state.ModeNormal
 	}
@@ -35,7 +38,8 @@ func (a App) handleApplyFilter(msg ApplyFilterMsg) (tea.Model, tea.Cmd) {
 
 func (a App) handleClearFilter(msg ClearFilterMsg) (tea.Model, tea.Cmd) {
 	a.state.View.Filter = state.FilterState{}
-	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, state.FilterState{}, a.state.View.FocusedItemID)
+	a.state.View.TableGroupBy = ""
+	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, state.FilterState{}, a.state.View.FocusedItemID, a.state.View.CardFieldVisibility)
 	if a.state.View.Mode == state.ModeFiltering {
 		a.state.View.Mode = state.ModeNormal
 	}

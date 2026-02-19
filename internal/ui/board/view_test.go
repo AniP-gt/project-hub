@@ -181,7 +181,7 @@ func TestEstimateCardHeightWithManyCards(t *testing.T) {
 		}
 	}
 
-	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "")
+	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 	board.Width = 100
 	board.Height = 50
 
@@ -205,7 +205,7 @@ func TestCalculateMaxVisibleCardsWithLargeList(t *testing.T) {
 		}
 	}
 
-	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "")
+	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 	board.Width = 100
 	board.Height = 50
 
@@ -229,7 +229,7 @@ func TestScrollOffsetClampingDown(t *testing.T) {
 		}
 	}
 
-	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "")
+	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 	board.Width = 100
 	board.Height = 30
 
@@ -256,7 +256,7 @@ func TestScrollOffsetClampingUp(t *testing.T) {
 		}
 	}
 
-	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "")
+	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 	board.Width = 100
 	board.Height = 30
 	board.FocusedCardIndex = 14
@@ -324,7 +324,7 @@ func TestCardBackgroundColorUnselected(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "")
+			board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 			board.Width = 80
 			board.Height = 40
 
@@ -371,7 +371,7 @@ func TestCardBackgroundColorSelected(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "")
+			board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 			board.Width = 80
 			board.Height = 40
 
@@ -406,7 +406,7 @@ func TestCardPriorityColorsPreservedWithBackground(t *testing.T) {
 				Priority: tt.priority,
 			}
 
-			board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "")
+			board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 			board.Width = 80
 			board.Height = 40
 
@@ -432,7 +432,7 @@ func TestCardWithAllFieldsRenderLines(t *testing.T) {
 		Priority: "High",
 	}
 
-	board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "")
+	board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 	board.Width = 100
 	board.Height = 50
 
@@ -473,7 +473,7 @@ func TestCardBackgroundDifferentBetweenStates(t *testing.T) {
 		Priority: "Medium",
 	}
 
-	board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "")
+	board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
 	board.Width = 80
 	board.Height = 40
 

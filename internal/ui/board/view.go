@@ -33,6 +33,7 @@ type BoardModel struct {
 	VisibleColumns     int
 	ColumnOffset       int
 	CardOffset         int // Vertical scroll offset for cards in the focused column
+	FieldVisibility    state.CardFieldVisibility
 }
 
 func (m *BoardModel) ensureLayoutConstraints() {
@@ -328,7 +329,7 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		}
 	}
 
-	if len(card.Labels) > 0 {
+	if m.FieldVisibility.ShowLabels && len(card.Labels) > 0 {
 		labels := wrap("["+strings.Join(card.Labels, ", ")+"]", maxMetaLines, isSelected)
 		if labels != "" {
 			contentBlocks = append(contentBlocks, labels)
@@ -348,6 +349,36 @@ func (m BoardModel) renderCard(card state.Card, isSelected bool) string {
 		priority := wrap(priorityStyle.Render(card.Priority), maxMetaLines, isSelected)
 		if priority != "" {
 			contentBlocks = append(contentBlocks, priority)
+		}
+	}
+
+	if m.FieldVisibility.ShowMilestone && card.Milestone != "" {
+		milestone := wrap("M: "+card.Milestone, maxMetaLines, isSelected)
+		if milestone != "" {
+			contentBlocks = append(contentBlocks, milestone)
+		}
+	}
+
+	if m.FieldVisibility.ShowRepository && card.Repository != "" {
+		repo := wrap("R: "+card.Repository, maxMetaLines, isSelected)
+		if repo != "" {
+			contentBlocks = append(contentBlocks, repo)
+		}
+	}
+
+	if m.FieldVisibility.ShowSubIssueProgress && card.SubIssueProgress != "" {
+		subIssueStyle := lipgloss.NewStyle().Foreground(components.ColorCyan400)
+		subIssue := wrap(subIssueStyle.Render("S: "+card.SubIssueProgress), maxMetaLines, isSelected)
+		if subIssue != "" {
+			contentBlocks = append(contentBlocks, subIssue)
+		}
+	}
+
+	if m.FieldVisibility.ShowParentIssue && card.ParentIssue != "" {
+		parentStyle := lipgloss.NewStyle().Foreground(components.ColorPurple400)
+		parent := wrap(parentStyle.Render("P: "+card.ParentIssue), maxMetaLines, isSelected)
+		if parent != "" {
+			contentBlocks = append(contentBlocks, parent)
 		}
 	}
 
@@ -468,7 +499,7 @@ func isDoneStatus(status string) bool {
 
 // NewBoardModel creates a new BoardModel from items, fields, and filter state.
 // The fields parameter is used to determine the status column order from GitHub Projects.
-func NewBoardModel(items []state.Item, fields []state.Field, filter state.FilterState, focusedItemID string) BoardModel {
+func NewBoardModel(items []state.Item, fields []state.Field, filter state.FilterState, focusedItemID string, fieldVisibility state.CardFieldVisibility) BoardModel {
 	// Apply global filter
 	filteredItems := applyFilter(items, filter)
 
@@ -494,6 +525,7 @@ func NewBoardModel(items []state.Item, fields []state.Field, filter state.Filter
 		FocusedCardIndex:   focusedCardIndex,
 		ColumnOffset:       0,
 		CardOffset:         0,
+		FieldVisibility:    fieldVisibility,
 	}
 
 	return bm
@@ -569,12 +601,16 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 			// Don't hardcode default priority - leave empty if no priority is set
 			// GitHub Projects may have custom priority names beyond High/Medium/Low
 			card := state.Card{
-				ID:       item.ID,
-				Title:    item.Title,
-				Assignee: assignee,
-				Labels:   item.Labels,
-				Status:   item.Status,
-				Priority: priority,
+				ID:               item.ID,
+				Title:            item.Title,
+				Assignee:         assignee,
+				Labels:           item.Labels,
+				Status:           item.Status,
+				Priority:         priority,
+				Milestone:        item.Milestone,
+				Repository:       item.Repository,
+				SubIssueProgress: item.SubIssueProgress,
+				ParentIssue:      item.ParentIssue,
 			}
 			statusCardMap[status] = append(statusCardMap[status], card)
 		}
@@ -632,6 +668,128 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 	}
 
 	return columns
+}
+
+type GroupBucket struct {
+	Name  string
+	Items []state.Item
+}
+
+func GroupItemsByAssignee(items []state.Item) []GroupBucket {
+	buckets := map[string][]state.Item{}
+	for _, item := range items {
+		if len(item.Assignees) == 0 {
+			buckets["Unassigned"] = append(buckets["Unassigned"], item)
+			continue
+		}
+		for _, assignee := range item.Assignees {
+			name := strings.TrimSpace(assignee)
+			if name == "" {
+				continue
+			}
+			buckets[name] = append(buckets[name], item)
+		}
+	}
+	return bucketsToOrderedList(buckets, []string{"Unassigned"})
+}
+
+func GroupItemsByIteration(items []state.Item) []GroupBucket {
+	buckets := map[string][]state.Item{}
+	for _, item := range items {
+		name := strings.TrimSpace(item.IterationName)
+		if name == "" {
+			name = "No Iteration"
+		}
+		buckets[name] = append(buckets[name], item)
+	}
+	return bucketsToOrderedList(buckets, []string{"No Iteration"})
+}
+
+func GroupItemsByStatusBuckets(items []state.Item, fields []state.Field) []GroupBucket {
+	statusMap := make(map[string][]state.Item)
+	for _, item := range items {
+		statusMap[item.Status] = append(statusMap[item.Status], item)
+	}
+
+	// Sort items by Position within each status
+	for status, items := range statusMap {
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].Position < items[j].Position
+		})
+		statusMap[status] = items
+	}
+
+	// Get status option order from fields (GitHub Projects configuration)
+	var statusOrder []string
+	for _, field := range fields {
+		if field.Name == "Status" {
+			for _, opt := range field.Options {
+				statusOrder = append(statusOrder, opt.Name)
+			}
+			break
+		}
+	}
+
+	// Fall back to default order if no Status field found
+	if len(statusOrder) == 0 {
+		statusOrder = ColumnOrder
+	}
+
+	var buckets []GroupBucket
+	var doneBucket *GroupBucket
+
+	for _, status := range statusOrder {
+		if items, exists := statusMap[status]; exists {
+			buckets = append(buckets, GroupBucket{Name: status, Items: items})
+			delete(statusMap, status)
+		}
+	}
+
+	var unknownStatuses []string
+	for status := range statusMap {
+		if isDoneStatus(status) {
+			bucket := GroupBucket{Name: "Done", Items: statusMap[status]}
+			doneBucket = &bucket
+		} else {
+			unknownStatuses = append(unknownStatuses, status)
+		}
+	}
+
+	sort.Strings(unknownStatuses)
+	for _, status := range unknownStatuses {
+		buckets = append(buckets, GroupBucket{Name: status, Items: statusMap[status]})
+	}
+
+	if doneBucket != nil {
+		buckets = append(buckets, *doneBucket)
+	}
+
+	return buckets
+}
+
+func bucketsToOrderedList(buckets map[string][]state.Item, trailing []string) []GroupBucket {
+	var names []string
+	for name := range buckets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	trailingSet := map[string]struct{}{}
+	for _, t := range trailing {
+		trailingSet[t] = struct{}{}
+	}
+	var ordered []GroupBucket
+	for _, name := range names {
+		if _, ok := trailingSet[name]; ok {
+			continue
+		}
+		ordered = append(ordered, GroupBucket{Name: name, Items: buckets[name]})
+	}
+	for _, name := range trailing {
+		if items, ok := buckets[name]; ok {
+			ordered = append(ordered, GroupBucket{Name: name, Items: items})
+		}
+	}
+	return ordered
 }
 
 func inferPriorityFromLabels(labels []string) string {

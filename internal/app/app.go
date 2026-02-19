@@ -21,6 +21,12 @@ import (
 	"project-hub/internal/ui/table"
 )
 
+const (
+	groupByStatus    = "status"
+	groupByAssignee  = "assignee"
+	groupByIteration = "iteration"
+)
+
 // App implements the Bubbletea Model interface and holds root state.
 type App struct {
 	state          state.Model
@@ -37,7 +43,7 @@ type App struct {
 
 // New creates an App with an optional preloaded state.
 func New(initial state.Model, client github.Client, itemLimit int) App {
-	boardModel := boardPkg.NewBoardModel(initial.Items, initial.Project.Fields, initial.View.Filter, initial.View.FocusedItemID)
+	boardModel := boardPkg.NewBoardModel(initial.Items, initial.Project.Fields, initial.View.Filter, initial.View.FocusedItemID, initial.View.CardFieldVisibility)
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.Focus()
@@ -290,7 +296,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(a.state.Items) > 0 {
 			a.state.View.FocusedItemID = a.state.Items[0].ID
 		}
-		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
+		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID, a.state.View.CardFieldVisibility)
 	case ItemUpdatedMsg:
 		// Merge updated fields into the existing item to avoid overwriting
 		// other fields when the returned updated item is partial (e.g. only
@@ -332,7 +338,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.state.Items[m.Index] = m.Item
 			}
 		}
-		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID)
+		a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID, a.state.View.CardFieldVisibility)
 		if !a.state.SuppressHints {
 			notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 			a.state.Notifications = append(a.state.Notifications, notif)
@@ -511,6 +517,11 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Handle field toggle mode
+	if a.state.View.Mode == state.ModeFieldToggle {
+		return a.handleFieldToggle(k.String())
+	}
+
 	// Handle input while in sort mode (ModeSort is a typed constant)
 	if a.state.View.Mode == state.ModeSort {
 		switch k.String() {
@@ -658,6 +669,16 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return a.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
 		}
 		return a, nil
+	case "f":
+		if a.state.View.CurrentView == state.ViewBoard {
+			return a.handleEnterFieldToggleMode()
+		}
+		return a, nil
+	case "g":
+		if a.state.View.CurrentView == state.ViewTable {
+			return a.handleToggleGroupBy()
+		}
+		return a, nil
 	case "o":
 		return a.handleEnterDetailMode()
 	default:
@@ -741,23 +762,44 @@ func (a App) View() string {
 	frameVertical := components.FrameStyle.GetVerticalFrameSize()
 	switch a.state.View.CurrentView {
 	case state.ViewTable:
-		tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
-		headerHeight := lipgloss.Height(tableView.Header)
-		rowsHeight := bodyHeight - headerHeight - frameVertical
-		if rowsHeight < 3 {
-			rowsHeight = 3
-		}
-		if a.tableViewport != nil {
-			// Add trailing newline to ensure viewport properly calculates all lines
-			rowsContent := strings.Join(tableView.Rows, "\n") + "\n"
-			a.ensureTableViewportSize(innerWidth, rowsHeight)
-			a.tableViewport.SetContent(rowsContent)
-			focusedRow := focusedRowIndex(items, a.state.View.FocusedItemID)
-			focusTop, focusBottom := tableView.RowBounds(focusedRow)
-			a.syncTableViewportToFocus(focusTop, focusBottom, tableView.RowsLineSize)
-			body = lipgloss.JoinVertical(lipgloss.Left, tableView.Header, a.tableViewport.View())
+		groupBy := strings.ToLower(strings.TrimSpace(a.state.View.TableGroupBy))
+		if groupBy != "" {
+			groupedView := renderGroupedTable(groupBy, items, a.state.Project.Fields, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
+			headerHeight := lipgloss.Height(groupedView.Header)
+			rowsHeight := bodyHeight - headerHeight - frameVertical
+			if rowsHeight < 3 {
+				rowsHeight = 3
+			}
+			if a.tableViewport != nil {
+				rowsContent := strings.Join(groupedView.Rows, "\n") + "\n"
+				a.ensureTableViewportSize(innerWidth, rowsHeight)
+				a.tableViewport.SetContent(rowsContent)
+				focusedRow := focusedGroupedRowIndex(groupedView.Groups, a.state.View.FocusedItemID)
+				focusTop, focusBottom := groupedView.RowBounds(focusedRow)
+				a.syncTableViewportToFocus(focusTop, focusBottom, groupedView.RowsLineSize)
+				body = lipgloss.JoinVertical(lipgloss.Left, groupedView.Header, a.tableViewport.View())
+			} else {
+				body = lipgloss.JoinVertical(lipgloss.Left, append([]string{groupedView.Header}, groupedView.Rows...)...)
+			}
 		} else {
-			body = lipgloss.JoinVertical(lipgloss.Left, append([]string{tableView.Header}, tableView.Rows...)...)
+			tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
+			headerHeight := lipgloss.Height(tableView.Header)
+			rowsHeight := bodyHeight - headerHeight - frameVertical
+			if rowsHeight < 3 {
+				rowsHeight = 3
+			}
+			if a.tableViewport != nil {
+				// Add trailing newline to ensure viewport properly calculates all lines
+				rowsContent := strings.Join(tableView.Rows, "\n") + "\n"
+				a.ensureTableViewportSize(innerWidth, rowsHeight)
+				a.tableViewport.SetContent(rowsContent)
+				focusedRow := focusedRowIndex(items, a.state.View.FocusedItemID)
+				focusTop, focusBottom := tableView.RowBounds(focusedRow)
+				a.syncTableViewportToFocus(focusTop, focusBottom, tableView.RowsLineSize)
+				body = lipgloss.JoinVertical(lipgloss.Left, tableView.Header, a.tableViewport.View())
+			} else {
+				body = lipgloss.JoinVertical(lipgloss.Left, append([]string{tableView.Header}, tableView.Rows...)...)
+			}
 		}
 	case state.ViewSettings:
 		a.settingsModel.SetSize(innerWidth, bodyHeight)
@@ -830,6 +872,106 @@ func (a App) View() string {
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
+}
+
+type groupedTableView struct {
+	Header       string
+	Rows         []string
+	RowHeights   []int
+	RowOffsets   []int
+	RowsLineSize int
+	Groups       []boardPkg.GroupBucket
+}
+
+func renderGroupedTable(groupBy string, items []state.Item, fields []state.Field, focusedID string, focusedColIndex int, innerWidth int) groupedTableView {
+	if innerWidth <= 0 {
+		innerWidth = 80
+	}
+	sepLen := innerWidth
+	var groups []boardPkg.GroupBucket
+	switch groupBy {
+	case groupByStatus:
+		groups = boardPkg.GroupItemsByStatusBuckets(items, fields)
+	case groupByIteration:
+		groups = boardPkg.GroupItemsByIteration(items)
+	case groupByAssignee:
+		groups = boardPkg.GroupItemsByAssignee(items)
+	default:
+		groups = []boardPkg.GroupBucket{{Name: "Items", Items: items}}
+	}
+	if len(groups) == 0 {
+		groups = []boardPkg.GroupBucket{{Name: "Items", Items: items}}
+	}
+
+	var header string
+	var rows []string
+	var rowHeights []int
+	var rowOffsets []int
+	var cumulativeHeight int
+	groupHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+
+	for i, group := range groups {
+		if i == 0 {
+			groupRender := table.Render(group.Items, focusedID, focusedColIndex, innerWidth)
+			header = groupRender.Header
+		}
+
+		groupHeader := fmt.Sprintf("# %s (%d)", group.Name, len(group.Items))
+		groupHeaderRow := groupHeaderStyle.Render(groupHeader)
+		separator := ""
+		if sepLen > 0 {
+			separator = strings.Repeat("─", sepLen)
+		}
+		groupHeaderView := lipgloss.JoinVertical(lipgloss.Left, groupHeaderRow, separator)
+		rows = append(rows, groupHeaderView)
+		rowHeights = append(rowHeights, lipgloss.Height(groupHeaderView))
+		rowOffsets = append(rowOffsets, cumulativeHeight)
+		cumulativeHeight += lipgloss.Height(groupHeaderView)
+
+		groupRender := table.Render(group.Items, focusedID, focusedColIndex, innerWidth)
+		rows = append(rows, groupRender.Rows...)
+		for _, h := range groupRender.RowHeights {
+			rowHeights = append(rowHeights, h)
+			rowOffsets = append(rowOffsets, cumulativeHeight)
+			cumulativeHeight += h
+		}
+	}
+
+	return groupedTableView{
+		Header:       header,
+		Rows:         rows,
+		RowHeights:   rowHeights,
+		RowOffsets:   rowOffsets,
+		RowsLineSize: cumulativeHeight,
+		Groups:       groups,
+	}
+}
+
+func (g groupedTableView) RowBounds(index int) (int, int) {
+	if index < 0 || index >= len(g.RowOffsets) || index >= len(g.RowHeights) {
+		return -1, -1
+	}
+	top := g.RowOffsets[index]
+	height := g.RowHeights[index]
+	if height <= 0 {
+		height = 1
+	}
+	bottom := top + height - 1
+	return top, bottom
+}
+
+func focusedGroupedRowIndex(groups []boardPkg.GroupBucket, focusedID string) int {
+	index := 0
+	for _, group := range groups {
+		index++
+		for _, item := range group.Items {
+			if item.ID == focusedID {
+				return index
+			}
+			index++
+		}
+	}
+	return -1
 }
 
 func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
@@ -1232,6 +1374,113 @@ func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
 		return a, tea.Batch(a.detailPanel.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, detailNotif.DismissAfter))
 	}
 	return a, a.detailPanel.Init()
+}
+
+func (a App) handleEnterFieldToggleMode() (tea.Model, tea.Cmd) {
+	a.state.View.Mode = state.ModeFieldToggle
+	if !a.state.SuppressHints {
+		notif := state.Notification{
+			Message:      "Field toggle mode: m=milestone r=repository l=labels s=sub-issue p=parent (toggle on/off, esc to cancel)",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 5 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+	return a, nil
+}
+
+func (a App) handleFieldToggle(key string) (tea.Model, tea.Cmd) {
+	vis := &a.state.View.CardFieldVisibility
+	switch key {
+	case "m", "M":
+		vis.ShowMilestone = !vis.ShowMilestone
+	case "r", "R":
+		vis.ShowRepository = !vis.ShowRepository
+	case "l", "L":
+		vis.ShowLabels = !vis.ShowLabels
+	case "s", "S":
+		vis.ShowSubIssueProgress = !vis.ShowSubIssueProgress
+	case "p", "P":
+		vis.ShowParentIssue = !vis.ShowParentIssue
+	case "esc":
+		a.state.View.Mode = state.ModeNormal
+		return a, nil
+	default:
+		return a, nil
+	}
+
+	a.state.View.Mode = state.ModeNormal
+	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, a.state.View.Filter, a.state.View.FocusedItemID, a.state.View.CardFieldVisibility)
+
+	configPath, err := config.ResolvePath()
+	if err == nil {
+		existingCfg, loadErr := config.Load(configPath)
+		if loadErr == nil {
+			cfg := config.Config{
+				DefaultProjectID:   existingCfg.DefaultProjectID,
+				DefaultOwner:       existingCfg.DefaultOwner,
+				SuppressHints:      existingCfg.SuppressHints,
+				DefaultItemLimit:   existingCfg.DefaultItemLimit,
+				DefaultExcludeDone: existingCfg.DefaultExcludeDone,
+				CardFieldVisibility: config.CardFieldVisibility{
+					ShowMilestone:        vis.ShowMilestone,
+					ShowRepository:       vis.ShowRepository,
+					ShowSubIssueProgress: vis.ShowSubIssueProgress,
+					ShowParentIssue:      vis.ShowParentIssue,
+					ShowLabels:           vis.ShowLabels,
+				},
+			}
+			config.Save(configPath, cfg)
+		}
+	}
+
+	if !a.state.SuppressHints {
+		notif := state.Notification{
+			Message:      "Card fields preference saved",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 3 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+	return a, nil
+}
+
+func (a App) handleToggleGroupBy() (tea.Model, tea.Cmd) {
+	current := strings.ToLower(strings.TrimSpace(a.state.View.TableGroupBy))
+	switch current {
+	case "":
+		a.state.View.TableGroupBy = groupByStatus
+	case groupByStatus:
+		a.state.View.TableGroupBy = groupByAssignee
+	case groupByAssignee:
+		a.state.View.TableGroupBy = groupByIteration
+	default:
+		a.state.View.TableGroupBy = ""
+	}
+
+	if a.tableViewport != nil && a.state.View.TableGroupBy != "" {
+		a.tableViewport.YOffset = 0
+	}
+
+	if !a.state.SuppressHints {
+		label := a.state.View.TableGroupBy
+		if label == "" {
+			label = "none"
+		}
+		notif := state.Notification{
+			Message:      fmt.Sprintf("Group: %s", label),
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 3 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+	return a, nil
 }
 
 func (a App) refreshBoardCmd() tea.Cmd {

@@ -12,12 +12,21 @@ const (
 	ConfigFileName = "project-hub.json"
 )
 
+type CardFieldVisibility struct {
+	ShowMilestone        bool `json:"showMilestone"`
+	ShowRepository       bool `json:"showRepository"`
+	ShowSubIssueProgress bool `json:"showSubIssueProgress"`
+	ShowParentIssue      bool `json:"showParentIssue"`
+	ShowLabels           bool `json:"showLabels"`
+}
+
 type Config struct {
-	DefaultProjectID   string `json:"defaultProjectID"`
-	DefaultOwner       string `json:"defaultOwner"`
-	SuppressHints      bool   `json:"suppressHints"`
-	DefaultItemLimit   int    `json:"defaultItemLimit"`
-	DefaultExcludeDone bool   `json:"defaultExcludeDone"`
+	DefaultProjectID    string              `json:"defaultProjectID"`
+	DefaultOwner        string              `json:"defaultOwner"`
+	SuppressHints       bool                `json:"suppressHints"`
+	DefaultItemLimit    int                 `json:"defaultItemLimit"`
+	DefaultExcludeDone  bool                `json:"defaultExcludeDone"`
+	CardFieldVisibility CardFieldVisibility `json:"cardFieldVisibility"`
 }
 
 // ResolvePath returns the canonical config file path using XDG Base Directory spec.
@@ -52,6 +61,12 @@ func Load(path string) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// Exists checks if the config file exists.
+func Exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // Save writes configuration to a JSON file.

@@ -18,6 +18,7 @@ const (
 	ModePrioritySelect  ViewMode = "prioritySelect"
 	ModeSettings        ViewMode = "settings"
 	ModeDetail          ViewMode = "detail"
+	ModeFieldToggle     ViewMode = "fieldToggle"
 )
 
 // ViewType represents the active view.
@@ -36,6 +37,7 @@ type FilterState struct {
 	Assignees  []string
 	Statuses   []string
 	Iterations []string
+	GroupBy    string
 }
 
 // TableSort captures table ordering preferences.
@@ -76,6 +78,8 @@ type Item struct {
 	IterationStart        *time.Time
 	IterationDurationDays int
 	Position              int
+	SubIssueProgress      string // e.g., "2/5" showing completed/total sub-issues
+	ParentIssue           string // Parent issue title or reference
 }
 
 // Project metadata and available capabilities.
@@ -118,13 +122,15 @@ const (
 
 // ViewContext holds transient UI state.
 type ViewContext struct {
-	CurrentView        ViewType
-	FocusedItemID      string
-	FocusedIndex       int
-	FocusedColumnIndex int // Added for cell-level focus in table view
-	Filter             FilterState
-	Mode               ViewMode
-	TableSort          TableSort
+	CurrentView         ViewType
+	FocusedItemID       string
+	FocusedIndex        int
+	FocusedColumnIndex  int // Added for cell-level focus in table view
+	Filter              FilterState
+	Mode                ViewMode
+	TableSort           TableSort
+	TableGroupBy        string
+	CardFieldVisibility CardFieldVisibility
 }
 
 // Notification represents a non-blocking message to the user.
@@ -136,14 +142,38 @@ type Notification struct {
 	DismissAfter time.Duration // Added: Duration after which the notification should be dismissed
 }
 
+// CardFieldVisibility controls which optional fields are displayed on cards.
+type CardFieldVisibility struct {
+	ShowMilestone        bool
+	ShowRepository       bool
+	ShowSubIssueProgress bool
+	ShowParentIssue      bool
+	ShowLabels           bool
+}
+
+// DefaultCardFieldVisibility returns the default visibility settings.
+func DefaultCardFieldVisibility() CardFieldVisibility {
+	return CardFieldVisibility{
+		ShowMilestone:        false,
+		ShowRepository:       false,
+		ShowSubIssueProgress: false,
+		ShowParentIssue:      false,
+		ShowLabels:           true,
+	}
+}
+
 // Card represents a project item in the Kanban board view.
 type Card struct {
-	ID       string
-	Title    string
-	Assignee string
-	Labels   []string
-	Status   string
-	Priority string
+	ID               string
+	Title            string
+	Assignee         string
+	Labels           []string
+	Status           string
+	Priority         string
+	Milestone        string
+	Repository       string
+	SubIssueProgress string // e.g., "2/5" showing completed/total sub-issues
+	ParentIssue      string // Parent issue title or reference
 }
 
 // Column represents a column in the Kanban board.

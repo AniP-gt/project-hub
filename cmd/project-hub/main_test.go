@@ -130,7 +130,7 @@ func TestLoadStartupConfigUsesSavedDefaults(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	cfg := loadStartupConfig(&stderr)
+	cfg, _ := loadStartupConfig(&stderr)
 
 	if cfg.DefaultProjectID != "9" {
 		t.Fatalf("expected project id 9, got %q", cfg.DefaultProjectID)
@@ -159,7 +159,7 @@ func TestLoadStartupConfigMalformedConfigWarning(t *testing.T) {
 	}
 
 	var stderr bytes.Buffer
-	cfg := loadStartupConfig(&stderr)
+	cfg, _ := loadStartupConfig(&stderr)
 
 	if cfg.DefaultProjectID != "" || cfg.DefaultOwner != "" {
 		t.Fatalf("expected empty fallback config, got %+v", cfg)

@@ -4,11 +4,13 @@ import "strings"
 
 // ParseFilter converts a raw query into structured filter fields.
 func ParseFilter(query string) FilterState {
-	fs := FilterState{Query: strings.TrimSpace(query)}
-	if fs.Query == "" {
+	trimmed := strings.TrimSpace(query)
+	fs := FilterState{Query: trimmed}
+	if trimmed == "" {
 		return fs
 	}
-	tokens := strings.Fields(fs.Query)
+	var queryTokens []string
+	tokens := strings.Fields(trimmed)
 	for _, t := range tokens {
 		if strings.HasPrefix(t, "label:") {
 			fs.Labels = append(fs.Labels, strings.TrimPrefix(t, "label:"))
@@ -26,7 +28,29 @@ func ParseFilter(query string) FilterState {
 			fs.Iterations = append(fs.Iterations, strings.TrimPrefix(t, "iteration:"))
 			continue
 		}
-		// Unknown token: keep it in Query but ignore structured fields.
+		if strings.HasPrefix(t, "group:") {
+			fs.GroupBy = strings.TrimSpace(strings.TrimPrefix(t, "group:"))
+			continue
+		}
+		if strings.HasPrefix(t, "group-by:") {
+			fs.GroupBy = strings.TrimSpace(strings.TrimPrefix(t, "group-by:"))
+			continue
+		}
+		if strings.HasPrefix(t, "groupby:") {
+			fs.GroupBy = strings.TrimSpace(strings.TrimPrefix(t, "groupby:"))
+			continue
+		}
+		if strings.HasPrefix(t, "@") {
+			fs.Iterations = append(fs.Iterations, t)
+			continue
+		}
+		lower := strings.ToLower(t)
+		if lower == "current" || lower == "next" || lower == "previous" {
+			fs.Iterations = append(fs.Iterations, t)
+			continue
+		}
+		queryTokens = append(queryTokens, t)
 	}
+	fs.Query = strings.Join(queryTokens, " ")
 	return fs
 }
