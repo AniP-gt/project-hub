@@ -46,7 +46,7 @@ func (a App) View() string {
 	case state.ViewTable:
 		groupBy := strings.ToLower(strings.TrimSpace(a.state.View.TableGroupBy))
 		if groupBy != "" {
-			groupedView := renderGroupedTable(groupBy, items, a.state.Project.Fields, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
+			groupedView := renderGroupedTable(groupBy, items, a.state.Project.Fields, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth, a.state.View.CardFieldVisibility)
 			headerHeight := lipgloss.Height(groupedView.Header)
 			rowsHeight := bodyHeight - headerHeight - frameVertical
 			if rowsHeight < 3 {
@@ -64,7 +64,7 @@ func (a App) View() string {
 				body = lipgloss.JoinVertical(lipgloss.Left, append([]string{groupedView.Header}, groupedView.Rows...)...)
 			}
 		} else {
-			tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth)
+			tableView := table.Render(items, a.state.View.FocusedItemID, a.state.View.FocusedColumnIndex, innerWidth, a.state.View.CardFieldVisibility)
 			headerHeight := lipgloss.Height(tableView.Header)
 			rowsHeight := bodyHeight - headerHeight - frameVertical
 			if rowsHeight < 3 {
@@ -163,7 +163,7 @@ type groupedTableView struct {
 	Groups       []boardPkg.GroupBucket
 }
 
-func renderGroupedTable(groupBy string, items []state.Item, fields []state.Field, focusedID string, focusedColIndex int, innerWidth int) groupedTableView {
+func renderGroupedTable(groupBy string, items []state.Item, fields []state.Field, focusedID string, focusedColIndex int, innerWidth int, fieldVisibility state.CardFieldVisibility) groupedTableView {
 	if innerWidth <= 0 {
 		innerWidth = 80
 	}
@@ -192,7 +192,7 @@ func renderGroupedTable(groupBy string, items []state.Item, fields []state.Field
 
 	for i, group := range groups {
 		if i == 0 {
-			groupRender := table.Render(group.Items, focusedID, focusedColIndex, innerWidth)
+			groupRender := table.Render(group.Items, focusedID, focusedColIndex, innerWidth, fieldVisibility)
 			header = groupRender.Header
 		}
 
@@ -208,7 +208,7 @@ func renderGroupedTable(groupBy string, items []state.Item, fields []state.Field
 		rowOffsets = append(rowOffsets, cumulativeHeight)
 		cumulativeHeight += lipgloss.Height(groupHeaderView)
 
-		groupRender := table.Render(group.Items, focusedID, focusedColIndex, innerWidth)
+		groupRender := table.Render(group.Items, focusedID, focusedColIndex, innerWidth, fieldVisibility)
 		rows = append(rows, groupRender.Rows...)
 		for _, h := range groupRender.RowHeights {
 			rowHeights = append(rowHeights, h)
