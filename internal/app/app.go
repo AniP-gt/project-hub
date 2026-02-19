@@ -487,8 +487,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle input while in edit/assign/labelInput/milestoneInput modes
-	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" {
+	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" || a.state.View.Mode == state.ModeFiltering {
 		switch k.String() {
 		case "enter":
 			if a.state.View.Mode == "edit" {
@@ -499,6 +498,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return a.handleSaveLabelsInput(SaveLabelsInputMsg{Labels: a.textInput.Value()})
 			} else if a.state.View.Mode == "milestoneInput" {
 				return a.handleSaveMilestoneInput(SaveMilestoneInputMsg{Milestone: a.textInput.Value()})
+			} else if a.state.View.Mode == state.ModeFiltering {
+				return a.handleApplyFilter(ApplyFilterMsg{Query: a.textInput.Value()})
 			}
 		case "esc":
 			if a.state.View.Mode == "edit" {
@@ -509,6 +510,8 @@ func (a App) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return a.handleCancelLabelsInput(CancelLabelsInputMsg{})
 			} else if a.state.View.Mode == "milestoneInput" {
 				return a.handleCancelMilestoneInput(CancelMilestoneInputMsg{})
+			} else if a.state.View.Mode == state.ModeFiltering {
+				return a.handleClearFilter(ClearFilterMsg{})
 			}
 		default:
 			var cmd tea.Cmd
@@ -736,7 +739,7 @@ func (a App) View() string {
 		width = 100
 	}
 	header := components.RenderHeader(a.state.Project, a.state.View, width)
-	items := applyFilter(a.state.Items, a.state.View.Filter)
+	items := applyFilter(a.state.Items, a.state.Project.Fields, a.state.View.Filter)
 	// Apply table sort if present
 	items = applySort(items, a.state.View.TableSort)
 
@@ -751,7 +754,7 @@ func (a App) View() string {
 	}
 
 	editTitle := ""
-	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" {
+	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" || a.state.View.Mode == state.ModeFiltering {
 		editTitle = a.textInput.Value()
 	}
 	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width, editTitle)
@@ -812,7 +815,7 @@ func (a App) View() string {
 	}
 
 	// Handle edit/assign/labelInput/milestoneInput modes
-	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" {
+	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" || a.state.View.Mode == state.ModeFiltering {
 		body = body + "\n" + a.textInput.View()
 	}
 
@@ -974,12 +977,15 @@ func focusedGroupedRowIndex(groups []boardPkg.GroupBucket, focusedID string) int
 	return -1
 }
 
-func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
-	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 && len(fs.Iterations) == 0 {
+func applyFilter(items []state.Item, fields []state.Field, fs state.FilterState) []state.Item {
+	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 && len(fs.Iterations) == 0 && len(fs.FieldFilters) == 0 {
 		return items
 	}
 	var out []state.Item
 	for _, it := range items {
+		if fs.Query != "" && !strings.Contains(strings.ToLower(it.Title), strings.ToLower(fs.Query)) {
+			continue
+		}
 		if len(fs.Labels) > 0 && !containsAny(it.Labels, fs.Labels) {
 			continue
 		}
@@ -992,9 +998,89 @@ func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
 		if len(fs.Iterations) > 0 && !state.MatchesIterationFilters(it, fs.Iterations, time.Now()) {
 			continue
 		}
+		if len(fs.FieldFilters) > 0 && !matchesFieldFilters(it, fields, fs.FieldFilters) {
+			continue
+		}
 		out = append(out, it)
 	}
 	return out
+}
+
+func matchesFieldFilters(item state.Item, fields []state.Field, filters map[string][]string) bool {
+	if len(filters) == 0 {
+		return true
+	}
+	for name, values := range filters {
+		if !matchesSingleFieldFilter(item, fields, name, values) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesSingleFieldFilter(item state.Item, fields []state.Field, name string, values []string) bool {
+	if len(values) == 0 {
+		return true
+	}
+	fieldName := strings.TrimSpace(name)
+	if fieldName == "" {
+		return true
+	}
+	if strings.EqualFold(fieldName, "title") {
+		return matchSliceValues([]string{item.Title}, values)
+	}
+	if strings.EqualFold(fieldName, "status") {
+		return matchSliceValues([]string{item.Status}, values)
+	}
+	if strings.EqualFold(fieldName, "priority") {
+		return matchSliceValues([]string{item.Priority}, values)
+	}
+	if strings.EqualFold(fieldName, "milestone") {
+		return matchSliceValues([]string{item.Milestone}, values)
+	}
+	if strings.EqualFold(fieldName, "labels") || strings.EqualFold(fieldName, "label") {
+		return matchSliceValues(item.Labels, values)
+	}
+	if strings.EqualFold(fieldName, "assignees") || strings.EqualFold(fieldName, "assignee") {
+		return matchSliceValues(item.Assignees, values)
+	}
+	if strings.EqualFold(fieldName, "iteration") {
+		return state.MatchesIterationFilters(item, values, time.Now())
+	}
+	if len(item.FieldValues) > 0 {
+		for key, stored := range item.FieldValues {
+			if strings.EqualFold(key, fieldName) {
+				return matchSliceValues(stored, values)
+			}
+		}
+	}
+	for _, field := range fields {
+		if strings.EqualFold(field.Name, fieldName) {
+			stored := item.FieldValues[field.Name]
+			return matchSliceValues(stored, values)
+		}
+	}
+	return false
+}
+
+func matchSliceValues(haystack []string, needles []string) bool {
+	if len(needles) == 0 {
+		return true
+	}
+	for _, needle := range needles {
+		if needle == "" {
+			continue
+		}
+		for _, value := range haystack {
+			if value == "" {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(needle)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func containsAny(haystack []string, needles []string) bool {

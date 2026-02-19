@@ -110,17 +110,34 @@ func (a App) handleMoveFocusGrouped(delta int) (tea.Model, tea.Cmd) {
 	newRow = newRow % len(rowToItem)
 
 	newItemID := ""
-	for i := newRow; i < len(rowToItem); i++ {
-		if !rowToItem[i].isGroup && rowToItem[i].itemID != "" {
-			newItemID = rowToItem[i].itemID
-			break
-		}
-	}
-	if newItemID == "" {
-		for i := 0; i < newRow; i++ {
+	if delta < 0 {
+		for i := newRow; i >= 0; i-- {
 			if !rowToItem[i].isGroup && rowToItem[i].itemID != "" {
 				newItemID = rowToItem[i].itemID
 				break
+			}
+		}
+		if newItemID == "" {
+			for i := len(rowToItem) - 1; i > newRow; i-- {
+				if !rowToItem[i].isGroup && rowToItem[i].itemID != "" {
+					newItemID = rowToItem[i].itemID
+					break
+				}
+			}
+		}
+	} else {
+		for i := newRow; i < len(rowToItem); i++ {
+			if !rowToItem[i].isGroup && rowToItem[i].itemID != "" {
+				newItemID = rowToItem[i].itemID
+				break
+			}
+		}
+		if newItemID == "" {
+			for i := 0; i < newRow; i++ {
+				if !rowToItem[i].isGroup && rowToItem[i].itemID != "" {
+					newItemID = rowToItem[i].itemID
+					break
+				}
 			}
 		}
 	}

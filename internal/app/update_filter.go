@@ -20,7 +20,16 @@ type ClearFilterMsg struct{}
 
 func (a App) handleEnterFilterMode(msg EnterFilterModeMsg) (tea.Model, tea.Cmd) {
 	a.state.View.Mode = state.ModeFiltering
-	return a, nil
+	if a.state.Width > 0 {
+		a.textInput.Width = a.state.Width - 10
+		if a.textInput.Width < 30 {
+			a.textInput.Width = 30
+		}
+	}
+	a.textInput.Prompt = "FILTER MODE "
+	a.textInput.Placeholder = "Enter filters..."
+	a.textInput.SetValue(a.state.View.Filter.Raw)
+	return a, a.textInput.Focus()
 }
 
 func (a App) handleApplyFilter(msg ApplyFilterMsg) (tea.Model, tea.Cmd) {
@@ -30,9 +39,8 @@ func (a App) handleApplyFilter(msg ApplyFilterMsg) (tea.Model, tea.Cmd) {
 		a.state.View.TableGroupBy = fs.GroupBy
 	}
 	a.boardModel = boardPkg.NewBoardModel(a.state.Items, a.state.Project.Fields, fs, a.state.View.FocusedItemID, a.state.View.CardFieldVisibility)
-	if fs.Query == "" {
-		a.state.View.Mode = state.ModeNormal
-	}
+	a.state.View.Mode = state.ModeNormal
+	a.textInput.Prompt = ""
 	return a, nil
 }
 
@@ -43,5 +51,7 @@ func (a App) handleClearFilter(msg ClearFilterMsg) (tea.Model, tea.Cmd) {
 	if a.state.View.Mode == state.ModeFiltering {
 		a.state.View.Mode = state.ModeNormal
 	}
+	a.textInput.SetValue("")
+	a.textInput.Prompt = ""
 	return a, nil
 }

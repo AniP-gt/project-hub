@@ -218,6 +218,21 @@ func TestCalculateMaxVisibleCardsWithLargeList(t *testing.T) {
 	}
 }
 
+func TestApplyFilterFieldValuesMatch(t *testing.T) {
+	items := []state.Item{
+		{ID: "1", Title: "one", FieldValues: map[string][]string{"Sprint": {"Q1"}}},
+		{ID: "2", Title: "two", FieldValues: map[string][]string{"Sprint": {"Q2"}}},
+	}
+	fields := []state.Field{{Name: "Sprint"}}
+	board := NewBoardModel(items, fields, state.FilterState{FieldFilters: map[string][]string{"Sprint": {"Q1"}}}, "", state.DefaultCardFieldVisibility())
+	if len(board.Columns) == 0 || len(board.Columns[0].Cards) != 1 {
+		t.Fatalf("expected 1 card, got %d", len(board.Columns[0].Cards))
+	}
+	if board.Columns[0].Cards[0].ID != "1" {
+		t.Fatalf("expected card 1, got %q", board.Columns[0].Cards[0].ID)
+	}
+}
+
 func TestScrollOffsetClampingDown(t *testing.T) {
 	items := make([]state.Item, 15)
 	for i := 0; i < 15; i++ {

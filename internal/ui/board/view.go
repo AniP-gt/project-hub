@@ -501,7 +501,7 @@ func isDoneStatus(status string) bool {
 // The fields parameter is used to determine the status column order from GitHub Projects.
 func NewBoardModel(items []state.Item, fields []state.Field, filter state.FilterState, focusedItemID string, fieldVisibility state.CardFieldVisibility) BoardModel {
 	// Apply global filter
-	filteredItems := applyFilter(items, filter)
+	filteredItems := applyFilter(items, fields, filter)
 
 	// Group items into columns by status
 	columns := groupItemsByStatus(filteredItems, fields)
@@ -532,8 +532,8 @@ func NewBoardModel(items []state.Item, fields []state.Field, filter state.Filter
 }
 
 // applyFilter applies the global filter to items.
-func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
-	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 {
+func applyFilter(items []state.Item, fields []state.Field, fs state.FilterState) []state.Item {
+	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 && len(fs.Iterations) == 0 && len(fs.FieldFilters) == 0 {
 		return items
 	}
 	var out []state.Item
@@ -553,9 +553,92 @@ func applyFilter(items []state.Item, fs state.FilterState) []state.Item {
 		if len(fs.Iterations) > 0 && !state.MatchesIterationFilters(it, fs.Iterations, time.Now()) {
 			continue
 		}
+		if len(fs.FieldFilters) > 0 && !matchesFieldFilters(it, fields, fs.FieldFilters) {
+			continue
+		}
 		out = append(out, it)
 	}
 	return out
+}
+
+func matchesFieldFilters(item state.Item, fields []state.Field, filters map[string][]string) bool {
+	if len(filters) == 0 {
+		return true
+	}
+	for name, values := range filters {
+		if !matchesSingleFieldFilter(item, fields, name, values) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesSingleFieldFilter(item state.Item, fields []state.Field, name string, values []string) bool {
+	if len(values) == 0 {
+		return true
+	}
+	fieldName := strings.TrimSpace(name)
+	if fieldName == "" {
+		return true
+	}
+	if matchSliceValues([]string{item.Title}, values) && strings.EqualFold(fieldName, "title") {
+		return true
+	}
+	if strings.EqualFold(fieldName, "status") {
+		return matchSliceValues([]string{item.Status}, values)
+	}
+	if strings.EqualFold(fieldName, "priority") {
+		return matchSliceValues([]string{item.Priority}, values)
+	}
+	if strings.EqualFold(fieldName, "milestone") {
+		return matchSliceValues([]string{item.Milestone}, values)
+	}
+	if strings.EqualFold(fieldName, "labels") || strings.EqualFold(fieldName, "label") {
+		return matchSliceValues(item.Labels, values)
+	}
+	if strings.EqualFold(fieldName, "assignees") || strings.EqualFold(fieldName, "assignee") {
+		return matchSliceValues(item.Assignees, values)
+	}
+	if strings.EqualFold(fieldName, "iteration") {
+		return state.MatchesIterationFilters(item, values, time.Now())
+	}
+	if len(item.FieldValues) > 0 {
+		for key, stored := range item.FieldValues {
+			if strings.EqualFold(key, fieldName) {
+				return matchSliceValues(stored, values)
+			}
+		}
+	}
+	for _, field := range fields {
+		if strings.EqualFold(field.Name, fieldName) {
+			if len(item.FieldValues) == 0 {
+				return false
+			}
+			stored := item.FieldValues[field.Name]
+			return matchSliceValues(stored, values)
+		}
+	}
+	return false
+}
+
+func matchSliceValues(haystack []string, needles []string) bool {
+	if len(needles) == 0 {
+		return true
+	}
+	for _, needle := range needles {
+		if needle == "" {
+			continue
+		}
+		for _, value := range haystack {
+			if value == "" {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(needle)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // containsAny checks if any needle is in haystack.

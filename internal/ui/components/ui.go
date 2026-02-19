@@ -296,7 +296,11 @@ func RenderFooter(mode, view string, width int, editTitle string) string {
 		}
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorPurple400)
 	case "filtering":
-		modeLabel = "FILTER MODE"
+		if editTitle != "" {
+			modeLabel = "FILTER MODE " + editTitle
+		} else {
+			modeLabel = "FILTER MODE"
+		}
 	case "detail":
 		modeLabel = "DETAIL MODE"
 	case "fieldtoggle":

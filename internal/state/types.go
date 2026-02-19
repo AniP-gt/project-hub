@@ -32,12 +32,14 @@ const (
 
 // FilterState captures parsed filter tokens and raw query.
 type FilterState struct {
-	Query      string
-	Labels     []string
-	Assignees  []string
-	Statuses   []string
-	Iterations []string
-	GroupBy    string
+	Raw          string
+	Query        string
+	Labels       []string
+	Assignees    []string
+	Statuses     []string
+	Iterations   []string
+	GroupBy      string
+	FieldFilters map[string][]string
 }
 
 // TableSort captures table ordering preferences.
@@ -80,6 +82,7 @@ type Item struct {
 	Position              int
 	SubIssueProgress      string // e.g., "2/5" showing completed/total sub-issues
 	ParentIssue           string // Parent issue title or reference
+	FieldValues           map[string][]string
 }
 
 // Project metadata and available capabilities.

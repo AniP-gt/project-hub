@@ -122,6 +122,7 @@ func (a App) handleEnterEditMode(msg EnterEditModeMsg) (tea.Model, tea.Cmd) {
 		a.textInput.Width = 30
 	}
 	a.textInput.SetValue(item.Title)
+	a.textInput.Prompt = ""
 	a.textInput.Placeholder = ""
 	a.state.View.Mode = "edit"
 	return a, a.textInput.Focus()
@@ -148,6 +149,7 @@ func (a App) handleEnterAssignMode(msg EnterAssignModeMsg) (tea.Model, tea.Cmd) 
 	}
 
 	a.textInput.SetValue(assignee)
+	a.textInput.Prompt = ""
 	a.textInput.Placeholder = "Enter assignee..."
 	a.state.View.Mode = "assign"
 	return a, a.textInput.Focus()
@@ -211,6 +213,7 @@ func (a App) handleEnterLabelsInputMode(msg EnterLabelsInputModeMsg) (tea.Model,
 		a.textInput.Width = 30
 	}
 	a.textInput.SetValue(strings.Join(item.Labels, ","))
+	a.textInput.Prompt = ""
 	a.textInput.Placeholder = "Enter labels (comma separated)..."
 	a.state.View.Mode = "labelsInput"
 	return a, a.textInput.Focus()
@@ -277,6 +280,7 @@ func (a App) handleEnterMilestoneInputMode(msg EnterMilestoneInputModeMsg) (tea.
 		a.textInput.Width = 30
 	}
 	a.textInput.SetValue(item.Milestone)
+	a.textInput.Prompt = ""
 	a.textInput.Placeholder = "Enter milestone title..."
 	a.state.View.Mode = "milestoneInput"
 	return a, a.textInput.Focus()

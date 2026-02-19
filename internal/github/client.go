@@ -428,6 +428,7 @@ func parseItemMap(r any) (state.Item, bool) {
 		return state.Item{}, false
 	}
 	item := state.Item{}
+	item.FieldValues = make(map[string][]string)
 	if id, ok := m["id"].(string); ok {
 		item.ID = id
 	}
@@ -497,9 +498,20 @@ func parseItemMap(r any) (state.Item, bool) {
 				continue
 			}
 
-			if fname, ok := fm["fieldName"].(string); ok {
-				switch fname {
-				case "Status":
+			fieldName := ""
+			if fname, ok := fm["fieldName"].(string); ok && fname != "" {
+				fieldName = fname
+			} else if fieldObj, ok := fm["field"].(map[string]any); ok {
+				if nestedName, ok := fieldObj["name"].(string); ok && nestedName != "" {
+					fieldName = nestedName
+				}
+			}
+
+			if fieldName != "" {
+				normalizedField := strings.ToLower(strings.TrimSpace(fieldName))
+				compactField := compactFieldName(normalizedField)
+				switch {
+				case normalizedField == "status":
 					if item.Status == "" {
 						if opt, ok := fm["singleSelectOption"].(map[string]any); ok {
 							if name, ok := opt["name"].(string); ok && name != "" {
@@ -509,7 +521,7 @@ func parseItemMap(r any) (state.Item, bool) {
 							}
 						}
 					}
-				case "Priority":
+				case normalizedField == "priority":
 					if item.Priority == "" {
 						if opt, ok := fm["singleSelectOption"].(map[string]any); ok {
 							if name, ok := opt["name"].(string); ok && name != "" {
@@ -521,7 +533,7 @@ func parseItemMap(r any) (state.Item, bool) {
 							item.Priority = text
 						}
 					}
-				case "Assignees":
+				case normalizedField == "assignees":
 					if len(item.Assignees) == 0 {
 						if users, ok := fm["users"]; ok {
 							item.Assignees = mergeStringsUnique(item.Assignees, extractAssigneeLogins(users))
@@ -529,7 +541,7 @@ func parseItemMap(r any) (state.Item, bool) {
 							item.Assignees = mergeStringsUnique(item.Assignees, splitListField(text))
 						}
 					}
-				case "Labels":
+				case normalizedField == "labels":
 					if len(item.Labels) == 0 {
 						if labelsVal, ok := fm["labels"]; ok {
 							item.Labels = mergeStringsUnique(item.Labels, extractLabelNames(labelsVal))
@@ -537,7 +549,7 @@ func parseItemMap(r any) (state.Item, bool) {
 							item.Labels = mergeStringsUnique(item.Labels, splitListField(text))
 						}
 					}
-				case "Milestone":
+				case normalizedField == "milestone":
 					if item.Milestone == "" {
 						if val, ok := fm["milestone"]; ok {
 							item.Milestone = parseMilestoneValue(val)
@@ -547,7 +559,34 @@ func parseItemMap(r any) (state.Item, bool) {
 							item.Milestone = parseMilestoneValue(opt)
 						}
 					}
+				case isSubIssueField(compactField):
+					if item.SubIssueProgress == "" {
+						if val, ok := fm["number"]; ok {
+							switch n := val.(type) {
+							case float64:
+								if n > 0 {
+									item.SubIssueProgress = fmt.Sprintf("%.0f", n)
+								}
+							case int:
+								if n > 0 {
+									item.SubIssueProgress = fmt.Sprintf("%d", n)
+								}
+							}
+						} else if text, ok := fm["text"].(string); ok && text != "" {
+							item.SubIssueProgress = text
+						}
+					}
+				case isParentIssueField(compactField):
+					if item.ParentIssue == "" {
+						if text, ok := fm["text"].(string); ok && text != "" {
+							item.ParentIssue = text
+						} else if title, ok := fm["title"].(string); ok && title != "" {
+							item.ParentIssue = title
+						}
+					}
 				}
+
+				item.FieldValues = addFieldValue(item.FieldValues, fieldName, fm)
 			}
 
 			for _, sub := range fm {
@@ -556,6 +595,36 @@ func parseItemMap(r any) (state.Item, bool) {
 						break
 					}
 				}
+			}
+		}
+	}
+
+	if item.ParentIssue == "" {
+		if content, ok := m["content"].(map[string]any); ok {
+			if parentVal, ok := content["parent"]; ok {
+				item.ParentIssue = parseParentIssueValue(parentVal)
+			} else if parentVal, ok := content["parentIssue"]; ok {
+				item.ParentIssue = parseParentIssueValue(parentVal)
+			}
+		}
+		if item.ParentIssue == "" {
+			if parentVal, ok := m["parent"]; ok {
+				item.ParentIssue = parseParentIssueValue(parentVal)
+			}
+		}
+	}
+
+	if item.SubIssueProgress == "" {
+		if content, ok := m["content"].(map[string]any); ok {
+			if subVal, ok := content["subIssues"]; ok {
+				item.SubIssueProgress = parseSubIssueCount(subVal)
+			} else if subVal, ok := content["subIssue"]; ok {
+				item.SubIssueProgress = parseSubIssueCount(subVal)
+			}
+		}
+		if item.SubIssueProgress == "" {
+			if subVal, ok := m["subIssues"]; ok {
+				item.SubIssueProgress = parseSubIssueCount(subVal)
 			}
 		}
 	}
@@ -614,6 +683,37 @@ func applyIterationMetadata(item *state.Item, data map[string]any) bool {
 		item.IterationDurationDays = dur
 	}
 	return true
+}
+
+func compactFieldName(name string) string {
+	if name == "" {
+		return ""
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(name, " ", ""), "-", "")
+}
+
+func isSubIssueField(compactName string) bool {
+	if compactName == "" {
+		return false
+	}
+	switch compactName {
+	case "subissuecount", "subissues", "subissueprogress", "subissue", "subissuescount":
+		return true
+	default:
+		return false
+	}
+}
+
+func isParentIssueField(compactName string) bool {
+	if compactName == "" {
+		return false
+	}
+	switch compactName {
+	case "parentissue", "isparentissue", "parent":
+		return true
+	default:
+		return false
+	}
 }
 
 func mergeStringsUnique(dst []string, src []string) []string {
@@ -697,6 +797,58 @@ func splitListField(text string) []string {
 	return out
 }
 
+func addFieldValue(values map[string][]string, fieldName string, fieldMap map[string]any) map[string][]string {
+	if fieldName == "" {
+		return values
+	}
+	if values == nil {
+		values = make(map[string][]string)
+	}
+	var collected []string
+	if iterID, ok := fieldMap["iterationId"].(string); ok && iterID != "" {
+		collected = append(collected, iterID)
+	}
+	if title, ok := fieldMap["title"].(string); ok && title != "" {
+		collected = append(collected, title)
+	}
+	if opt, ok := fieldMap["singleSelectOption"].(map[string]any); ok {
+		if name, ok := opt["name"].(string); ok && name != "" {
+			collected = append(collected, name)
+		}
+		if id, ok := opt["id"].(string); ok && id != "" {
+			collected = append(collected, id)
+		}
+	}
+	if text, ok := fieldMap["text"].(string); ok && text != "" {
+		collected = append(collected, splitListField(text)...)
+	}
+	if num, ok := fieldMap["number"]; ok {
+		switch n := num.(type) {
+		case float64:
+			collected = append(collected, fmt.Sprintf("%.0f", n))
+		case int:
+			collected = append(collected, fmt.Sprintf("%d", n))
+		}
+	}
+	if labelsVal, ok := fieldMap["labels"]; ok {
+		collected = append(collected, extractLabelNames(labelsVal)...)
+	}
+	if usersVal, ok := fieldMap["users"]; ok {
+		collected = append(collected, extractAssigneeLogins(usersVal)...)
+	}
+	if msVal, ok := fieldMap["milestone"]; ok {
+		if parsed := parseMilestoneValue(msVal); parsed != "" {
+			collected = append(collected, parsed)
+		}
+	}
+	if len(collected) == 0 {
+		return values
+	}
+	key := strings.TrimSpace(fieldName)
+	values[key] = mergeStringsUnique(values[key], collected)
+	return values
+}
+
 func parseMilestoneValue(val any) string {
 	switch data := val.(type) {
 	case string:
@@ -715,6 +867,67 @@ func parseMilestoneValue(val any) string {
 		for _, entry := range data {
 			if candidate := parseMilestoneValue(entry); candidate != "" {
 				return candidate
+			}
+		}
+	}
+	return ""
+}
+
+func parseParentIssueValue(val any) string {
+	switch data := val.(type) {
+	case string:
+		return strings.TrimSpace(data)
+	case map[string]any:
+		if title, ok := data["title"].(string); ok && title != "" {
+			return title
+		}
+		if number, ok := data["number"].(float64); ok && number > 0 {
+			return fmt.Sprintf("#%.0f", number)
+		}
+		if number, ok := data["number"].(int); ok && number > 0 {
+			return fmt.Sprintf("#%d", number)
+		}
+		if content, ok := data["content"].(map[string]any); ok {
+			if title, ok := content["title"].(string); ok && title != "" {
+				return title
+			}
+			if number, ok := content["number"].(float64); ok && number > 0 {
+				return fmt.Sprintf("#%.0f", number)
+			}
+			if number, ok := content["number"].(int); ok && number > 0 {
+				return fmt.Sprintf("#%d", number)
+			}
+		}
+	}
+	return ""
+}
+
+func parseSubIssueCount(val any) string {
+	switch data := val.(type) {
+	case float64:
+		if data > 0 {
+			return fmt.Sprintf("%.0f", data)
+		}
+	case int:
+		if data > 0 {
+			return fmt.Sprintf("%d", data)
+		}
+	case map[string]any:
+		if total, ok := data["totalCount"]; ok {
+			switch n := total.(type) {
+			case float64:
+				if n > 0 {
+					return fmt.Sprintf("%.0f", n)
+				}
+			case int:
+				if n > 0 {
+					return fmt.Sprintf("%d", n)
+				}
+			}
+		}
+		if nodes, ok := data["nodes"].([]any); ok {
+			if len(nodes) > 0 {
+				return fmt.Sprintf("%d", len(nodes))
 			}
 		}
 	}

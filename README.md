@@ -41,6 +41,28 @@ project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
 
 `--project` is required unless you set a default in the config file.
 
+## Table Filter
+
+Press `/` to enter Filter Mode in the TUI. The footer shows `FILTER MODE <input>` while you type. Press `Enter` to apply or `Esc` to clear.
+
+Supported filter tokens:
+
+- `label:bug` / `labels:bug,ui`
+- `assignee:alice` / `assignees:alice,bob`
+- `status:"In Progress"`
+- `iteration:@current,@previous,@next`
+- `group:status` / `group:assignee` / `group:iteration`
+- `FieldName:Value` (any project field name, e.g. `Sprint:Q1` or `"Iteration Name":"Q1 Sprint"`)
+
+Examples:
+
+```bash
+status:"In Progress" assignee:alice
+iteration:@current,@previous,@next
+Sprint:Q1
+"Iteration Name":"Q1 Sprint"
+```
+
 ## Options
 
 - `--project` (required): GitHub Project ID or URL
