@@ -163,6 +163,25 @@ var (
 				Foreground(ColorGray500)
 )
 
+func StatusColor(status string) lipgloss.Color {
+	normalized := strings.ToLower(strings.TrimSpace(status))
+	if normalized == "" {
+		return ColorGray400
+	}
+	switch {
+	case normalized == "open" || normalized == "opened":
+		return ColorGreen500
+	case normalized == "closed" || normalized == "done" || normalized == "merged":
+		return ColorPurple400
+	default:
+		return ColorGreen500
+	}
+}
+
+func StatusDot(status string) string {
+	return lipgloss.NewStyle().Foreground(StatusColor(status)).Render("●")
+}
+
 var (
 	FrameStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

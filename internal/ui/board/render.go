@@ -18,19 +18,33 @@ func (m BoardModel) renderCard(c state.Card, isSelected bool) string {
 	if contentWidth < 12 {
 		contentWidth = 12
 	}
+	cardBg := components.ColorGray800
+	if isSelected {
+		cardBg = components.ColorGray700
+	}
 	wrap := func(value string, maxLines int, isSelected bool) string {
 		if value == "" {
 			return ""
 		}
-		bg := components.ColorGray800
-		if isSelected {
-			bg = components.ColorGray700
-		}
-		rendered := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Background(bg).Render(value)
+		style := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Background(cardBg)
+		rendered := style.Render(value)
 		return clampRenderedLines(rendered, maxLines, contentWidth)
 	}
+	wrapTitle := func(title string, maxLines int) string {
+		if title == "" {
+			return ""
+		}
+		titleStyle := components.CardTitleStyle.Copy().Background(cardBg)
+		line := titleStyle.Render(title)
+		if strings.TrimSpace(c.Status) != "" {
+			dotStyle := lipgloss.NewStyle().Foreground(components.StatusColor(c.Status)).Background(cardBg)
+			line = lipgloss.JoinHorizontal(lipgloss.Top, dotStyle.Render("●"), titleStyle.Render(" "+title))
+		}
+		padded := lipgloss.NewStyle().Width(contentWidth).MaxWidth(contentWidth).Background(cardBg).Render(line)
+		return clampRenderedLines(padded, maxLines, contentWidth)
+	}
 
-	title := wrap(c.Title, maxTitleLines, isSelected)
+	title := wrapTitle(c.Title, maxTitleLines)
 
 	var contentBlocks []string
 	if title != "" {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"project-hub/internal/state"
+	"project-hub/internal/ui/components"
 )
 
 type RenderResult struct {
@@ -111,6 +112,12 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 			cellStyleToApply := rowBaseStyle.Copy() // Start with the row's base style
 			if it.ID == focusedID && colIdx == focusedColIndex {
 				cellStyleToApply = focusedCellStyle.Copy()
+			}
+			if colIdx == state.ColumnStatus {
+				status := strings.TrimSpace(it.Status)
+				if status != "" {
+					val = components.StatusDot(status) + " " + status
+				}
 			}
 			cells[colIdx] = cellStyleToApply.Width(widths[colIdx]).Render(val)
 		}
