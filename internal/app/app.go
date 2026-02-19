@@ -1415,7 +1415,9 @@ func (a App) handleEnterPrioritySelectMode(msg EnterPrioritySelectModeMsg) (tea.
 }
 
 func (a App) handleEnterDetailMode() (tea.Model, tea.Cmd) {
-	a.syncFocusedItem()
+	if a.state.View.CurrentView == state.ViewBoard {
+		a.syncFocusedItem()
+	}
 
 	idx := a.state.View.FocusedIndex
 	if idx < 0 || idx >= len(a.state.Items) {
