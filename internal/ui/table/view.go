@@ -17,7 +17,7 @@ type RenderResult struct {
 }
 
 // Render renders the table view using lipgloss, matching the moc.go layout.
-func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidth int) RenderResult {
+func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidth int, fieldVisibility state.CardFieldVisibility) RenderResult {
 	if innerWidth <= 0 {
 		innerWidth = 80
 	}
@@ -42,8 +42,11 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 		Padding(0, 1).
 		Bold(true)
 
-	// Columns: Title, Status, Repository, Labels, Milestone, Priority, Assignees
-	cols := []string{"Title", "Status", "Repository", "Labels", "Milestone", "Priority", "Assignees"}
+	columns := tableColumns(fieldVisibility)
+	cols := make([]string, len(columns))
+	for i, col := range columns {
+		cols[i] = col.Label
+	}
 
 	// Assign widths by percentage of innerWidth
 	// Reserve a small margin for spacing
@@ -53,11 +56,17 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 		avail = 40
 	}
 
-	percent := []int{40, 10, 15, 10, 8, 5, 12} // sums to 100
-	widths := make([]int, len(percent))
+	widths := make([]int, len(columns))
 	total := 0
-	for i, p := range percent {
-		w := avail * p / 100
+	percentTotal := 0
+	for _, col := range columns {
+		percentTotal += col.Percent
+	}
+	if percentTotal == 0 {
+		percentTotal = 100
+	}
+	for i, col := range columns {
+		w := avail * col.Percent / percentTotal
 		if w < 6 {
 			w = 6
 		}
@@ -97,15 +106,10 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 			rowBaseStyle = selectedStyle
 		}
 
-		cells := make([]string, len(cols)) // cols: Title, Status, ...
-		cellValues := []string{
-			it.Title,
-			it.Status,
-			it.Repository,
-			strings.Join(it.Labels, ","),
-			it.Milestone,
-			it.Priority,
-			strings.Join(it.Assignees, ","), // Add Assignees here
+		cells := make([]string, len(cols))
+		cellValues := make([]string, len(columns))
+		for i, col := range columns {
+			cellValues[i] = columnValue(it, col.Key)
 		}
 
 		for colIdx, val := range cellValues {
@@ -113,7 +117,7 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 			if it.ID == focusedID && colIdx == focusedColIndex {
 				cellStyleToApply = focusedCellStyle.Copy()
 			}
-			if colIdx == state.ColumnStatus {
+			if columns[colIdx].Key == state.ColumnStatus {
 				status := strings.TrimSpace(it.Status)
 				if status != "" {
 					val = components.StatusDot(status) + " " + status
@@ -136,6 +140,63 @@ func Render(items []state.Item, focusedID string, focusedColIndex int, innerWidt
 		RowHeights:   rowHeights,
 		RowOffsets:   rowOffsets,
 		RowsLineSize: cumulativeHeight,
+	}
+}
+
+type tableColumn struct {
+	Key     int
+	Label   string
+	Percent int
+}
+
+func tableColumns(fieldVisibility state.CardFieldVisibility) []tableColumn {
+	columns := []tableColumn{
+		{Key: state.ColumnTitle, Label: "Title", Percent: 40},
+		{Key: state.ColumnStatus, Label: "Status", Percent: 10},
+	}
+
+	if fieldVisibility.ShowRepository {
+		columns = append(columns, tableColumn{Key: state.ColumnRepository, Label: "Repository", Percent: 15})
+	}
+	if fieldVisibility.ShowLabels {
+		columns = append(columns, tableColumn{Key: state.ColumnLabels, Label: "Labels", Percent: 10})
+	}
+	if fieldVisibility.ShowMilestone {
+		columns = append(columns, tableColumn{Key: state.ColumnMilestone, Label: "Milestone", Percent: 8})
+	}
+	if fieldVisibility.ShowSubIssueProgress {
+		columns = append(columns, tableColumn{Key: state.ColumnSubIssueProgress, Label: "Sub-issues", Percent: 7})
+	}
+	if fieldVisibility.ShowParentIssue {
+		columns = append(columns, tableColumn{Key: state.ColumnParentIssue, Label: "Parent", Percent: 8})
+	}
+
+	columns = append(columns, tableColumn{Key: state.ColumnAssignees, Label: "Assignees", Percent: 12})
+	return columns
+}
+
+func columnValue(item state.Item, columnKey int) string {
+	switch columnKey {
+	case state.ColumnTitle:
+		return item.Title
+	case state.ColumnStatus:
+		return item.Status
+	case state.ColumnRepository:
+		return item.Repository
+	case state.ColumnLabels:
+		return strings.Join(item.Labels, ",")
+	case state.ColumnMilestone:
+		return item.Milestone
+	case state.ColumnSubIssueProgress:
+		return item.SubIssueProgress
+	case state.ColumnParentIssue:
+		return item.ParentIssue
+	case state.ColumnPriority:
+		return item.Priority
+	case state.ColumnAssignees:
+		return strings.Join(item.Assignees, ",")
+	default:
+		return ""
 	}
 }
 
