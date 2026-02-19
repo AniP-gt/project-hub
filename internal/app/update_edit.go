@@ -4,37 +4,32 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"project-hub/internal/state"
+	"project-hub/internal/ui/components"
 )
 
-// EnterEditModeMsg switches to edit mode for focused item.
 type EnterEditModeMsg struct{}
 
-// SaveEditMsg applies title/description changes to focused item.
 type SaveEditMsg struct {
 	Title       string
 	Description string
 }
 
-// CancelEditMsg cancels edit mode.
 type CancelEditMsg struct{}
 
-// EnterAssignModeMsg switches to assign mode for focused item.
 type EnterAssignModeMsg struct{}
 
-// SaveAssignMsg applies assignee changes to focused item.
 type SaveAssignMsg struct {
 	Assignee string
 }
 
-// CancelAssignMsg cancels assign mode.
 type CancelAssignMsg struct{}
 
-// EnterLabelSelectModeMsg switches to label select mode for focused item.
 type EnterLabelSelectModeMsg struct{}
 
-// LabelSelectedMsg is sent when a label option is chosen by the user.
 type LabelSelectedMsg struct {
 	LabelID      string
 	LabelName    string
@@ -42,18 +37,14 @@ type LabelSelectedMsg struct {
 	Canceled     bool
 }
 
-// SaveLabelMsg applies label changes to focused item.
 type SaveLabelMsg struct {
 	Labels []string
 }
 
-// CancelLabelMsg cancels label select mode.
 type CancelLabelMsg struct{}
 
-// EnterMilestoneSelectModeMsg switches to milestone select mode for focused item.
 type EnterMilestoneSelectModeMsg struct{}
 
-// MilestoneSelectedMsg is sent when a milestone option is chosen by the user.
 type MilestoneSelectedMsg struct {
 	MilestoneID      string
 	MilestoneName    string
@@ -61,18 +52,14 @@ type MilestoneSelectedMsg struct {
 	Canceled         bool
 }
 
-// SaveMilestoneMsg applies milestone changes to focused item.
 type SaveMilestoneMsg struct {
 	Milestone string
 }
 
-// CancelMilestoneMsg cancels milestone select mode.
 type CancelMilestoneMsg struct{}
 
-// EnterPrioritySelectModeMsg switches to priority select mode for focused item.
 type EnterPrioritySelectModeMsg struct{}
 
-// PrioritySelectedMsg is sent when a priority option is chosen by the user.
 type PrioritySelectedMsg struct {
 	PriorityID      string
 	PriorityName    string
@@ -80,34 +67,26 @@ type PrioritySelectedMsg struct {
 	Canceled        bool
 }
 
-// SavePriorityMsg applies priority changes to focused item.
 type SavePriorityMsg struct {
 	Priority string
 }
 
-// CancelPriorityMsg cancels priority select mode.
 type CancelPriorityMsg struct{}
 
-// EnterLabelsInputModeMsg switches to label input mode for focused item.
 type EnterLabelsInputModeMsg struct{}
 
-// SaveLabelsInputMsg applies label changes to focused item.
 type SaveLabelsInputMsg struct {
 	Labels string
 }
 
-// CancelLabelsInputMsg cancels label input mode.
 type CancelLabelsInputMsg struct{}
 
-// EnterMilestoneInputModeMsg switches to milestone input mode for focused item.
 type EnterMilestoneInputModeMsg struct{}
 
-// SaveMilestoneInputMsg applies milestone changes to focused item.
 type SaveMilestoneInputMsg struct {
 	Milestone string
 }
 
-// CancelMilestoneInputMsg cancels milestone input mode.
 type CancelMilestoneInputMsg struct{}
 
 func (a App) handleEnterEditMode(msg EnterEditModeMsg) (tea.Model, tea.Cmd) {
@@ -138,11 +117,10 @@ func (a App) handleCancelEdit(msg CancelEditMsg) (tea.Model, tea.Cmd) {
 func (a App) handleEnterAssignMode(msg EnterAssignModeMsg) (tea.Model, tea.Cmd) {
 	idx := a.state.View.FocusedIndex
 	if idx < 0 || idx >= len(a.state.Items) {
-		return a, nil // Or handle error
+		return a, nil
 	}
 	item := a.state.Items[idx]
 
-	// Initialize input with first assignee if present, otherwise empty string
 	assignee := ""
 	if len(item.Assignees) > 0 {
 		assignee = item.Assignees[0]
@@ -168,7 +146,6 @@ func (a App) handleSaveAssign(msg SaveAssignMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Call the GitHub client to update the assignees
 	cmd := func() tea.Msg {
 		userLogins := []string{}
 		if msg.Assignee != "" {
@@ -199,6 +176,171 @@ func (a App) handleCancelAssign(msg CancelAssignMsg) (tea.Model, tea.Cmd) {
 		a.state.View.Mode = "normal"
 	}
 	return a, nil
+}
+
+func (a App) handleSaveEdit(msg SaveEditMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+	item := a.state.Items[idx]
+
+	updateCmd := func() tea.Msg {
+		updatedItem, err := a.github.UpdateItem(
+			context.Background(),
+			projectMutationID(a.state.Project),
+			a.state.Project.Owner,
+			item,
+			msg.Title,
+			msg.Description,
+		)
+		if err != nil {
+			return NewErrMsg(err)
+		}
+		return ItemUpdatedMsg{Index: idx, Item: updatedItem}
+	}
+
+	a.state.View.Mode = state.ModeNormal
+	return a, tea.Batch(updateCmd)
+}
+
+func (a App) handleColumnEdit(msg EnterEditModeMsg) (tea.Model, tea.Cmd) {
+	colIdx := a.state.View.FocusedColumnIndex
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+
+	switch colIdx {
+	case state.ColumnTitle:
+		return a.handleEnterEditMode(msg)
+	case state.ColumnStatus:
+		return a.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
+	case state.ColumnAssignees:
+		return a.handleEnterAssignMode(EnterAssignModeMsg{})
+	case state.ColumnLabels:
+		return a.handleEnterLabelsInputMode(EnterLabelsInputModeMsg{})
+	case state.ColumnMilestone:
+		return a.handleEnterMilestoneInputMode(EnterMilestoneInputModeMsg{})
+	case state.ColumnPriority:
+		return a.handleEnterPrioritySelectMode(EnterPrioritySelectModeMsg{})
+	default:
+		return a.handleEnterEditMode(msg)
+	}
+}
+
+func (a App) handleEnterLabelSelectMode(msg EnterLabelSelectModeMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+	focusedItem := a.state.Items[idx]
+
+	var labelField state.Field
+	found := false
+	for _, field := range a.state.Project.Fields {
+		if field.Name == "Labels" {
+			labelField = field
+			found = true
+			break
+		}
+	}
+	if !found {
+		notif := state.Notification{Message: "Labels field not found in project", Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+
+	a.fieldSelector = components.NewFieldSelectorModel(focusedItem, labelField, a.state.Width, a.state.Height)
+	a.state.View.Mode = state.ModeLabelSelect
+
+	if !a.state.SuppressHints {
+		notif := state.Notification{
+			Message:      "Label select mode: Use arrow keys to select, enter to confirm, esc to cancel",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 5 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, tea.Batch(a.fieldSelector.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	}
+	return a, a.fieldSelector.Init()
+}
+
+func (a App) handleEnterMilestoneSelectMode(msg EnterMilestoneSelectModeMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+	focusedItem := a.state.Items[idx]
+
+	var milestoneField state.Field
+	found := false
+	for _, field := range a.state.Project.Fields {
+		if field.Name == "Milestone" {
+			milestoneField = field
+			found = true
+			break
+		}
+	}
+	if !found {
+		notif := state.Notification{Message: "Milestone field not found in project", Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+
+	a.fieldSelector = components.NewFieldSelectorModel(focusedItem, milestoneField, a.state.Width, a.state.Height)
+	a.state.View.Mode = state.ModeMilestoneSelect
+
+	if !a.state.SuppressHints {
+		notif := state.Notification{
+			Message:      "Milestone select mode: Use arrow keys to select, enter to confirm, esc to cancel",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 5 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, tea.Batch(a.fieldSelector.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	}
+	return a, a.fieldSelector.Init()
+}
+
+func (a App) handleEnterPrioritySelectMode(msg EnterPrioritySelectModeMsg) (tea.Model, tea.Cmd) {
+	idx := a.state.View.FocusedIndex
+	if idx < 0 || idx >= len(a.state.Items) {
+		return a, nil
+	}
+	focusedItem := a.state.Items[idx]
+
+	var priorityField state.Field
+	found := false
+	for _, field := range a.state.Project.Fields {
+		if field.Name == "Priority" {
+			priorityField = field
+			found = true
+			break
+		}
+	}
+	if !found {
+		notif := state.Notification{Message: "Priority field not found in project", Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+	}
+
+	a.fieldSelector = components.NewFieldSelectorModel(focusedItem, priorityField, a.state.Width, a.state.Height)
+	a.state.View.Mode = state.ModePrioritySelect
+
+	if !a.state.SuppressHints {
+		notif := state.Notification{
+			Message:      "Priority select mode: Use arrow keys to select, enter to confirm, esc to cancel",
+			Level:        "info",
+			At:           time.Now(),
+			DismissAfter: 5 * time.Second,
+		}
+		a.state.Notifications = append(a.state.Notifications, notif)
+		return a, tea.Batch(a.fieldSelector.Init(), dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter))
+	}
+	return a, a.fieldSelector.Init()
 }
 
 func (a App) handleEnterLabelsInputMode(msg EnterLabelsInputModeMsg) (tea.Model, tea.Cmd) {

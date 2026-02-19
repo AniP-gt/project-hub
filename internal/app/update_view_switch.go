@@ -9,19 +9,16 @@ import (
 	boardPkg "project-hub/internal/ui/board"
 )
 
-// SwitchViewMsg requests changing the active view.
 type SwitchViewMsg struct {
 	View state.ViewType
 }
 
-// MoveFocusMsg moves focus by delta within current view list.
 type MoveFocusMsg struct {
 	Delta int
 }
 
 func (a App) handleSwitchView(msg SwitchViewMsg) (tea.Model, tea.Cmd) {
 	a.state.View.CurrentView = msg.View
-	// Keep focus stable; if no items, clear focus.
 	if len(a.state.Items) == 0 {
 		a.state.View.FocusedItemID = ""
 		a.state.View.FocusedIndex = -1
@@ -34,12 +31,10 @@ func (a App) handleMoveFocus(msg MoveFocusMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 
-	// Check if we're in table view with grouping active
 	if a.state.View.CurrentView == state.ViewTable && a.state.View.TableGroupBy != "" {
 		return a.handleMoveFocusGrouped(msg.Delta)
 	}
 
-	// Default: move within raw items list
 	idx := a.state.View.FocusedIndex
 	if idx < 0 {
 		idx = 0
@@ -56,7 +51,6 @@ func (a App) handleMoveFocus(msg MoveFocusMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// handleMoveFocusGrouped moves focus respecting grouped table view order.
 func (a App) handleMoveFocusGrouped(delta int) (tea.Model, tea.Cmd) {
 	groupBy := strings.ToLower(strings.TrimSpace(a.state.View.TableGroupBy))
 	var groups []boardPkg.GroupBucket

@@ -1,8 +1,10 @@
 package state
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
-// ParseFilter converts a raw query into structured filter fields.
 func ParseFilter(query string) FilterState {
 	trimmed := strings.TrimSpace(query)
 	fs := FilterState{Raw: trimmed, Query: trimmed}
@@ -65,6 +67,123 @@ func ParseFilter(query string) FilterState {
 	}
 	fs.Query = strings.Join(queryTokens, " ")
 	return fs
+}
+
+func ApplyFilter(items []Item, fields []Field, fs FilterState, now time.Time) []Item {
+	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 && len(fs.Iterations) == 0 && len(fs.FieldFilters) == 0 {
+		return items
+	}
+	var out []Item
+	for _, it := range items {
+		if fs.Query != "" && !strings.Contains(strings.ToLower(it.Title), strings.ToLower(fs.Query)) {
+			continue
+		}
+		if len(fs.Labels) > 0 && !containsAny(it.Labels, fs.Labels) {
+			continue
+		}
+		if len(fs.Assignees) > 0 && !containsAny(it.Assignees, fs.Assignees) {
+			continue
+		}
+		if len(fs.Statuses) > 0 && !containsAny([]string{it.Status}, fs.Statuses) {
+			continue
+		}
+		if len(fs.Iterations) > 0 && !MatchesIterationFilters(it, fs.Iterations, now) {
+			continue
+		}
+		if len(fs.FieldFilters) > 0 && !matchesFieldFilters(it, fields, fs.FieldFilters, now) {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+func matchesFieldFilters(item Item, fields []Field, filters map[string][]string, now time.Time) bool {
+	if len(filters) == 0 {
+		return true
+	}
+	for name, values := range filters {
+		if !matchesSingleFieldFilter(item, fields, name, values, now) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesSingleFieldFilter(item Item, fields []Field, name string, values []string, now time.Time) bool {
+	if len(values) == 0 {
+		return true
+	}
+	fieldName := strings.TrimSpace(name)
+	if fieldName == "" {
+		return true
+	}
+	if strings.EqualFold(fieldName, "title") {
+		return matchSliceValues([]string{item.Title}, values)
+	}
+	if strings.EqualFold(fieldName, "status") {
+		return matchSliceValues([]string{item.Status}, values)
+	}
+	if strings.EqualFold(fieldName, "priority") {
+		return matchSliceValues([]string{item.Priority}, values)
+	}
+	if strings.EqualFold(fieldName, "milestone") {
+		return matchSliceValues([]string{item.Milestone}, values)
+	}
+	if strings.EqualFold(fieldName, "labels") || strings.EqualFold(fieldName, "label") {
+		return matchSliceValues(item.Labels, values)
+	}
+	if strings.EqualFold(fieldName, "assignees") || strings.EqualFold(fieldName, "assignee") {
+		return matchSliceValues(item.Assignees, values)
+	}
+	if strings.EqualFold(fieldName, "iteration") {
+		return MatchesIterationFilters(item, values, now)
+	}
+	if len(item.FieldValues) > 0 {
+		for key, stored := range item.FieldValues {
+			if strings.EqualFold(key, fieldName) {
+				return matchSliceValues(stored, values)
+			}
+		}
+	}
+	for _, field := range fields {
+		if strings.EqualFold(field.Name, fieldName) {
+			stored := item.FieldValues[field.Name]
+			return matchSliceValues(stored, values)
+		}
+	}
+	return false
+}
+
+func matchSliceValues(haystack []string, needles []string) bool {
+	if len(needles) == 0 {
+		return true
+	}
+	for _, needle := range needles {
+		if needle == "" {
+			continue
+		}
+		for _, value := range haystack {
+			if value == "" {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(needle)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsAny(haystack []string, needles []string) bool {
+	for _, n := range needles {
+		for _, h := range haystack {
+			if h == n {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func splitFieldToken(token string) (string, string, bool) {

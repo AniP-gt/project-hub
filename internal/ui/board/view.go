@@ -488,25 +488,17 @@ func (m BoardModel) calculateMaxVisibleCards() int {
 	return maxCards
 }
 
-// ColumnOrder defines the known progression order of columns in the Kanban board.
-// Unknown statuses will be inserted before Done, and Done will always be last if present.
 var ColumnOrder = []string{"Todo", "Draft", "In Progress", "In_Review"}
 
-// isDoneStatus checks if a status represents completion (case-insensitive, trimmed match for "done")
 func isDoneStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), "done")
 }
 
-// NewBoardModel creates a new BoardModel from items, fields, and filter state.
-// The fields parameter is used to determine the status column order from GitHub Projects.
 func NewBoardModel(items []state.Item, fields []state.Field, filter state.FilterState, focusedItemID string, fieldVisibility state.CardFieldVisibility) BoardModel {
-	// Apply global filter
-	filteredItems := applyFilter(items, fields, filter)
+	filteredItems := state.ApplyFilter(items, fields, filter, time.Now())
 
-	// Group items into columns by status
 	columns := groupItemsByStatus(filteredItems, fields)
 
-	// Find the focused item and set initial focus
 	focusedColumnIndex := 0
 	focusedCardIndex := 0
 	for colIdx, col := range columns {
@@ -531,137 +523,12 @@ func NewBoardModel(items []state.Item, fields []state.Field, filter state.Filter
 	return bm
 }
 
-// applyFilter applies the global filter to items.
-func applyFilter(items []state.Item, fields []state.Field, fs state.FilterState) []state.Item {
-	if fs.Query == "" && len(fs.Labels) == 0 && len(fs.Assignees) == 0 && len(fs.Statuses) == 0 && len(fs.Iterations) == 0 && len(fs.FieldFilters) == 0 {
-		return items
-	}
-	var out []state.Item
-	for _, it := range items {
-		if fs.Query != "" && !strings.Contains(strings.ToLower(it.Title), strings.ToLower(fs.Query)) {
-			continue
-		}
-		if len(fs.Labels) > 0 && !containsAny(it.Labels, fs.Labels) {
-			continue
-		}
-		if len(fs.Assignees) > 0 && !containsAny(it.Assignees, fs.Assignees) {
-			continue
-		}
-		if len(fs.Statuses) > 0 && !containsAny([]string{it.Status}, fs.Statuses) {
-			continue
-		}
-		if len(fs.Iterations) > 0 && !state.MatchesIterationFilters(it, fs.Iterations, time.Now()) {
-			continue
-		}
-		if len(fs.FieldFilters) > 0 && !matchesFieldFilters(it, fields, fs.FieldFilters) {
-			continue
-		}
-		out = append(out, it)
-	}
-	return out
-}
-
-func matchesFieldFilters(item state.Item, fields []state.Field, filters map[string][]string) bool {
-	if len(filters) == 0 {
-		return true
-	}
-	for name, values := range filters {
-		if !matchesSingleFieldFilter(item, fields, name, values) {
-			return false
-		}
-	}
-	return true
-}
-
-func matchesSingleFieldFilter(item state.Item, fields []state.Field, name string, values []string) bool {
-	if len(values) == 0 {
-		return true
-	}
-	fieldName := strings.TrimSpace(name)
-	if fieldName == "" {
-		return true
-	}
-	if matchSliceValues([]string{item.Title}, values) && strings.EqualFold(fieldName, "title") {
-		return true
-	}
-	if strings.EqualFold(fieldName, "status") {
-		return matchSliceValues([]string{item.Status}, values)
-	}
-	if strings.EqualFold(fieldName, "priority") {
-		return matchSliceValues([]string{item.Priority}, values)
-	}
-	if strings.EqualFold(fieldName, "milestone") {
-		return matchSliceValues([]string{item.Milestone}, values)
-	}
-	if strings.EqualFold(fieldName, "labels") || strings.EqualFold(fieldName, "label") {
-		return matchSliceValues(item.Labels, values)
-	}
-	if strings.EqualFold(fieldName, "assignees") || strings.EqualFold(fieldName, "assignee") {
-		return matchSliceValues(item.Assignees, values)
-	}
-	if strings.EqualFold(fieldName, "iteration") {
-		return state.MatchesIterationFilters(item, values, time.Now())
-	}
-	if len(item.FieldValues) > 0 {
-		for key, stored := range item.FieldValues {
-			if strings.EqualFold(key, fieldName) {
-				return matchSliceValues(stored, values)
-			}
-		}
-	}
-	for _, field := range fields {
-		if strings.EqualFold(field.Name, fieldName) {
-			if len(item.FieldValues) == 0 {
-				return false
-			}
-			stored := item.FieldValues[field.Name]
-			return matchSliceValues(stored, values)
-		}
-	}
-	return false
-}
-
-func matchSliceValues(haystack []string, needles []string) bool {
-	if len(needles) == 0 {
-		return true
-	}
-	for _, needle := range needles {
-		if needle == "" {
-			continue
-		}
-		for _, value := range haystack {
-			if value == "" {
-				continue
-			}
-			if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(needle)) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// containsAny checks if any needle is in haystack.
-func containsAny(haystack []string, needles []string) bool {
-	for _, n := range needles {
-		for _, h := range haystack {
-			if h == n {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// groupItemsByStatus groups items into columns by status, enforcing progression order with Done last.
-// The fields parameter is used to get the status option order from GitHub Projects.
 func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column {
 	statusMap := make(map[string][]state.Item)
 	for _, item := range items {
 		statusMap[item.Status] = append(statusMap[item.Status], item)
 	}
 
-	// Sort items by Position within each status
 	for status, items := range statusMap {
 		sort.Slice(items, func(i, j int) bool {
 			return items[i].Position < items[j].Position
@@ -669,20 +536,17 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 		statusMap[status] = items
 	}
 
-	// Convert to cards
 	statusCardMap := make(map[string][]state.Card)
 	for status, items := range statusMap {
 		for _, item := range items {
 			assignee := ""
 			if len(item.Assignees) > 0 {
-				assignee = item.Assignees[0] // Take first assignee
+				assignee = item.Assignees[0]
 			}
 			priority := item.Priority
 			if priority == "" {
 				priority = inferPriorityFromLabels(item.Labels)
 			}
-			// Don't hardcode default priority - leave empty if no priority is set
-			// GitHub Projects may have custom priority names beyond High/Medium/Low
 			card := state.Card{
 				ID:               item.ID,
 				Title:            item.Title,
@@ -699,7 +563,6 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 		}
 	}
 
-	// Get status option order from fields (GitHub Projects configuration)
 	var statusOrder []string
 	for _, field := range fields {
 		if field.Name == "Status" {
@@ -710,16 +573,13 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 		}
 	}
 
-	// Fall back to default order if no Status field found
 	if len(statusOrder) == 0 {
 		statusOrder = ColumnOrder
 	}
 
-	// Build columns: status order from GitHub Projects, unknown statuses, then Done last
 	var columns []state.Column
 	var doneColumn *state.Column
 
-	// Add columns in status order from GitHub Projects
 	for _, status := range statusOrder {
 		if cards, exists := statusCardMap[status]; exists {
 			columns = append(columns, state.Column{Name: status, Cards: cards})
@@ -727,7 +587,6 @@ func groupItemsByStatus(items []state.Item, fields []state.Field) []state.Column
 		}
 	}
 
-	// Separate Done column and remaining unknown statuses
 	var unknownStatuses []string
 	for status := range statusCardMap {
 		if isDoneStatus(status) {

@@ -4,7 +4,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// AssignMsg sets assignees for the focused item.
 type AssignMsg struct {
 	Assignees []string
 }

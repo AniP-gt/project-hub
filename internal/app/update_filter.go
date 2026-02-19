@@ -7,15 +7,12 @@ import (
 	boardPkg "project-hub/internal/ui/board"
 )
 
-// EnterFilterModeMsg switches mode to filtering.
 type EnterFilterModeMsg struct{}
 
-// ApplyFilterMsg applies a new filter query.
 type ApplyFilterMsg struct {
 	Query string
 }
 
-// ClearFilterMsg clears current filters.
 type ClearFilterMsg struct{}
 
 func (a App) handleEnterFilterMode(msg EnterFilterModeMsg) (tea.Model, tea.Cmd) {
