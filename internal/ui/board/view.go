@@ -47,7 +47,7 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				maxVisibleCards := m.calculateMaxVisibleCards()
 				if len(currentColumn.Cards) > maxVisibleCards {
 					visibleCardIndex := m.FocusedCardIndex - m.CardOffset
-					if visibleCardIndex < maxVisibleCards-1 && m.FocusedCardIndex < len(currentColumn.Cards)-1 {
+					if visibleCardIndex < maxVisibleCards-2 && m.FocusedCardIndex < len(currentColumn.Cards)-1 {
 						m.FocusedCardIndex++
 					} else if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
 						m.CardOffset++
