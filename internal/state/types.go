@@ -113,14 +113,16 @@ type Option struct {
 
 // Column indices for table view
 const (
-	ColumnTitle      = 0
-	ColumnStatus     = 1
-	ColumnRepository = 2
-	ColumnLabels     = 3
-	ColumnMilestone  = 4
-	ColumnPriority   = 5
-	ColumnAssignees  = 6
-	ColumnCount      = 7
+	ColumnTitle            = 0
+	ColumnStatus           = 1
+	ColumnRepository       = 2
+	ColumnLabels           = 3
+	ColumnMilestone        = 4
+	ColumnSubIssueProgress = 5
+	ColumnParentIssue      = 6
+	ColumnPriority         = 7
+	ColumnAssignees        = 8
+	ColumnCount            = 9
 )
 
 // ViewContext holds transient UI state.
