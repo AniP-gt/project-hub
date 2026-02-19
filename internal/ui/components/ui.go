@@ -323,7 +323,7 @@ func RenderFooter(mode, view string, width int, editTitle string) string {
 	case "detail":
 		modeLabel = "DETAIL MODE"
 	case "fieldtoggle":
-		modeLabel = "FIELD TOGGLE MODE"
+		modeLabel = "FIELD TOGGLE MODE (m:milestone r:repository l:labels s:sub-issue p:parent esc:cancel)"
 	default:
 		modeLabel = "NORMAL MODE"
 	}
