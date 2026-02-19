@@ -57,6 +57,19 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 			s = updated
 			cmds = append(cmds, keyCmd)
 		}
+	case pendingKeyTimeout:
+		// Tick expired for a prefix key (eg. single 'g')
+		if s.LastKey == m.Key {
+			if s.Model.View.CurrentView == state.ViewTable {
+				// fallback behavior: single 'g' toggles grouping
+				updated, cmd := ToggleGroupBy(s)
+				s = updated
+				if cmd != nil {
+					cmds = append(cmds, cmd)
+				}
+			}
+			s.LastKey = ""
+		}
 	case core.FetchProjectMsg:
 		s.Model.Project = m.Project
 		s.Model.Items = m.Items

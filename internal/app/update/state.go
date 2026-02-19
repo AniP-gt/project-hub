@@ -1,6 +1,8 @@
 package update
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"project-hub/internal/github"
@@ -21,6 +23,8 @@ type State struct {
 	SettingsModel  settings.SettingsModel
 	DetailPanel    components.DetailPanelModel
 	TableViewport  *viewport.Model
+	LastKey        string
+	LastKeyAt      time.Time
 }
 
 func NewState(initial state.Model, client github.Client, itemLimit int) State {

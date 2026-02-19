@@ -11,7 +11,14 @@ import (
 	boardPkg "project-hub/internal/ui/board"
 )
 
+// pendingKeyTimeout is an internal message emitted by a Tick to signal expiry of a prefix key sequence.
+type pendingKeyTimeout struct {
+	Key string
+	At  time.Time
+}
+
 func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
+	// Support vim-style navigation: 'g' -> go to top, 'G' (shift+g) -> go to bottom.
 	if s.Model.View.Mode == "edit" || s.Model.View.Mode == "assign" || s.Model.View.Mode == "labelsInput" || s.Model.View.Mode == "milestoneInput" || s.Model.View.Mode == state.ModeFiltering {
 		switch k.String() {
 		case "enter":
@@ -110,8 +117,11 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		}
 	}
 
+	// Handle board-specific keys, including g/G
 	if s.Model.View.CurrentView == state.ViewBoard {
-		switch k.String() {
+		key := k.String()
+		// Immediate navigation keys handled by BoardModel
+		switch key {
 		case "j", "k", "h", "l":
 			model, cmd := s.BoardModel.Update(k)
 			s.BoardModel = model.(boardPkg.BoardModel)
@@ -125,6 +135,39 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 			return EnterAssignMode(s, EnterAssignModeMsg{})
 		case "w":
 			return EnterStatusSelectMode(s, core.EnterStatusSelectModeMsg{})
+		case "G", "shift+G":
+			// Shift+G -> go to bottom of current column
+			colIdx := s.BoardModel.FocusedColumnIndex
+			if colIdx >= 0 && colIdx < len(s.BoardModel.Columns) {
+				current := s.BoardModel.Columns[colIdx]
+				if len(current.Cards) > 0 {
+					s.BoardModel.FocusedCardIndex = len(current.Cards) - 1
+					// adjust CardOffset so the focused card is visible at bottom
+					maxVisible := 3
+					if s.BoardModel.Height > 0 {
+						estCard := 6
+						maxVisible = s.BoardModel.Height/estCard - 1
+						if maxVisible < 1 {
+							maxVisible = 1
+						}
+					}
+					s.BoardModel.CardOffset = s.BoardModel.FocusedCardIndex - (maxVisible - 1)
+					if s.BoardModel.CardOffset < 0 {
+						s.BoardModel.CardOffset = 0
+					}
+					s = SyncFocusedItem(s)
+				}
+			}
+			return s, nil
+		case "g":
+			// Single 'g' -> go to top of current column
+			colIdx := s.BoardModel.FocusedColumnIndex
+			if colIdx >= 0 && colIdx < len(s.BoardModel.Columns) {
+				s.BoardModel.FocusedCardIndex = 0
+				s.BoardModel.CardOffset = 0
+				s = SyncFocusedItem(s)
+			}
+			return s, nil
 		}
 	}
 	switch k.String() {
