@@ -1,4 +1,4 @@
-package app
+package core
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 	"project-hub/internal/state"
 )
 
-func projectMutationID(project state.Project) string {
+func ProjectMutationID(project state.Project) string {
 	if strings.TrimSpace(project.NodeID) != "" {
 		return project.NodeID
 	}

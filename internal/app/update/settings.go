@@ -1,16 +1,18 @@
-package app
+package update
 
 import (
 	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"project-hub/internal/app/core"
 	"project-hub/internal/config"
 	"project-hub/internal/state"
 	"project-hub/internal/ui/settings"
 )
 
-func (a App) handleSettingsSave(msg settings.SaveMsg) (tea.Model, tea.Cmd) {
+func SettingsSave(s State, msg settings.SaveMsg) (State, tea.Cmd) {
 	configPath, err := config.ResolvePath()
 	if err != nil {
 		notif := state.Notification{
@@ -19,9 +21,9 @@ func (a App) handleSettingsSave(msg settings.SaveMsg) (tea.Model, tea.Cmd) {
 			At:           time.Now(),
 			DismissAfter: 5 * time.Second,
 		}
-		a.state.Notifications = append(a.state.Notifications, notif)
-		a.state.View.CurrentView = state.ViewBoard
-		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+		s.Model.Notifications = append(s.Model.Notifications, notif)
+		s.Model.View.CurrentView = state.ViewBoard
+		return s, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter)
 	}
 
 	cfg := config.Config{
@@ -39,31 +41,31 @@ func (a App) handleSettingsSave(msg settings.SaveMsg) (tea.Model, tea.Cmd) {
 			At:           time.Now(),
 			DismissAfter: 5 * time.Second,
 		}
-		a.state.Notifications = append(a.state.Notifications, notif)
-		a.state.View.CurrentView = state.ViewBoard
-		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+		s.Model.Notifications = append(s.Model.Notifications, notif)
+		s.Model.View.CurrentView = state.ViewBoard
+		return s, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter)
 	}
 
-	a.state.SuppressHints = msg.SuppressHints
-	a.state.ItemLimit = msg.ItemLimit
-	a.state.ExcludeDone = msg.ExcludeDone
-	if !a.state.SuppressHints {
+	s.Model.SuppressHints = msg.SuppressHints
+	s.Model.ItemLimit = msg.ItemLimit
+	s.Model.ExcludeDone = msg.ExcludeDone
+	if !s.Model.SuppressHints {
 		notif := state.Notification{
 			Message:      "Settings saved successfully",
 			Level:        "info",
 			At:           time.Now(),
 			DismissAfter: 3 * time.Second,
 		}
-		a.state.Notifications = append(a.state.Notifications, notif)
-		a.state.View.CurrentView = state.ViewBoard
-		return a, dismissNotificationCmd(len(a.state.Notifications)-1, notif.DismissAfter)
+		s.Model.Notifications = append(s.Model.Notifications, notif)
+		s.Model.View.CurrentView = state.ViewBoard
+		return s, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter)
 	}
 
-	a.state.View.CurrentView = state.ViewBoard
-	return a, nil
+	s.Model.View.CurrentView = state.ViewBoard
+	return s, nil
 }
 
-func (a App) handleSettingsCancel(_ settings.CancelMsg) (tea.Model, tea.Cmd) {
-	a.state.View.CurrentView = state.ViewBoard
-	return a, nil
+func SettingsCancel(s State, _ settings.CancelMsg) (State, tea.Cmd) {
+	s.Model.View.CurrentView = state.ViewBoard
+	return s, nil
 }

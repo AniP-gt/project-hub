@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"project-hub/internal/app/update"
 	"project-hub/internal/state"
 )
 
@@ -33,7 +34,7 @@ func TestFullAssignFlow(t *testing.T) {
 	}
 
 	// Enter assign mode
-	model, cmd := app.Update(EnterAssignModeMsg{})
+	model, cmd := app.Update(update.EnterAssignModeMsg{})
 	app = model.(App)
 	if cmd != nil {
 		// run cmd to completion (should be a no-op here)
@@ -41,7 +42,7 @@ func TestFullAssignFlow(t *testing.T) {
 	}
 
 	// Save assignee 'alice'
-	model, cmd = app.Update(SaveAssignMsg{Assignee: "alice"})
+	model, cmd = app.Update(update.SaveAssignMsg{Assignee: "alice"})
 	app = model.(App)
 
 	// Execute the returned cmd which performs UpdateAssignees (noopClient returns ItemUpdatedMsg)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"project-hub/internal/app/core"
 	"project-hub/internal/state"
 )
 
@@ -68,7 +69,7 @@ func TestAssignUpdateDoesNotRemapCards(t *testing.T) {
 	// Simulate updating assignee for item ID "2"
 	updated := state.Item{ID: "2", Assignees: []string{"alice"}, Status: "In Progress", Title: "B"}
 	// Call Update by invoking App.Update on the model interface
-	model, _ := app.Update(ItemUpdatedMsg{Index: 1, Item: updated})
+	model, _ := app.Update(core.ItemUpdatedMsg{Index: 1, Item: updated})
 	updatedApp := model.(App)
 
 	// After update, ensure item at index 1 has assignee

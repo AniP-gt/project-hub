@@ -1,4 +1,4 @@
-package app
+package core
 
 import (
 	"context"
@@ -18,7 +18,7 @@ func FetchProjectCmd(client github.Client, projectID, owner string, itemLimit in
 	}
 }
 
-func dismissNotificationCmd(id int, duration time.Duration) tea.Cmd {
+func DismissNotificationCmd(id int, duration time.Duration) tea.Cmd {
 	return tea.Tick(duration, func(time.Time) tea.Msg {
 		return DismissNotificationMsg{ID: id}
 	})

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -10,6 +11,44 @@ import (
 	"project-hub/internal/state"
 	"project-hub/internal/ui/settings"
 )
+
+type mockClient struct{}
+
+func (m *mockClient) FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error) {
+	return state.Project{}, nil, nil
+}
+
+func (m *mockClient) FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error) {
+	return nil, nil
+}
+
+func (m *mockClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateLabels(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, labels []string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
+func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
+	return "", nil
+}
 
 func TestSwitchToSettingsView(t *testing.T) {
 	initialState := state.Model{

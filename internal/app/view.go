@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"project-hub/internal/app/core"
 	"project-hub/internal/state"
 	boardPkg "project-hub/internal/ui/board"
 	"project-hub/internal/ui/components"
@@ -169,11 +170,11 @@ func renderGroupedTable(groupBy string, items []state.Item, fields []state.Field
 	sepLen := innerWidth
 	var groups []boardPkg.GroupBucket
 	switch groupBy {
-	case groupByStatus:
+	case core.GroupByStatus:
 		groups = boardPkg.GroupItemsByStatusBuckets(items, fields)
-	case groupByIteration:
+	case core.GroupByIteration:
 		groups = boardPkg.GroupItemsByIteration(items)
-	case groupByAssignee:
+	case core.GroupByAssignee:
 		groups = boardPkg.GroupItemsByAssignee(items)
 	default:
 		groups = []boardPkg.GroupBucket{{Name: "Items", Items: items}}

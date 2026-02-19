@@ -1,10 +1,11 @@
-package app
+package update
 
 import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"project-hub/internal/app/core"
 	"project-hub/internal/state"
 	boardPkg "project-hub/internal/ui/board"
 )
@@ -17,25 +18,25 @@ type MoveFocusMsg struct {
 	Delta int
 }
 
-func (a App) handleSwitchView(msg SwitchViewMsg) (tea.Model, tea.Cmd) {
-	a.state.View.CurrentView = msg.View
-	if len(a.state.Items) == 0 {
-		a.state.View.FocusedItemID = ""
-		a.state.View.FocusedIndex = -1
+func SwitchView(s State, msg SwitchViewMsg) (State, tea.Cmd) {
+	s.Model.View.CurrentView = msg.View
+	if len(s.Model.Items) == 0 {
+		s.Model.View.FocusedItemID = ""
+		s.Model.View.FocusedIndex = -1
 	}
-	return a, nil
+	return s, nil
 }
 
-func (a App) handleMoveFocus(msg MoveFocusMsg) (tea.Model, tea.Cmd) {
-	if len(a.state.Items) == 0 {
-		return a, nil
+func MoveFocus(s State, msg MoveFocusMsg) (State, tea.Cmd) {
+	if len(s.Model.Items) == 0 {
+		return s, nil
 	}
 
-	if a.state.View.CurrentView == state.ViewTable && a.state.View.TableGroupBy != "" {
-		return a.handleMoveFocusGrouped(msg.Delta)
+	if s.Model.View.CurrentView == state.ViewTable && s.Model.View.TableGroupBy != "" {
+		return MoveFocusGrouped(s, msg.Delta)
 	}
 
-	idx := a.state.View.FocusedIndex
+	idx := s.Model.View.FocusedIndex
 	if idx < 0 {
 		idx = 0
 	}
@@ -43,34 +44,34 @@ func (a App) handleMoveFocus(msg MoveFocusMsg) (tea.Model, tea.Cmd) {
 	if idx < 0 {
 		idx = 0
 	}
-	if idx >= len(a.state.Items) {
-		idx = len(a.state.Items) - 1
+	if idx >= len(s.Model.Items) {
+		idx = len(s.Model.Items) - 1
 	}
-	a.state.View.FocusedIndex = idx
-	a.state.View.FocusedItemID = a.state.Items[idx].ID
-	return a, nil
+	s.Model.View.FocusedIndex = idx
+	s.Model.View.FocusedItemID = s.Model.Items[idx].ID
+	return s, nil
 }
 
-func (a App) handleMoveFocusGrouped(delta int) (tea.Model, tea.Cmd) {
-	groupBy := strings.ToLower(strings.TrimSpace(a.state.View.TableGroupBy))
+func MoveFocusGrouped(s State, delta int) (State, tea.Cmd) {
+	groupBy := strings.ToLower(strings.TrimSpace(s.Model.View.TableGroupBy))
 	var groups []boardPkg.GroupBucket
 
 	switch groupBy {
-	case groupByStatus:
-		groups = boardPkg.GroupItemsByStatusBuckets(a.state.Items, a.state.Project.Fields)
-	case groupByIteration:
-		groups = boardPkg.GroupItemsByIteration(a.state.Items)
-	case groupByAssignee:
-		groups = boardPkg.GroupItemsByAssignee(a.state.Items)
+	case core.GroupByStatus:
+		groups = boardPkg.GroupItemsByStatusBuckets(s.Model.Items, s.Model.Project.Fields)
+	case core.GroupByIteration:
+		groups = boardPkg.GroupItemsByIteration(s.Model.Items)
+	case core.GroupByAssignee:
+		groups = boardPkg.GroupItemsByAssignee(s.Model.Items)
 	default:
-		return a.handleMoveFocus(MoveFocusMsg{Delta: delta})
+		return MoveFocus(s, MoveFocusMsg{Delta: delta})
 	}
 
 	if len(groups) == 0 {
-		return a, nil
+		return s, nil
 	}
 
-	currentID := a.state.View.FocusedItemID
+	currentID := s.Model.View.FocusedItemID
 
 	type rowInfo struct {
 		itemID  string
@@ -137,18 +138,18 @@ func (a App) handleMoveFocusGrouped(delta int) (tea.Model, tea.Cmd) {
 	}
 
 	if newItemID != "" {
-		a.state.View.FocusedItemID = newItemID
-		for idx, item := range a.state.Items {
+		s.Model.View.FocusedItemID = newItemID
+		for idx, item := range s.Model.Items {
 			if item.ID == newItemID {
-				a.state.View.FocusedIndex = idx
+				s.Model.View.FocusedIndex = idx
 				break
 			}
 		}
 	}
 
-	if a.tableViewport != nil {
-		a.tableViewport.YOffset = 0
+	if s.TableViewport != nil {
+		s.TableViewport.YOffset = 0
 	}
 
-	return a, nil
+	return s, nil
 }

@@ -1,10 +1,11 @@
-package app
+package update
 
 import (
 	"context"
 	"strings"
 	"testing"
 
+	"project-hub/internal/app/core"
 	"project-hub/internal/state"
 )
 
@@ -74,17 +75,16 @@ func TestEnterAssignMode_PrefillsWithExistingAssignee(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterAssignMode(EnterAssignModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterAssignMode(stateModel, EnterAssignModeMsg{})
 
-	if appModel.textInput.Value() != "alice" {
-		t.Errorf("expected text input to be 'alice', got %q", appModel.textInput.Value())
+	if updated.TextInput.Value() != "alice" {
+		t.Errorf("expected text input to be 'alice', got %q", updated.TextInput.Value())
 	}
 
-	if appModel.state.View.Mode != state.ViewMode("assign") {
-		t.Errorf("expected mode to be 'assign', got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ViewMode("assign") {
+		t.Errorf("expected mode to be 'assign', got %q", updated.Model.View.Mode)
 	}
 }
 
@@ -116,17 +116,16 @@ func TestEnterAssignMode_PrefillsEmptyWhenNoAssignee(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterAssignMode(EnterAssignModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterAssignMode(stateModel, EnterAssignModeMsg{})
 
-	if appModel.textInput.Value() != "" {
-		t.Errorf("expected text input to be empty, got %q", appModel.textInput.Value())
+	if updated.TextInput.Value() != "" {
+		t.Errorf("expected text input to be empty, got %q", updated.TextInput.Value())
 	}
 
-	if appModel.state.View.Mode != state.ViewMode("assign") {
-		t.Errorf("expected mode to be 'assign', got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ViewMode("assign") {
+		t.Errorf("expected mode to be 'assign', got %q", updated.Model.View.Mode)
 	}
 }
 
@@ -158,17 +157,16 @@ func TestEnterAssignMode_UsesFirstAssigneeWhenMultiple(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterAssignMode(EnterAssignModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterAssignMode(stateModel, EnterAssignModeMsg{})
 
-	if appModel.textInput.Value() != "alice" {
-		t.Errorf("expected text input to be 'alice' (first assignee), got %q", appModel.textInput.Value())
+	if updated.TextInput.Value() != "alice" {
+		t.Errorf("expected text input to be 'alice' (first assignee), got %q", updated.TextInput.Value())
 	}
 
-	if appModel.state.View.Mode != state.ViewMode("assign") {
-		t.Errorf("expected mode to be 'assign', got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ViewMode("assign") {
+		t.Errorf("expected mode to be 'assign', got %q", updated.Model.View.Mode)
 	}
 }
 
@@ -200,13 +198,12 @@ func TestCancelAssign_ExitsAssignMode(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleCancelAssign(CancelAssignMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := CancelAssign(stateModel, CancelAssignMsg{})
 
-	if appModel.state.View.Mode != state.ModeNormal {
-		t.Errorf("expected mode to be 'normal', got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to be 'normal', got %q", updated.Model.View.Mode)
 	}
 }
 
@@ -238,17 +235,15 @@ func TestEnterAssignMode_InvalidFocusIndex(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterAssignMode(EnterAssignModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterAssignMode(stateModel, EnterAssignModeMsg{})
 
-	if appModel.state.View.Mode != state.ModeNormal {
-		t.Errorf("expected mode to remain 'normal' on invalid index, got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' on invalid index, got %q", updated.Model.View.Mode)
 	}
 }
 
-// Test: Board view "w" key triggers status select mode entry
 func TestEnterStatusSelectMode_SuccessfulEntry(t *testing.T) {
 	items := []state.Item{
 		{
@@ -288,17 +283,15 @@ func TestEnterStatusSelectMode_SuccessfulEntry(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterStatusSelectMode(stateModel, core.EnterStatusSelectModeMsg{})
 
-	if appModel.state.View.Mode != state.ModeStatusSelect {
-		t.Errorf("expected mode to be 'statusSelect', got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ModeStatusSelect {
+		t.Errorf("expected mode to be 'statusSelect', got %q", updated.Model.View.Mode)
 	}
 }
 
-// Test: Status field not found shows error notification
 func TestEnterStatusSelectMode_StatusFieldNotFound(t *testing.T) {
 	items := []state.Item{
 		{
@@ -337,21 +330,20 @@ func TestEnterStatusSelectMode_StatusFieldNotFound(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterStatusSelectMode(stateModel, core.EnterStatusSelectModeMsg{})
 
-	if appModel.state.View.Mode != state.ModeNormal {
-		t.Errorf("expected mode to remain 'normal' when status field not found, got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' when status field not found, got %q", updated.Model.View.Mode)
 	}
 
-	if len(appModel.state.Notifications) != 1 {
-		t.Errorf("expected 1 notification, got %d", len(appModel.state.Notifications))
+	if len(updated.Model.Notifications) != 1 {
+		t.Errorf("expected 1 notification, got %d", len(updated.Model.Notifications))
 	}
 
-	if len(appModel.state.Notifications) > 0 {
-		notif := appModel.state.Notifications[0]
+	if len(updated.Model.Notifications) > 0 {
+		notif := updated.Model.Notifications[0]
 		if notif.Level != "error" {
 			t.Errorf("expected notification level to be 'error', got %q", notif.Level)
 		}
@@ -361,7 +353,6 @@ func TestEnterStatusSelectMode_StatusFieldNotFound(t *testing.T) {
 	}
 }
 
-// Test: Focused index out of range guards against panic
 func TestEnterStatusSelectMode_FocusedIndexOutOfRange(t *testing.T) {
 	items := []state.Item{
 		{
@@ -399,21 +390,19 @@ func TestEnterStatusSelectMode_FocusedIndexOutOfRange(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterStatusSelectMode(stateModel, core.EnterStatusSelectModeMsg{})
 
-	if appModel.state.View.Mode != state.ModeNormal {
-		t.Errorf("expected mode to remain 'normal' when focused index is out of range, got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' when focused index is out of range, got %q", updated.Model.View.Mode)
 	}
 
-	if len(appModel.state.Notifications) != 0 {
-		t.Errorf("expected 0 notifications for out of range index, got %d", len(appModel.state.Notifications))
+	if len(updated.Model.Notifications) != 0 {
+		t.Errorf("expected 0 notifications for out of range index, got %d", len(updated.Model.Notifications))
 	}
 }
 
-// Test: Negative focused index is handled correctly
 func TestEnterStatusSelectMode_NegativeFocusedIndex(t *testing.T) {
 	items := []state.Item{
 		{
@@ -451,16 +440,15 @@ func TestEnterStatusSelectMode_NegativeFocusedIndex(t *testing.T) {
 		View:    viewContext,
 	}
 
-	app := New(initialState, &mockClient{}, 100)
+	stateModel := NewState(initialState, &mockClient{}, 100)
 
-	updatedApp, _ := app.handleEnterStatusSelectMode(EnterStatusSelectModeMsg{})
-	appModel := updatedApp.(App)
+	updated, _ := EnterStatusSelectMode(stateModel, core.EnterStatusSelectModeMsg{})
 
-	if appModel.state.View.Mode != state.ModeNormal {
-		t.Errorf("expected mode to remain 'normal' when focused index is negative, got %q", appModel.state.View.Mode)
+	if updated.Model.View.Mode != state.ModeNormal {
+		t.Errorf("expected mode to remain 'normal' when focused index is negative, got %q", updated.Model.View.Mode)
 	}
 
-	if len(appModel.state.Notifications) != 0 {
-		t.Errorf("expected 0 notifications for negative index, got %d", len(appModel.state.Notifications))
+	if len(updated.Model.Notifications) != 0 {
+		t.Errorf("expected 0 notifications for negative index, got %d", len(updated.Model.Notifications))
 	}
 }
