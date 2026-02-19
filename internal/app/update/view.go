@@ -68,8 +68,12 @@ func EnterDetailMode(s State) (State, tea.Cmd) {
 func EnterFieldToggleMode(s State) (State, tea.Cmd) {
 	s.Model.View.Mode = state.ModeFieldToggle
 	if !s.Model.SuppressHints {
+		label := "Card"
+		if s.Model.View.CurrentView == state.ViewTable {
+			label = "Table"
+		}
 		notif := state.Notification{
-			Message:      "Field toggle mode: m=milestone r=repository l=labels s=sub-issue p=parent (toggle on/off, esc to cancel)",
+			Message:      fmt.Sprintf("%s field toggle mode: m=milestone r=repository l=labels s=sub-issue p=parent (toggle on/off, esc to cancel)", label),
 			Level:        "info",
 			At:           time.Now(),
 			DismissAfter: 5 * time.Second,
@@ -102,6 +106,7 @@ func FieldToggle(s State, key string) (State, tea.Cmd) {
 
 	s.Model.View.Mode = state.ModeNormal
 	s.BoardModel = boardPkg.NewBoardModel(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, s.Model.View.FocusedItemID, s.Model.View.CardFieldVisibility)
+	s = syncTableColumnIndex(s)
 
 	configPath, err := config.ResolvePath()
 	if err == nil {

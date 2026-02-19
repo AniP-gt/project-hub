@@ -213,7 +213,22 @@ func ColumnEdit(s State, msg EnterEditModeMsg) (State, tea.Cmd) {
 		return s, nil
 	}
 
-	switch colIdx {
+	colKey := colIdx
+	if s.Model.View.CurrentView == state.ViewTable {
+		visible := tableVisibleColumns(s.Model.View.CardFieldVisibility)
+		if len(visible) == 0 {
+			return EnterEditMode(s, msg)
+		}
+		if colIdx < 0 {
+			colKey = visible[0]
+		} else if colIdx >= len(visible) {
+			colKey = visible[len(visible)-1]
+		} else {
+			colKey = visible[colIdx]
+		}
+	}
+
+	switch colKey {
 	case state.ColumnTitle:
 		return EnterEditMode(s, msg)
 	case state.ColumnStatus:

@@ -20,6 +20,7 @@ type MoveFocusMsg struct {
 
 func SwitchView(s State, msg SwitchViewMsg) (State, tea.Cmd) {
 	s.Model.View.CurrentView = msg.View
+	s = syncTableColumnIndex(s)
 	if len(s.Model.Items) == 0 {
 		s.Model.View.FocusedItemID = ""
 		s.Model.View.FocusedIndex = -1

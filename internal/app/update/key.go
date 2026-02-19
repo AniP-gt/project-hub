@@ -81,12 +81,18 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		case "k", "up":
 			return MoveFocus(s, MoveFocusMsg{Delta: -1})
 		case "h":
+			if s.Model.View.CurrentView == state.ViewTable {
+				return moveTableColumn(s, -1), nil
+			}
 			s.Model.View.FocusedColumnIndex--
 			if s.Model.View.FocusedColumnIndex < 0 {
 				s.Model.View.FocusedColumnIndex = 0
 			}
 			return s, nil
 		case "l":
+			if s.Model.View.CurrentView == state.ViewTable {
+				return moveTableColumn(s, 1), nil
+			}
 			maxCols := state.ColumnCount
 			s.Model.View.FocusedColumnIndex++
 			if s.Model.View.FocusedColumnIndex >= maxCols {
@@ -186,12 +192,18 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	case "k":
 		return MoveFocus(s, MoveFocusMsg{Delta: -1})
 	case "h":
+		if s.Model.View.CurrentView == state.ViewTable {
+			return moveTableColumn(s, -1), nil
+		}
 		s.Model.View.FocusedColumnIndex--
 		if s.Model.View.FocusedColumnIndex < 0 {
 			s.Model.View.FocusedColumnIndex = 0
 		}
 		return s, nil
 	case "l":
+		if s.Model.View.CurrentView == state.ViewTable {
+			return moveTableColumn(s, 1), nil
+		}
 		maxCols := state.ColumnCount
 		s.Model.View.FocusedColumnIndex++
 		if s.Model.View.FocusedColumnIndex >= maxCols {
@@ -226,7 +238,7 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		}
 		return s, nil
 	case "f":
-		if s.Model.View.CurrentView == state.ViewBoard {
+		if s.Model.View.CurrentView == state.ViewBoard || s.Model.View.CurrentView == state.ViewTable {
 			return EnterFieldToggleMode(s)
 		}
 		return s, nil
@@ -260,6 +272,62 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	default:
 		return s, nil
 	}
+}
+
+func moveTableColumn(s State, delta int) State {
+	visible := tableVisibleColumns(s.Model.View.CardFieldVisibility)
+	if len(visible) == 0 {
+		s.Model.View.FocusedColumnIndex = 0
+		return s
+	}
+	col := s.Model.View.FocusedColumnIndex + delta
+	if col < 0 {
+		col = 0
+	}
+	if col >= len(visible) {
+		col = len(visible) - 1
+	}
+	s.Model.View.FocusedColumnIndex = col
+	return s
+}
+
+func tableVisibleColumns(vis state.CardFieldVisibility) []int {
+	columns := []int{state.ColumnTitle, state.ColumnStatus}
+	if vis.ShowRepository {
+		columns = append(columns, state.ColumnRepository)
+	}
+	if vis.ShowLabels {
+		columns = append(columns, state.ColumnLabels)
+	}
+	if vis.ShowMilestone {
+		columns = append(columns, state.ColumnMilestone)
+	}
+	if vis.ShowSubIssueProgress {
+		columns = append(columns, state.ColumnSubIssueProgress)
+	}
+	if vis.ShowParentIssue {
+		columns = append(columns, state.ColumnParentIssue)
+	}
+	columns = append(columns, state.ColumnAssignees)
+	return columns
+}
+
+func syncTableColumnIndex(s State) State {
+	if s.Model.View.CurrentView != state.ViewTable {
+		return s
+	}
+	visible := tableVisibleColumns(s.Model.View.CardFieldVisibility)
+	if len(visible) == 0 {
+		s.Model.View.FocusedColumnIndex = 0
+		return s
+	}
+	if s.Model.View.FocusedColumnIndex >= len(visible) {
+		s.Model.View.FocusedColumnIndex = len(visible) - 1
+	}
+	if s.Model.View.FocusedColumnIndex < 0 {
+		s.Model.View.FocusedColumnIndex = 0
+	}
+	return s
 }
 
 func toggleSort(ts state.TableSort, field string) state.TableSort {
