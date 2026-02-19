@@ -58,6 +58,9 @@ project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
 - **Detail panel**: `o` → `j/k` to scroll, `Esc`/`q` to close
 - **Status select**: `w` → `j/k` to move, `Enter` to confirm, `Esc` to cancel
 
+- **Open in browser**: `O` (capital O) → open the focused item's Issue/PR URL in the system default browser. The command uses the platform's standard opener (macOS: `open`, Linux: `xdg-open`, Windows: `rundll32`). If no opener is available on the system, the application will show the URL in a notification so you can copy it manually.
+- **Copy URL**: `y` → copy the focused item's Issue/PR URL to the system clipboard (macOS: `pbcopy`, Windows: `clip`, Linux: `wl-copy` or `xclip`). If no clipboard utility is available, the application will show the URL in a notification so you can copy it manually.
+
 ### Board-only
 
 - **Toggle card fields**: `f` → `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent (toggle on/off)

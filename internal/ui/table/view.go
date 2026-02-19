@@ -151,3 +151,14 @@ func (r RenderResult) RowBounds(index int) (int, int) {
 	bottom := top + height - 1
 	return top, bottom
 }
+
+// Helper: GetItemURLByFocused returns the URL for the focused item from a list.
+// This will be used by the app layer to open/copy the URL when a key is pressed.
+func GetItemURLByFocused(items []state.Item, focusedID string) string {
+	for _, it := range items {
+		if it.ID == focusedID {
+			return it.URL
+		}
+	}
+	return ""
+}

@@ -88,6 +88,8 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.FocusedCardIndex > 0 {
 						m.FocusedCardIndex--
 					}
+					// Support 'O' to open the focused issue in the browser and 'y' to copy the URL.
+					// The app-level update.HandleKey will handle these keys and issue side-effect commands.
 				}
 				if m.FocusedCardIndex < 0 {
 					m.FocusedCardIndex = 0

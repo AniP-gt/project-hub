@@ -194,6 +194,26 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		return s, nil
 	case "o":
 		return EnterDetailMode(s)
+	case "O":
+		// Open the focused item's URL in the browser if available
+		idx := s.Model.View.FocusedIndex
+		if idx >= 0 && idx < len(s.Model.Items) {
+			url := s.Model.Items[idx].URL
+			if url != "" {
+				return s, core.OpenBrowserCmd(url)
+			}
+		}
+		return s, nil
+	case "y":
+		// Copy focused item's URL to clipboard
+		idx := s.Model.View.FocusedIndex
+		if idx >= 0 && idx < len(s.Model.Items) {
+			url := s.Model.Items[idx].URL
+			if url != "" {
+				return s, core.CopyToClipboardCmd(url)
+			}
+		}
+		return s, nil
 	default:
 		return s, nil
 	}

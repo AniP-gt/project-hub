@@ -122,6 +122,11 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 		notif := state.Notification{Message: fmt.Sprintf("Error: %v", m.Err), Level: "error", At: time.Now(), DismissAfter: 5 * time.Second}
 		s.Model.Notifications = append(s.Model.Notifications, notif)
 		cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
+	case core.ActionResultMsg:
+		// Convert action result into a user notification
+		aNotif := state.Notification{Message: m.Message, Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+		s.Model.Notifications = append(s.Model.Notifications, aNotif)
+		cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, aNotif.DismissAfter))
 	case core.DismissNotificationMsg:
 		if m.ID >= 0 && m.ID < len(s.Model.Notifications) {
 			s.Model.Notifications[m.ID].Dismissed = true
