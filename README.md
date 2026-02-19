@@ -41,6 +41,49 @@ project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
 
 `--project` is required unless you set a default in the config file.
 
+## Features & Operations
+
+### Views & Navigation
+
+- **Board view**: `1` or `b`
+- **Table view**: `2` or `t`
+- **Settings**: `3`
+- **Move focus**: `h` (left), `l` (right), `k` (up), `j` (down)
+- **Reload**: `R` or `Ctrl+r`
+
+### Item Actions
+
+- **Edit title**: `i` or `Enter` → type, `Enter` to save, `Esc` to cancel
+- **Assign**: `a` → type assignee, `Enter` to save, `Esc` to cancel
+- **Detail panel**: `o` → `j/k` to scroll, `Esc`/`q` to close
+- **Status select**: `w` → `j/k` to move, `Enter` to confirm, `Esc` to cancel
+
+### Board-only
+
+- **Toggle card fields**: `f` → `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent (toggle on/off)
+
+### Table-only
+
+- **Sort mode**: `s` (then `t` Title, `s` Status, `r` Repository, `l` Labels, `m` Milestone, `p` Priority, `n` Number, `c` CreatedAt, `u` UpdatedAt; `Esc` to cancel)
+- **Group toggle**: `g` cycles `status → assignee → iteration → none`
+
+### Filter Mode
+
+- **Enter**: `/` → type filters, `Enter` to apply, `Esc` to clear
+- **Tokens**:
+  - `label:` / `labels:` (comma/semicolon-separated values)
+  - `assignee:` / `assignees:`
+  - `status:`
+  - `iteration:` or shorthand tokens: `@current`, `@next`, `@previous`, `current`, `next`, `previous`
+  - `group:` / `group-by:` / `groupby:` (sets table grouping)
+  - `FieldName:Value` for any project field (use quotes for spaces)
+- **Examples**:
+  - `status:"In Progress" assignee:alice`
+  - `iteration:@current,@previous,@next`
+  - `@current next previous`
+  - `Sprint:Q1`
+  - `"Iteration Name":"Q1 Sprint"`
+
 ## Board
 
 The default view is a kanban-style board. Use the following shortcuts while the board is focused:
@@ -50,6 +93,7 @@ The default view is a kanban-style board. Use the following shortcuts while the 
 - `/`: Open filter input (press Enter to apply, Esc to clear)
 - `o`: Open item detail panel
 - `i`: Edit focused item
+- `w`: Change status (select status option)
 - `f`: Toggle card fields (enter field toggle mode)
 
 Field toggle mode (press `f` to enter, `Esc` to exit):
@@ -81,6 +125,13 @@ iteration:@current,@previous,@next
 Sprint:Q1
 "Iteration Name":"Q1 Sprint"
 ```
+
+Iteration semantics:
+
+- `@current` matches iterations where **start ≤ now < end** (end = start + duration days)
+- `@next` matches iterations with a start date in the future
+- `@previous` matches iterations that have ended (now ≥ end)
+- Literal values match iteration **name or ID** (case-insensitive)
 
 ## Options
 
