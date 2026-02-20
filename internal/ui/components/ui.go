@@ -280,7 +280,9 @@ func renderViewTabs(currentView state.ViewType) string {
 }
 
 // RenderFooter shows key hints and mode status.
-func RenderFooter(mode, view string, width int, editTitle string) string {
+// RenderFooter shows key hints and mode status.
+// Added vis param to allow dynamic hints for modes like SORT which depend on visible table columns.
+func RenderFooter(mode, view string, width int, editTitle string, visibleCols []int) string {
 	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
 	keybinds := FooterKeybindsStyle.Render("j/k:move i:edit /:filter a:assign o:detail O:open y:copy f:fields 1-3:view q:quit")
 	var modeLabel string
@@ -320,10 +322,37 @@ func RenderFooter(mode, view string, width int, editTitle string) string {
 		} else {
 			modeLabel = "FILTER MODE"
 		}
+
 	case "detail":
 		modeLabel = "DETAIL MODE"
 	case "fieldtoggle":
 		modeLabel = "FIELD TOGGLE MODE (m:milestone r:repository l:labels s:sub-issue p:parent esc:cancel)"
+	case "sort":
+		parts := []string{"t:Title", "S:Status"}
+		has := func(col int) bool {
+			for _, c := range visibleCols {
+				if c == col {
+					return true
+				}
+			}
+			return false
+		}
+		if has(state.ColumnRepository) {
+			parts = append(parts, "r:Repository")
+		}
+		if has(state.ColumnLabels) {
+			parts = append(parts, "L:Labels")
+		}
+		if has(state.ColumnMilestone) {
+			parts = append(parts, "m:Milestone")
+		}
+
+		if has(state.ColumnAssignees) {
+			parts = append(parts, "a:Assignee")
+		}
+		// Do not include Priority/Number/CreatedAt/UpdatedAt unless they are mapped into visibleCols
+		modeLabel = "SORT MODE (" + strings.Join(parts, " ") + " esc:cancel)"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorBlue400)
 	default:
 		modeLabel = "NORMAL MODE"
 	}

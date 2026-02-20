@@ -60,7 +60,7 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		switch k.String() {
 		case "t", "T":
 			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Title")
-		case "s", "S":
+		case "S":
 			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Status")
 		case "r", "R":
 			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Repository")
@@ -70,6 +70,8 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Milestone")
 		case "p", "P":
 			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Priority")
+		case "a", "A":
+			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Assignees")
 		case "n", "N":
 			s.Model.View.TableSort = toggleSort(s.Model.View.TableSort, "Number")
 		case "c", "C":
@@ -121,6 +123,11 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 			s.Model.Notifications = append(s.Model.Notifications, notif)
 			return s, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter)
 		}
+		// Always return after handling Sort mode so that top-level key handlers
+		// do not also process the same key press (which could re-enter assign
+		// mode when SuppressHints is true and the notification branch above
+		// doesn't return).
+		return s, nil
 	}
 
 	// Handle board-specific keys, including g/G
@@ -211,38 +218,52 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		}
 		return s, nil
 	case "/":
-		return EnterFilterMode(s, EnterFilterModeMsg{})
+		if s.Model.View.Mode == state.ModeNormal {
+			return EnterFilterMode(s, EnterFilterModeMsg{})
+		}
+		return s, nil
 	case "s":
-		if s.Model.View.CurrentView == state.ViewTable {
+		if s.Model.View.Mode == state.ModeNormal && s.Model.View.CurrentView == state.ViewTable {
 			s.Model.View.Mode = state.ModeSort
-			if !s.Model.SuppressHints {
-				notif := state.Notification{Message: "Sort mode: t=Title s=Status r=Repository l=Labels m=Milestone p=Priority n=Number c=CreatedAt u=UpdatedAt (esc to cancel)", Level: "info", At: time.Now(), DismissAfter: 5 * time.Second}
-				s.Model.Notifications = append(s.Model.Notifications, notif)
-				return s, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter)
-			}
+			// Enter Sort mode without exposing a keymap.
 			return s, nil
 		}
 		return s, nil
 	case "esc":
 		return ClearFilter(s, ClearFilterMsg{})
 	case "i", "enter":
+		if s.Model.View.Mode != state.ModeNormal {
+			return s, nil
+		}
 		if s.Model.View.CurrentView == state.ViewTable {
 			return ColumnEdit(s, EnterEditModeMsg{})
 		}
 		return EnterEditMode(s, EnterEditModeMsg{})
 	case "a":
-		return EnterAssignMode(s, EnterAssignModeMsg{})
+		if s.Model.View.Mode == state.ModeNormal {
+			return EnterAssignMode(s, EnterAssignModeMsg{})
+		}
+		return s, nil
 	case "w":
+		if s.Model.View.Mode != state.ModeNormal {
+			return s, nil
+		}
 		if s.Model.View.CurrentView == state.ViewTable {
 			return EnterStatusSelectMode(s, core.EnterStatusSelectModeMsg{})
 		}
 		return s, nil
 	case "f":
+		if s.Model.View.Mode != state.ModeNormal {
+			return s, nil
+		}
 		if s.Model.View.CurrentView == state.ViewBoard || s.Model.View.CurrentView == state.ViewTable {
 			return EnterFieldToggleMode(s)
 		}
 		return s, nil
 	case "g":
+		if s.Model.View.Mode != state.ModeNormal {
+			return s, nil
+		}
 		if s.Model.View.CurrentView == state.ViewTable {
 			return ToggleGroupBy(s)
 		}

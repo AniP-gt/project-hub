@@ -36,7 +36,9 @@ func (a App) View() string {
 	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" || a.state.View.Mode == state.ModeFiltering {
 		editTitle = a.textInput.Value()
 	}
-	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width, editTitle)
+	// Build visible columns list from CardFieldVisibility so footer can show relevant sort keys
+	visibleCols := tableVisibleColumns(a.state.View.CardFieldVisibility)
+	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width, editTitle, visibleCols)
 	notif := components.RenderNotifications(a.state.Notifications)
 
 	body := ""
@@ -152,6 +154,29 @@ func (a App) View() string {
 	}
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s", header, framed, footer, notif)
+}
+
+// tableVisibleColumns mirrors the helper in update package to determine which
+// table columns are visible based on CardFieldVisibility.
+func tableVisibleColumns(vis state.CardFieldVisibility) []int {
+	cols := []int{state.ColumnTitle, state.ColumnStatus}
+	if vis.ShowRepository {
+		cols = append(cols, state.ColumnRepository)
+	}
+	if vis.ShowLabels {
+		cols = append(cols, state.ColumnLabels)
+	}
+	if vis.ShowMilestone {
+		cols = append(cols, state.ColumnMilestone)
+	}
+	if vis.ShowSubIssueProgress {
+		cols = append(cols, state.ColumnSubIssueProgress)
+	}
+	if vis.ShowParentIssue {
+		cols = append(cols, state.ColumnParentIssue)
+	}
+	cols = append(cols, state.ColumnAssignees)
+	return cols
 }
 
 type groupedTableView struct {
