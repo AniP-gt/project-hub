@@ -93,6 +93,7 @@ func MoveFocusGrouped(s State, delta int) (State, tea.Cmd) {
 	groupBy := strings.ToLower(strings.TrimSpace(s.Model.View.TableGroupBy))
 	var groups []boardPkg.GroupBucket
 	filteredItems := state.ApplyFilter(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, time.Now())
+	filteredItems = state.ApplyTableSort(filteredItems, s.Model.View.TableSort)
 
 	switch groupBy {
 	case core.GroupByStatus:

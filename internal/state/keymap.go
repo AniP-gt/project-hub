@@ -34,6 +34,6 @@ func DefaultKeyMap() KeyMap {
 		Assign:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "assign")),
 		ViewDetail:   key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "detail")),
 		ToggleFields: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "fields")),
-		GroupMode:    key.NewBinding(key.WithKeys("g"), key.WithHelp("g", "group")),
+		GroupMode:    key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "group")),
 	}
 }

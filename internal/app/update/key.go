@@ -2,6 +2,7 @@ package update
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -198,6 +199,28 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 		return MoveFocus(s, MoveFocusMsg{Delta: 1})
 	case "k":
 		return MoveFocus(s, MoveFocusMsg{Delta: -1})
+	case "g":
+		if s.Model.View.Mode != state.ModeNormal {
+			return s, nil
+		}
+		if s.Model.View.CurrentView == state.ViewTable {
+			if s.Model.View.TableGroupBy != "" {
+				return moveTableFocusToGroupedTop(s), nil
+			}
+			return moveTableFocusToTop(s), nil
+		}
+		return s, nil
+	case "G", "shift+G":
+		if s.Model.View.Mode != state.ModeNormal {
+			return s, nil
+		}
+		if s.Model.View.CurrentView == state.ViewTable {
+			if s.Model.View.TableGroupBy != "" {
+				return moveTableFocusToGroupedBottom(s), nil
+			}
+			return moveTableFocusToBottom(s), nil
+		}
+		return s, nil
 	case "h":
 		if s.Model.View.CurrentView == state.ViewTable {
 			return moveTableColumn(s, -1), nil
@@ -260,7 +283,7 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 			return EnterFieldToggleMode(s)
 		}
 		return s, nil
-	case "g":
+	case "m":
 		if s.Model.View.Mode != state.ModeNormal {
 			return s, nil
 		}
@@ -293,6 +316,139 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	default:
 		return s, nil
 	}
+}
+
+func moveTableFocusToTop(s State) State {
+	if s.Model.View.CurrentView != state.ViewTable {
+		return s
+	}
+	filteredItems := state.ApplyFilter(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, time.Now())
+	filteredItems = state.ApplyTableSort(filteredItems, s.Model.View.TableSort)
+	if len(filteredItems) == 0 {
+		s.Model.View.FocusedItemID = ""
+		s.Model.View.FocusedIndex = -1
+		return s
+	}
+	firstID := filteredItems[0].ID
+	s.Model.View.FocusedItemID = firstID
+	for idx, item := range s.Model.Items {
+		if item.ID == firstID {
+			s.Model.View.FocusedIndex = idx
+			break
+		}
+	}
+	if s.TableViewport != nil {
+		s.TableViewport.YOffset = 0
+	}
+	return s
+}
+
+func moveTableFocusToBottom(s State) State {
+	if s.Model.View.CurrentView != state.ViewTable {
+		return s
+	}
+	filteredItems := state.ApplyFilter(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, time.Now())
+	filteredItems = state.ApplyTableSort(filteredItems, s.Model.View.TableSort)
+	if len(filteredItems) == 0 {
+		s.Model.View.FocusedItemID = ""
+		s.Model.View.FocusedIndex = -1
+		return s
+	}
+	lastID := filteredItems[len(filteredItems)-1].ID
+	s.Model.View.FocusedItemID = lastID
+	for idx, item := range s.Model.Items {
+		if item.ID == lastID {
+			s.Model.View.FocusedIndex = idx
+			break
+		}
+	}
+	if s.TableViewport != nil {
+		s.TableViewport.YOffset = s.TableViewport.TotalLineCount() - s.TableViewport.Height
+		if s.TableViewport.YOffset < 0 {
+			s.TableViewport.YOffset = 0
+		}
+	}
+	return s
+}
+
+func moveTableFocusToGroupedTop(s State) State {
+	return moveTableFocusToGroupedEdge(s, true)
+}
+
+func moveTableFocusToGroupedBottom(s State) State {
+	return moveTableFocusToGroupedEdge(s, false)
+}
+
+func moveTableFocusToGroupedEdge(s State, top bool) State {
+	if s.Model.View.CurrentView != state.ViewTable {
+		return s
+	}
+	groupBy := strings.ToLower(strings.TrimSpace(s.Model.View.TableGroupBy))
+	if groupBy == "" {
+		return s
+	}
+	filteredItems := state.ApplyFilter(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, time.Now())
+	filteredItems = state.ApplyTableSort(filteredItems, s.Model.View.TableSort)
+
+	var groups []boardPkg.GroupBucket
+	switch groupBy {
+	case core.GroupByStatus:
+		groups = boardPkg.GroupItemsByStatusBuckets(filteredItems, s.Model.Project.Fields)
+	case core.GroupByIteration:
+		groups = boardPkg.GroupItemsByIteration(filteredItems)
+	case core.GroupByAssignee:
+		groups = boardPkg.GroupItemsByAssignee(filteredItems)
+	default:
+		return s
+	}
+	if len(groups) == 0 {
+		return s
+	}
+
+	var targetID string
+	if top {
+		for _, group := range groups {
+			if len(group.Items) > 0 {
+				targetID = group.Items[0].ID
+				break
+			}
+		}
+	} else {
+		for gi := len(groups) - 1; gi >= 0; gi-- {
+			group := groups[gi]
+			if len(group.Items) > 0 {
+				targetID = group.Items[len(group.Items)-1].ID
+				break
+			}
+		}
+	}
+
+	if targetID == "" {
+		s.Model.View.FocusedItemID = ""
+		s.Model.View.FocusedIndex = -1
+		return s
+	}
+
+	s.Model.View.FocusedItemID = targetID
+	for idx, item := range s.Model.Items {
+		if item.ID == targetID {
+			s.Model.View.FocusedIndex = idx
+			break
+		}
+	}
+
+	if s.TableViewport != nil {
+		if top {
+			s.TableViewport.YOffset = 0
+		} else {
+			s.TableViewport.YOffset = s.TableViewport.TotalLineCount() - s.TableViewport.Height
+			if s.TableViewport.YOffset < 0 {
+				s.TableViewport.YOffset = 0
+			}
+		}
+	}
+
+	return s
 }
 
 func moveTableColumn(s State, delta int) State {

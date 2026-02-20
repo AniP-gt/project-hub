@@ -284,7 +284,7 @@ func renderViewTabs(currentView state.ViewType) string {
 // Added vis param to allow dynamic hints for modes like SORT which depend on visible table columns.
 func RenderFooter(mode, view string, width int, editTitle string, visibleCols []int) string {
 	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
-	keybinds := FooterKeybindsStyle.Render("j/k:move i:edit /:filter a:assign o:detail O:open y:copy f:fields 1-3:view q:quit")
+	keybinds := FooterKeybindsStyle.Render("j/k:move g/G:top/bottom i:edit /:filter a:assign m:group o:detail O:open y:copy f:fields 1-3:view q:quit")
 	var modeLabel string
 	modeStyle := FooterModeStyle
 	switch strings.ToLower(mode) {

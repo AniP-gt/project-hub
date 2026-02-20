@@ -129,7 +129,8 @@ Press `/` to enter Filter Mode in the TUI. The footer shows `FILTER MODE <input>
 | Action | Keys | Notes |
 | --- | --- | --- |
 | Sort mode | `s` | Then press: `t` Title, `s` Status, `r` Repository, `l` Labels, `m` Milestone, `p` Priority, `n` Number, `c` CreatedAt, `u` UpdatedAt. Press `Esc` to cancel |
-| Group toggle | `g` | Cycles `status → assignee → iteration → none` |
+| Jump to top/bottom | `g` / `G` | Move focus to the first/last row |
+| Group toggle | `m` | Cycles `status → assignee → iteration → none` |
 
 Iteration semantics:
 
