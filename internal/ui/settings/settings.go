@@ -52,9 +52,8 @@ func New(projectID, owner string, disableNotifications bool, itemLimit int, excl
 	oi.CharLimit = 50
 	oi.Width = 50
 
-	// Item limit input (GitHub GraphQL API max: 100)
 	li := textinput.New()
-	li.Placeholder = "Item limit (max 100)"
+	li.Placeholder = "Item limit (max 1000)"
 	li.SetValue(fmt.Sprintf("%d", itemLimit))
 	li.CharLimit = 10
 	li.Width = 50
@@ -148,6 +147,9 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 				if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
 					itemLimit = 100
 				}
+			}
+			if itemLimit > 1000 {
+				itemLimit = 1000
 			}
 			excludeDone := m.excludeDoneInput.Value() == "y"
 			disableNotifications := m.disableNotificationsInput.Value() == "y"
@@ -294,6 +296,9 @@ func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool,
 		if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
 			itemLimit = 100
 		}
+	}
+	if itemLimit > 1000 {
+		itemLimit = 1000
 	}
 	excludeDone = m.excludeDoneInput.Value() == "y"
 	suppressHints = m.disableNotificationsInput.Value() == "y"

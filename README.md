@@ -78,7 +78,7 @@ project-hub --project 12345 --iteration @current "Iteration 1" "Iteration 2"
 | `--project`, `-p` | Yes* | — | Project ID or Project URL |
 | `--owner`, `-o` | No | inferred/none | Owner (`org` or `user`). Inferred when `--project` is a URL |
 | `--gh-path`, `-g` | No | `gh` | Path to GitHub CLI executable |
-| `--item-limit`, `-il` | No | `100` | Maximum number of items to fetch |
+| `--item-limit`, `-il` | No | `100` | Maximum number of items to fetch (max 1000) |
 | `--iteration`, `-i` | No | none | Iteration filters. Repeat flag and/or pass multiple values |
 
 \* `--project` is only optional when `defaultProjectID` exists in config.
