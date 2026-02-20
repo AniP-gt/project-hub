@@ -58,10 +58,13 @@ func loadStartupConfig(errOut io.Writer) (config.Config, bool) {
 
 func main() {
 	projectArg := flag.String("project", "", "GitHub Project ID or URL")
+	projectShort := flag.String("p", "", "GitHub Project ID or URL (shorthand for --project)")
 	ownerFlag := flag.String("owner", "", "Owner (org/user) for the project")
 	ownerShort := flag.String("o", "", "Owner (shorthand for --owner)")
 	ghPathFlag := flag.String("gh-path", "", "Path to the gh CLI executable (default: \"gh\")")
+	ghPathShort := flag.String("g", "", "Path to the gh CLI executable (shorthand for --gh-path)")
 	itemLimitFlag := flag.Int("item-limit", 100, "Maximum number of items to fetch (default: 100)")
+	itemLimitShort := flag.Int("il", 100, "Maximum number of items to fetch (shorthand for --item-limit)")
 	disableNotificationsFlag := flag.Bool("disable-notifications", false, "Suppress info-level notifications in the UI")
 	excludeDoneFlag := flag.Bool("exclude-done", false, "Exclude items with 'Done' status")
 	var iterationFlag multiValueFlag
@@ -85,12 +88,29 @@ func main() {
 
 	cfg, configExists := loadStartupConfig(os.Stderr)
 
-	// Prefer the explicit short owner (-o) when provided, otherwise use --owner
+	// Prefer explicit short flags when provided, otherwise use long flags, then config
 	cliOwner := *ownerFlag
 	if *ownerShort != "" {
 		cliOwner = *ownerShort
 	}
-	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, cliOwner, cfg)
+
+	cliProject := *projectArg
+	if *projectShort != "" {
+		cliProject = *projectShort
+	}
+
+	cliGhPath := *ghPathFlag
+	if *ghPathShort != "" {
+		cliGhPath = *ghPathShort
+	}
+
+	// Item limit: prefer explicit short if it differs from the default sentinel
+	cliItemLimit := *itemLimitFlag
+	if *itemLimitShort != 100 {
+		cliItemLimit = *itemLimitShort
+	}
+
+	resolvedProject, resolvedOwner := resolveStartupOptions(cliProject, cliOwner, cfg)
 
 	suppressHints := cfg.SuppressHints
 	if *disableNotificationsFlag {
@@ -98,8 +118,8 @@ func main() {
 	}
 
 	itemLimit := cfg.DefaultItemLimit
-	if *itemLimitFlag != 100 {
-		itemLimit = *itemLimitFlag
+	if cliItemLimit != 100 {
+		itemLimit = cliItemLimit
 	} else if itemLimit == 0 {
 		itemLimit = 100
 	}
@@ -130,7 +150,7 @@ func main() {
 		projID = resolvedProject
 	}
 
-	client := github.NewCLIClient(*ghPathFlag)
+	client := github.NewCLIClient(cliGhPath)
 
 	cardFieldVis := state.DefaultCardFieldVisibility()
 	if configExists {

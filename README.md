@@ -46,11 +46,11 @@ project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
 
 | Option | Required | Default | Description |
 | --- | --- | --- | --- |
-| `--project` | Yes | — | GitHub Project ID or URL |
-| `--owner` | No | — | Owner (org/user) for the project; can be inferred from a project URL |
-| `--gh-path` | No | `gh` | Path to the `gh` CLI executable |
-| `--item-limit` | No | `100` | Maximum number of items to fetch |
-| `--iteration` | No | — | Iteration filters (repeat the flag or pass values after it) |
+| `--project` / `-p` | Yes | — | GitHub Project ID or URL (shorthand: `-p`) |
+| `--owner` / `-o` | No | — | Owner (org/user) for the project; can be inferred from a project URL (shorthand: `-o`) |
+| `--gh-path` / `-g` | No | `gh` | Path to the `gh` CLI executable (shorthand: `-g`) |
+| `--item-limit` / `-il` | No | `100` | Maximum number of items to fetch (shorthand: `-il`) |
+| `--iteration` / `-i` | No | — | Iteration filters (repeat the flag or pass values after it). Shorthand: `-i` behaves like `--iteration` and can be repeated.
 
 ## Features & Operations
 
