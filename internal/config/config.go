@@ -21,12 +21,13 @@ type CardFieldVisibility struct {
 }
 
 type Config struct {
-	DefaultProjectID    string              `json:"defaultProjectID"`
-	DefaultOwner        string              `json:"defaultOwner"`
-	SuppressHints       bool                `json:"suppressHints"`
-	DefaultItemLimit    int                 `json:"defaultItemLimit"`
-	DefaultExcludeDone  bool                `json:"defaultExcludeDone"`
-	CardFieldVisibility CardFieldVisibility `json:"cardFieldVisibility"`
+	DefaultProjectID        string              `json:"defaultProjectID"`
+	DefaultOwner            string              `json:"defaultOwner"`
+	SuppressHints           bool                `json:"suppressHints"`
+	DefaultItemLimit        int                 `json:"defaultItemLimit"`
+	DefaultExcludeDone      bool                `json:"defaultExcludeDone"`
+	DefaultIterationFilters []string            `json:"defaultIterationFilters"`
+	CardFieldVisibility     CardFieldVisibility `json:"cardFieldVisibility"`
 }
 
 // ResolvePath returns the canonical config file path using XDG Base Directory spec.

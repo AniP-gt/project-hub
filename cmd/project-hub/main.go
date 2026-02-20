@@ -59,15 +59,22 @@ func loadStartupConfig(errOut io.Writer) (config.Config, bool) {
 func main() {
 	projectArg := flag.String("project", "", "GitHub Project ID or URL")
 	ownerFlag := flag.String("owner", "", "Owner (org/user) for the project")
+	ownerShort := flag.String("o", "", "Owner (shorthand for --owner)")
 	ghPathFlag := flag.String("gh-path", "", "Path to the gh CLI executable (default: \"gh\")")
 	itemLimitFlag := flag.Int("item-limit", 100, "Maximum number of items to fetch (default: 100)")
 	disableNotificationsFlag := flag.Bool("disable-notifications", false, "Suppress info-level notifications in the UI")
 	excludeDoneFlag := flag.Bool("exclude-done", false, "Exclude items with 'Done' status")
 	var iterationFlag multiValueFlag
+	var iterationShort multiValueFlag
 	flag.Var(&iterationFlag, "iteration", "Iteration filters (repeat flag or pass values after it)")
+	flag.Var(&iterationShort, "i", "Iteration filters (shorthand for --iteration)")
 	flag.Parse()
 
+	// Merge long and short iteration flags. Short form (-i) is treated the same as --iteration.
 	iterationTokens := append([]string{}, iterationFlag...)
+	if len(iterationShort) > 0 {
+		iterationTokens = append(iterationTokens, iterationShort...)
+	}
 	if len(iterationTokens) > 0 {
 		iterationTokens = append(iterationTokens, flag.Args()...)
 	} else if len(flag.Args()) > 0 {
@@ -76,19 +83,20 @@ func main() {
 	}
 	iterationFilters := normalizeIterationFilters(iterationTokens)
 
-	// Load and use configuration
 	cfg, configExists := loadStartupConfig(os.Stderr)
 
-	// Resolve final project and owner values (CLI > config defaults)
-	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, *ownerFlag, cfg)
+	// Prefer the explicit short owner (-o) when provided, otherwise use --owner
+	cliOwner := *ownerFlag
+	if *ownerShort != "" {
+		cliOwner = *ownerShort
+	}
+	resolvedProject, resolvedOwner := resolveStartupOptions(*projectArg, cliOwner, cfg)
 
-	// Resolve notification setting: CLI flag takes precedence over config
 	suppressHints := cfg.SuppressHints
 	if *disableNotificationsFlag {
 		suppressHints = true
 	}
 
-	// Resolve item limit: CLI flag takes precedence over config
 	itemLimit := cfg.DefaultItemLimit
 	if *itemLimitFlag != 100 {
 		itemLimit = *itemLimitFlag
@@ -96,10 +104,13 @@ func main() {
 		itemLimit = 100
 	}
 
-	// Resolve exclude done: CLI flag takes precedence over config
 	excludeDone := cfg.DefaultExcludeDone
 	if *excludeDoneFlag {
 		excludeDone = true
+	}
+
+	if len(iterationFilters) == 0 && len(cfg.DefaultIterationFilters) > 0 {
+		iterationFilters = cfg.DefaultIterationFilters
 	}
 
 	// Check that project is now satisfied (either from CLI or config)

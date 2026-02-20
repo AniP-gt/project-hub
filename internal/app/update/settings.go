@@ -27,11 +27,12 @@ func SettingsSave(s State, msg settings.SaveMsg) (State, tea.Cmd) {
 	}
 
 	cfg := config.Config{
-		DefaultProjectID:   msg.ProjectID,
-		DefaultOwner:       msg.Owner,
-		SuppressHints:      msg.SuppressHints,
-		DefaultItemLimit:   msg.ItemLimit,
-		DefaultExcludeDone: msg.ExcludeDone,
+		DefaultProjectID:        msg.ProjectID,
+		DefaultOwner:            msg.Owner,
+		SuppressHints:           msg.SuppressHints,
+		DefaultItemLimit:        msg.ItemLimit,
+		DefaultExcludeDone:      msg.ExcludeDone,
+		DefaultIterationFilters: msg.IterationFilter,
 	}
 	saveErr := config.Save(configPath, cfg)
 	if saveErr != nil {
@@ -49,6 +50,7 @@ func SettingsSave(s State, msg settings.SaveMsg) (State, tea.Cmd) {
 	s.Model.SuppressHints = msg.SuppressHints
 	s.Model.ItemLimit = msg.ItemLimit
 	s.Model.ExcludeDone = msg.ExcludeDone
+	s.Model.View.Filter.Iterations = msg.IterationFilter
 	if !s.Model.SuppressHints {
 		notif := state.Notification{
 			Message:      "Settings saved successfully",

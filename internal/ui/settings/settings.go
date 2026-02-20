@@ -2,6 +2,7 @@ package settings
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,11 +11,12 @@ import (
 
 // SaveMsg is sent when user confirms settings save
 type SaveMsg struct {
-	ProjectID     string
-	Owner         string
-	SuppressHints bool
-	ItemLimit     int
-	ExcludeDone   bool
+	ProjectID       string
+	Owner           string
+	SuppressHints   bool
+	ItemLimit       int
+	ExcludeDone     bool
+	IterationFilter []string
 }
 
 // CancelMsg is sent when user cancels settings
@@ -27,13 +29,14 @@ type SettingsModel struct {
 	itemLimitInput            textinput.Model
 	excludeDoneInput          textinput.Model
 	disableNotificationsInput textinput.Model
-	focusedField              int // 0=project, 1=owner, 2=itemLimit, 3=excludeDone, 4=disableNotifications
+	iterationInput            textinput.Model
+	focusedField              int // 0=project, 1=owner, 2=itemLimit, 3=excludeDone, 4=disableNotifications, 5=iteration
 	width                     int
 	height                    int
 }
 
 // New creates a new SettingsModel with initial values
-func New(projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool) SettingsModel {
+func New(projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool, iterationFilters []string) SettingsModel {
 	// Project input
 	pi := textinput.New()
 	pi.Placeholder = "Project ID (e.g., 9 or PVT_xxx)"
@@ -78,12 +81,19 @@ func New(projectID, owner string, disableNotifications bool, itemLimit int, excl
 	dn.CharLimit = 1
 	dn.Width = 50
 
+	it := textinput.New()
+	it.Placeholder = "Iteration filter (e.g., @current,@next)"
+	it.SetValue(strings.Join(iterationFilters, ","))
+	it.CharLimit = 200
+	it.Width = 50
+
 	return SettingsModel{
 		projectInput:              pi,
 		ownerInput:                oi,
 		itemLimitInput:            li,
 		excludeDoneInput:          ed,
 		disableNotificationsInput: dn,
+		iterationInput:            it,
 		focusedField:              0,
 	}
 }
@@ -105,12 +115,12 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
-			m.focusedField = (m.focusedField + 1) % 5
+			m.focusedField = (m.focusedField + 1) % 6
 			m.focusField(m.focusedField)
 			return m, nil
 
 		case tea.KeyShiftTab:
-			m.focusedField = (m.focusedField - 1 + 5) % 5
+			m.focusedField = (m.focusedField - 1 + 6) % 6
 			m.focusField(m.focusedField)
 			return m, nil
 
@@ -141,13 +151,18 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 			}
 			excludeDone := m.excludeDoneInput.Value() == "y"
 			disableNotifications := m.disableNotificationsInput.Value() == "y"
+			var iterationFilter []string
+			if val := m.iterationInput.Value(); val != "" {
+				iterationFilter = strings.Split(val, ",")
+			}
 			return m, func() tea.Msg {
 				return SaveMsg{
-					ProjectID:     m.projectInput.Value(),
-					Owner:         m.ownerInput.Value(),
-					ItemLimit:     itemLimit,
-					ExcludeDone:   excludeDone,
-					SuppressHints: disableNotifications,
+					ProjectID:       m.projectInput.Value(),
+					Owner:           m.ownerInput.Value(),
+					ItemLimit:       itemLimit,
+					ExcludeDone:     excludeDone,
+					SuppressHints:   disableNotifications,
+					IterationFilter: iterationFilter,
 				}
 			}
 
@@ -168,6 +183,7 @@ func (m *SettingsModel) focusField(idx int) {
 	m.itemLimitInput.Blur()
 	m.excludeDoneInput.Blur()
 	m.disableNotificationsInput.Blur()
+	m.iterationInput.Blur()
 
 	switch idx {
 	case 0:
@@ -180,6 +196,8 @@ func (m *SettingsModel) focusField(idx int) {
 		m.excludeDoneInput.Focus()
 	case 4:
 		m.disableNotificationsInput.Focus()
+	case 5:
+		m.iterationInput.Focus()
 	}
 }
 
@@ -195,6 +213,8 @@ func (m *SettingsModel) updateFocusedInput(msg tea.Msg) {
 		m.excludeDoneInput, _ = m.excludeDoneInput.Update(msg)
 	case 4:
 		m.disableNotificationsInput, _ = m.disableNotificationsInput.Update(msg)
+	case 5:
+		m.iterationInput, _ = m.iterationInput.Update(msg)
 	}
 }
 
@@ -212,7 +232,7 @@ func (m SettingsModel) View() string {
 		Foreground(lipgloss.Color("#6b7280")).
 		MarginTop(1)
 
-	labels := make([]string, 5)
+	labels := make([]string, 6)
 	for i := range labels {
 		labels[i] = labelStyle.Render("  ")
 	}
@@ -223,6 +243,7 @@ func (m SettingsModel) View() string {
 	itemLimitLabel := labels[2] + "Item Limit:"
 	excludeDoneLabel := labels[3] + "Exclude Done:"
 	suppressHintsLabel := labels[4] + "Suppress Hints:"
+	iterationLabel := labels[5] + "Iteration Filter:"
 
 	helpText := "tab: switch field • space: toggle y/n • enter: save • esc: cancel"
 
@@ -245,6 +266,9 @@ func (m SettingsModel) View() string {
 		suppressHintsLabel,
 		m.disableNotificationsInput.View(),
 		"",
+		iterationLabel,
+		m.iterationInput.View(),
+		"",
 		helpStyle.Render(helpText),
 	)
 
@@ -264,7 +288,7 @@ func (m *SettingsModel) SetSize(width, height int) {
 }
 
 // GetValues returns current input values
-func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool, itemLimit int, excludeDone bool) {
+func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool, itemLimit int, excludeDone bool, iterationFilter []string) {
 	itemLimit = 100
 	if val := m.itemLimitInput.Value(); val != "" {
 		if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
@@ -273,5 +297,8 @@ func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool,
 	}
 	excludeDone = m.excludeDoneInput.Value() == "y"
 	suppressHints = m.disableNotificationsInput.Value() == "y"
-	return m.projectInput.Value(), m.ownerInput.Value(), suppressHints, itemLimit, excludeDone
+	if val := m.iterationInput.Value(); val != "" {
+		iterationFilter = strings.Split(val, ",")
+	}
+	return m.projectInput.Value(), m.ownerInput.Value(), suppressHints, itemLimit, excludeDone, iterationFilter
 }
