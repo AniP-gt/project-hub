@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -11,7 +12,33 @@ import (
 	"project-hub/internal/state"
 )
 
-func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error) {
+func BuildIterationQuery(iterationFilters []string) string {
+	if len(iterationFilters) == 0 {
+		return ""
+	}
+	var cleaned []string
+	for _, raw := range iterationFilters {
+		val := strings.TrimSpace(raw)
+		if val == "" {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(val), "iteration:") {
+			val = strings.TrimSpace(val[len("iteration:"):])
+		}
+		val = strings.TrimSpace(val)
+		if val == "" {
+			continue
+		}
+		val = "iteration:" + val
+		cleaned = append(cleaned, val)
+	}
+	if len(cleaned) == 0 {
+		return ""
+	}
+	return strings.Join(cleaned, " ")
+}
+
+func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error) {
 	viewArgs := []string{"project", "view", projectID, "--format", "json"}
 	if owner != "" {
 		viewArgs = append(viewArgs, "--owner", owner)
@@ -80,7 +107,7 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner st
 		}
 	}
 
-	items, err := c.FetchItems(ctx, projectID, owner, "", limit)
+	items, err := c.FetchItems(ctx, projectID, owner, filter, limit)
 	if err != nil {
 		return proj, nil, err
 	}
@@ -89,16 +116,26 @@ func (c *CLIClient) FetchProject(ctx context.Context, projectID string, owner st
 
 func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error) {
 	limitStr := strconv.Itoa(limit)
-	args := []string{"project", "item-list", projectID, "--format", "json", "--limit", limitStr}
+	baseArgs := []string{"project", "item-list", projectID, "--format", "json", "--limit", limitStr}
 	if owner != "" {
-		args = append(args, "--owner", owner)
+		baseArgs = append(baseArgs, "--owner", owner)
 	}
+
+	args := append([]string{}, baseArgs...)
 	if filter != "" {
-		args = append(args, "--search", filter)
+		args = append(args, "--query", filter)
 	}
 	out, err := c.runGh(ctx, args...)
 	if err != nil {
-		return nil, fmt.Errorf("gh project item-list failed: %w", err)
+		if filter != "" && isUnknownFlagError(err, "--query") {
+			fmt.Fprintln(os.Stderr, "warning: gh project item-list does not support --query; falling back to client-side filtering")
+			out, err = c.runGh(ctx, baseArgs...)
+			if err != nil {
+				return nil, fmt.Errorf("gh project item-list failed: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("gh project item-list failed: %w", err)
+		}
 	}
 	items, parseErr := parse.ParseItemList(out)
 	if parseErr != nil {
@@ -128,6 +165,17 @@ func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner stri
 		}
 	}
 	return items, nil
+}
+
+func isUnknownFlagError(err error, flag string) bool {
+	if err == nil || flag == "" {
+		return false
+	}
+	message := err.Error()
+	if !strings.Contains(message, "unknown flag") {
+		return false
+	}
+	return strings.Contains(message, flag)
 }
 
 type projectHierarchy struct {

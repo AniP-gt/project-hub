@@ -35,7 +35,7 @@ func New(initial state.Model, client github.Client, itemLimit int) App {
 }
 
 func (a App) Init() tea.Cmd {
-	return tea.Batch(core.FetchProjectCmd(a.github, a.state.Project.ID, a.state.Project.Owner, a.itemLimit), textinput.Blink)
+	return tea.Batch(core.FetchProjectCmd(a.github, a.state.Project.ID, a.state.Project.Owner, a.itemLimit, a.state.View.Filter.Iterations), textinput.Blink)
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -45,7 +45,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) LoadInitialState(ctx context.Context, projectID string, owner string) error {
-	project, items, err := a.github.FetchProject(ctx, projectID, owner, a.itemLimit)
+	project, items, err := a.github.FetchProject(ctx, projectID, owner, github.BuildIterationQuery(a.state.View.Filter.Iterations), a.itemLimit)
 	if err != nil {
 		return err
 	}

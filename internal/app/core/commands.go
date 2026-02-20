@@ -13,9 +13,9 @@ import (
 	"project-hub/internal/github"
 )
 
-func FetchProjectCmd(client github.Client, projectID, owner string, itemLimit int) tea.Cmd {
+func FetchProjectCmd(client github.Client, projectID, owner string, itemLimit int, iterationFilters []string) tea.Cmd {
 	return func() tea.Msg {
-		proj, items, err := client.FetchProject(context.Background(), projectID, owner, itemLimit)
+		proj, items, err := client.FetchProject(context.Background(), projectID, owner, github.BuildIterationQuery(iterationFilters), itemLimit)
 		if err != nil {
 			return NewErrMsg(err)
 		}

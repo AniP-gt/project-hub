@@ -194,7 +194,7 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	case "3":
 		return SwitchView(s, SwitchViewMsg{View: state.ViewSettings})
 	case "R", "ctrl+r":
-		return s, core.FetchProjectCmd(s.Github, s.Model.Project.ID, s.Model.Project.Owner, s.ItemLimit)
+		return s, core.FetchProjectCmd(s.Github, s.Model.Project.ID, s.Model.Project.Owner, s.ItemLimit, s.Model.View.Filter.Iterations)
 	case "j":
 		return MoveFocus(s, MoveFocusMsg{Delta: 1})
 	case "k":

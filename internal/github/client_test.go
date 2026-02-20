@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -447,6 +448,87 @@ func TestUpdateStatus_ValidationIntegration(t *testing.T) {
 				if err != nil {
 					t.Errorf("UpdateStatus() unexpected error = %v", err)
 				}
+			}
+		})
+	}
+}
+
+func TestBuildIterationQuery(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  []string
+		output string
+	}{
+		{
+			name:   "empty",
+			input:  nil,
+			output: "",
+		},
+		{
+			name:   "single token",
+			input:  []string{"@current"},
+			output: "iteration:@current",
+		},
+		{
+			name:   "trim and normalize",
+			input:  []string{" iteration:@next ", "", "Iteration:  Sprint 1"},
+			output: "iteration:@next iteration:Sprint 1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BuildIterationQuery(tt.input)
+			if got != tt.output {
+				t.Fatalf("BuildIterationQuery() = %q, want %q", got, tt.output)
+			}
+		})
+	}
+}
+
+func TestIsUnknownFlagError(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		flag   string
+		isTrue bool
+	}{
+		{
+			name:   "nil error",
+			err:    nil,
+			flag:   "--query",
+			isTrue: false,
+		},
+		{
+			name:   "non-flag error",
+			err:    fmt.Errorf("some other error"),
+			flag:   "--query",
+			isTrue: false,
+		},
+		{
+			name:   "unknown flag match",
+			err:    fmt.Errorf("exit status 1: unknown flag: --query"),
+			flag:   "--query",
+			isTrue: true,
+		},
+		{
+			name:   "unknown flag different",
+			err:    fmt.Errorf("exit status 1: unknown flag: --foo"),
+			flag:   "--query",
+			isTrue: false,
+		},
+		{
+			name:   "missing flag",
+			err:    fmt.Errorf("exit status 1: unknown flag: --query"),
+			flag:   "",
+			isTrue: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isUnknownFlagError(tt.err, tt.flag); got != tt.isTrue {
+				t.Fatalf("isUnknownFlagError() = %v, want %v", got, tt.isTrue)
 			}
 		})
 	}

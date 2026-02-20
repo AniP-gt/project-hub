@@ -184,7 +184,7 @@ func main() {
 	initial.View.Filter.Iterations = iterationFilters
 
 	// Try to load real project data via gh; fallback to sample on error.
-	if proj, items, err := client.FetchProject(context.Background(), projID, owner, itemLimit); err == nil {
+	if proj, items, err := client.FetchProject(context.Background(), projID, owner, github.BuildIterationQuery(iterationFilters), itemLimit); err == nil {
 		if proj.Name != "" {
 			initial.Project = proj
 		}

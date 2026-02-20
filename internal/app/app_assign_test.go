@@ -11,7 +11,7 @@ import (
 // mock client that implements github.Client but does nothing.
 type noopClient struct{}
 
-func (n *noopClient) FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error) {
+func (n *noopClient) FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error) {
 	return state.Project{}, nil, nil
 }
 func (n *noopClient) FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error) {

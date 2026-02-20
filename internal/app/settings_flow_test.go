@@ -14,7 +14,7 @@ import (
 
 type mockClient struct{}
 
-func (m *mockClient) FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error) {
+func (m *mockClient) FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error) {
 	return state.Project{}, nil, nil
 }
 

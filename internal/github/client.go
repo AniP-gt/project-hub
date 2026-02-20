@@ -20,7 +20,7 @@ const (
 )
 
 type Client interface {
-	FetchProject(ctx context.Context, projectID string, owner string, limit int) (state.Project, []state.Item, error)
+	FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error)
 	FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error)
 	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error)
 	UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error)
