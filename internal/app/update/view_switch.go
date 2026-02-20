@@ -2,6 +2,7 @@ package update
 
 import (
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -37,6 +38,41 @@ func MoveFocus(s State, msg MoveFocusMsg) (State, tea.Cmd) {
 		return MoveFocusGrouped(s, msg.Delta)
 	}
 
+	if s.Model.View.CurrentView == state.ViewTable {
+		filteredItems := state.ApplyFilter(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, time.Now())
+		if len(filteredItems) == 0 {
+			s.Model.View.FocusedItemID = ""
+			s.Model.View.FocusedIndex = -1
+			return s, nil
+		}
+		idx := -1
+		for i, item := range filteredItems {
+			if item.ID == s.Model.View.FocusedItemID {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			idx = 0
+		}
+		idx += msg.Delta
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= len(filteredItems) {
+			idx = len(filteredItems) - 1
+		}
+		newItemID := filteredItems[idx].ID
+		s.Model.View.FocusedItemID = newItemID
+		for modelIdx, item := range s.Model.Items {
+			if item.ID == newItemID {
+				s.Model.View.FocusedIndex = modelIdx
+				break
+			}
+		}
+		return s, nil
+	}
+
 	idx := s.Model.View.FocusedIndex
 	if idx < 0 {
 		idx = 0
@@ -56,14 +92,15 @@ func MoveFocus(s State, msg MoveFocusMsg) (State, tea.Cmd) {
 func MoveFocusGrouped(s State, delta int) (State, tea.Cmd) {
 	groupBy := strings.ToLower(strings.TrimSpace(s.Model.View.TableGroupBy))
 	var groups []boardPkg.GroupBucket
+	filteredItems := state.ApplyFilter(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, time.Now())
 
 	switch groupBy {
 	case core.GroupByStatus:
-		groups = boardPkg.GroupItemsByStatusBuckets(s.Model.Items, s.Model.Project.Fields)
+		groups = boardPkg.GroupItemsByStatusBuckets(filteredItems, s.Model.Project.Fields)
 	case core.GroupByIteration:
-		groups = boardPkg.GroupItemsByIteration(s.Model.Items)
+		groups = boardPkg.GroupItemsByIteration(filteredItems)
 	case core.GroupByAssignee:
-		groups = boardPkg.GroupItemsByAssignee(s.Model.Items)
+		groups = boardPkg.GroupItemsByAssignee(filteredItems)
 	default:
 		return MoveFocus(s, MoveFocusMsg{Delta: delta})
 	}
@@ -146,10 +183,6 @@ func MoveFocusGrouped(s State, delta int) (State, tea.Cmd) {
 				break
 			}
 		}
-	}
-
-	if s.TableViewport != nil {
-		s.TableViewport.YOffset = 0
 	}
 
 	return s, nil
