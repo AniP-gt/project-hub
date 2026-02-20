@@ -2,102 +2,143 @@
 
 <img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/c48a75c9-eeb9-4fbb-bb07-af1fe1677b48" />
 
+`project-hub` is a terminal UI for browsing and updating GitHub Projects (Project V2) through the `gh` CLI.
 
-`project-hub` is a TUI for browsing GitHub Projects via the `gh` CLI.
+## Quick Start
 
-## Requirements
+### 1) Requirements
 
-- Go (for building/installing the CLI)
+- Go (for build/install)
 - GitHub CLI (`gh`) installed and authenticated (`gh auth login`)
 - Access to a GitHub Project (Project V2)
 
-## Installation
-
-Local install (from repository root):
+### 2) Install
 
 ```bash
 git clone https://github.com/AniP-gt/project-hub.git
 go install ./cmd/project-hub
 ```
 
-This places the binary in `$GOBIN` if set, otherwise `$(go env GOPATH)/bin`. Make sure that directory is in your `PATH`. Example:
+Binary location is `$GOBIN` (if set) or `$(go env GOPATH)/bin`. Ensure it is in `PATH`.
 
 ```bash
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-Remote install (recommended for users after you push to GitHub and tag a release):
-
-1. Ensure `module` in go.mod is set to the repo import path, e.g. `module github.com/AniP-gt/project-hub`.
-2. Create and push a tag, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
-
-Then users can run:
+### 3) Start the app
 
 ```bash
-go install github.com/AniP-gt/project-hub/cmd/project-hub@v0.1.0
+project-hub --project <project-id-or-url> [options]
 ```
 
-## Usage
+If `--project` is omitted, `defaultProjectID` from config is used. If neither exists, the app exits with usage help.
+
+## Startup Commands (common patterns)
+
+Use a project ID:
 
 ```bash
-project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
+project-hub --project 12345
 ```
 
-`--project` is required unless you set a default in the config file.
+Use a project URL (owner inferred from URL path):
 
-### Options
+```bash
+project-hub --project https://github.com/acme-org/projects/7
+```
+
+Provide explicit owner:
+
+```bash
+project-hub --project 12345 --owner acme-org
+```
+
+Limit fetched items:
+
+```bash
+project-hub --project 12345 --item-limit 50
+```
+
+Filter by iteration (repeat flag):
+
+```bash
+project-hub --project 12345 --iteration @current --iteration "Iteration 1"
+```
+
+Filter by iteration (multiple values after one flag):
+
+```bash
+project-hub --project 12345 --iteration @current "Iteration 1" "Iteration 2"
+```
+
+## CLI Options
 
 | Option | Required | Default | Description |
 | --- | --- | --- | --- |
-| `--project` / `-p` | Yes | — | GitHub Project ID or URL (shorthand: `-p`) |
-| `--owner` / `-o` | No | — | Owner (org/user) for the project; can be inferred from a project URL (shorthand: `-o`) |
-| `--gh-path` / `-g` | No | `gh` | Path to the `gh` CLI executable (shorthand: `-g`) |
-| `--item-limit` / `-il` | No | `100` | Maximum number of items to fetch (shorthand: `-il`) |
-| `--iteration` / `-i` | No | — | Iteration filters (repeat the flag or pass values after it). Shorthand: `-i` behaves like `--iteration` and can be repeated.
+| `--project`, `-p` | Yes* | — | Project ID or Project URL |
+| `--owner`, `-o` | No | inferred/none | Owner (`org` or `user`). Inferred when `--project` is a URL |
+| `--gh-path`, `-g` | No | `gh` | Path to GitHub CLI executable |
+| `--item-limit`, `-il` | No | `100` | Maximum number of items to fetch |
+| `--iteration`, `-i` | No | none | Iteration filters. Repeat flag and/or pass multiple values |
 
-## Features & Operations
+\* `--project` is only optional when `defaultProjectID` exists in config.
 
-### Views & Navigation
+## Feature Guide (by function)
 
-| Action | Keys | Notes |
+### Global navigation and item actions
+
+| Function | Keys | Behavior |
 | --- | --- | --- |
-| Board view | `1` / `b` | Switch to kanban board |
-| Table view | `2` / `t` | Switch to table view |
-| Settings | `3` | Open settings panel |
+| Switch to Board | `1` / `b` | Kanban view |
+| Switch to Table | `2` / `t` | Table view |
+| Open Settings | `3` | Settings panel |
 | Move focus | `h` / `l` / `k` / `j` | Left / right / up / down |
-| Reload | `R` / `Ctrl+r` | Refresh items |
+| Reload items | `R` / `Ctrl+r` | Refresh project data |
+| Edit title | `i` / `Enter` | `Enter` to save, `Esc` to cancel |
+| Assign user | `a` | Type assignee, `Enter` save, `Esc` cancel |
+| Open detail panel | `o` | `j/k` scroll, `Esc`/`q` close |
+| Change status | `w` | `j/k` select, `Enter` confirm, `Esc` cancel |
+| Open in browser | `O` | Uses OS opener; fallback is URL notification |
+| Copy URL | `y` | Uses clipboard command; fallback is URL notification |
 
-### Item Actions
+### Board view
 
-| Action | Keys | Notes |
+<img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/89880a68-1c20-45c7-a647-a0ea9d3d0ac7" />
+
+Default view is a kanban-style board.
+
+| Function | Keys | Behavior |
 | --- | --- | --- |
-| Edit title | `i` / `Enter` | Type → `Enter` to save, `Esc` to cancel |
-| Assign | `a` | Type assignee → `Enter` to save, `Esc` to cancel |
-| Detail panel | `o` | `j/k` to scroll, `Esc`/`q` to close |
-| Status select | `w` | `j/k` to move, `Enter` to confirm, `Esc` to cancel |
-| Open in browser | `O` | Uses system opener (macOS: `open`, Linux: `xdg-open`, Windows: `rundll32`). If unavailable, shows the URL in a notification. |
-| Copy URL | `y` | Uses clipboard tool (macOS: `pbcopy`, Windows: `clip`, Linux: `wl-copy` or `xclip`). If unavailable, shows the URL in a notification. |
+| Move between cards | `j` / `k` | Navigate focused card |
+| Open filter input | `/` | `Enter` apply, `Esc` clear |
+| Toggle card fields | `f` | In toggle mode: `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent, `Esc` exit |
 
- (Board-specific and Table-specific shortcuts moved to their respective sections below.)
+### Table view
 
-### Filter Mode
+<img width="1674" height="927" alt="Table" src="https://github.com/user-attachments/assets/c28fd58e-f326-4bcd-8cf8-270f8d6ce86c" />
 
-| Action | Keys | Notes |
+| Function | Keys | Behavior |
 | --- | --- | --- |
-| Enter filter | `/` | Type filters → `Enter` to apply, `Esc` to clear |
+| Sort mode | `s` | Then: `t` Title, `s` Status, `r` Repository, `l` Labels, `m` Milestone, `p` Priority, `n` Number, `c` CreatedAt, `u` UpdatedAt |
+| Jump top/bottom | `g` / `G` | First/last row |
+| Group toggle | `m` | `status -> assignee -> iteration -> none` |
+
+### Filter mode
+
+Press `/` in Board/Table. Footer shows `FILTER MODE <input>` while typing. `Enter` applies filters, `Esc` clears.
 
 Supported tokens:
 
-| Token | Description | Notes |
+| Token | Meaning | Notes |
 | --- | --- | --- |
-| `label:` / `labels:` | Filter by labels | Comma/semicolon-separated values |
-| `assignee:` / `assignees:` | Filter by assignees | Multiple values supported |
-| `status:` | Filter by status | Use quotes for spaces |
-| `iteration:` | Filter by iteration | Shorthand tokens below |
-| `group:` / `group-by:` / `groupby:` | Set table grouping | `status`, `assignee`, `iteration` |
-| `FieldName:Value` | Any project field | Use quotes for spaces |
+| `label:`, `labels:` | Label filter | Comma or semicolon separated |
+| `assignee:`, `assignees:` | Assignee filter | Multiple values supported |
+| `status:` | Status filter | Quote if it contains spaces |
+| `iteration:` | Iteration filter | Supports shorthand tokens |
+| `group:`, `group-by:`, `groupby:` | Table grouping | `status`, `assignee`, `iteration` |
+| `FieldName:Value` | Any project field | Quote field/value with spaces |
 
-Shorthand iteration tokens: `@current`, `@next`, `@previous`, `current`, `next`, `previous`
+Iteration shorthand tokens: `@current`, `@next`, `@previous`, `current`, `next`, `previous`
 
 Examples:
 
@@ -107,95 +148,35 @@ Examples:
 - `Sprint:Q1`
 - `"Iteration Name":"Q1 Sprint"`
 
-## Board
-
-<img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/89880a68-1c20-45c7-a647-a0ea9d3d0ac7" />
-
-The default view is a kanban-style board. Use the shortcuts in **Features & Operations** above for navigation, item actions, and card field toggles.
-
-### Board shortcuts
-
-| Action | Keys | Notes |
-| --- | --- | --- |
-| Move between cards | `j` / `k` | Navigate up/down between cards |
-| Switch views | `1` / `2` / `3` | Board / Table / Settings |
-| Open filter input | `/` | Press `Enter` to apply, `Esc` to clear |
-| Open item detail panel | `o` | `j/k` to scroll, `Esc`/`q` to close |
-| Edit focused item | `i` | `Enter` to save, `Esc` to cancel |
-| Change status | `w` | Select status option with `j/k`, `Enter` to confirm |
-| Toggle card fields (field toggle mode) | `f` | In field toggle mode: `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent; `Esc` to exit |
-
-## Table Filter
-
-<img width="1674" height="927" alt="Table" src="https://github.com/user-attachments/assets/c28fd58e-f326-4bcd-8cf8-270f8d6ce86c" />
-
-
-Press `/` to enter Filter Mode in the TUI. The footer shows `FILTER MODE <input>` while you type. Press `Enter` to apply or `Esc` to clear.
-
-### Table shortcuts
-
-| Action | Keys | Notes |
-| --- | --- | --- |
-| Sort mode | `s` | Then press: `t` Title, `s` Status, `r` Repository, `l` Labels, `m` Milestone, `p` Priority, `n` Number, `c` CreatedAt, `u` UpdatedAt. Press `Esc` to cancel |
-| Jump to top/bottom | `g` / `G` | Move focus to the first/last row |
-| Group toggle | `m` | Cycles `status → assignee → iteration → none` |
-
 Iteration semantics:
 
-- `@current` matches iterations where **start ≤ now < end** (end = start + duration days)
-- `@next` matches iterations with a start date in the future
-- `@previous` matches iterations that have ended (now ≥ end)
-- Literal values match iteration **name or ID** (case-insensitive)
+- `@current`: start <= now < end (end = start + duration days)
+- `@next`: iteration start is in the future
+- `@previous`: now >= end
+- Literal value: matches iteration name or ID (case-insensitive)
 
-## Examples
+### Settings view
 
-Use a project ID:
+<img width="1671" height="930" alt="Settings" src="https://github.com/user-attachments/assets/cd84a94d-ce9f-442a-8d33-d5db69986221" />
 
-```bash
-project-hub --project 12345
-```
+Press `3` to open Settings.
 
-Use a project URL (owner can be inferred from the URL path):
+- Default Project: saved as `defaultProjectID`
+- Default Owner: saved as `defaultOwner`
 
-```bash
-project-hub --project https://github.com/acme-org/projects/7
-```
-
-Provide an explicit owner:
-
-```bash
-project-hub --project 12345 --owner acme-org
-```
-
-Limit items fetched:
-
-```bash
-project-hub --project 12345 --item-limit 50
-```
-
-Filter by iteration (repeat the flag):
-
-```bash
-project-hub --project 12345 --iteration @current --iteration "Iteration 1"
-```
-
-Filter by iteration (values after the flag):
-
-```bash
-project-hub --project 12345 --iteration @current "Iteration 1" "Iteration 2"
-```
+Settings changes are persisted to config. CLI options always override config values.
 
 ## Configuration
 
-`project-hub` reads a JSON config file for defaults. CLI flags take precedence over config values.
+`project-hub` reads JSON config for defaults.
 
-Config file path:
+Config path by OS:
 
 - macOS: `~/Library/Application Support/project-hub/project-hub.json`
 - Linux: `~/.config/project-hub/project-hub.json`
 - Windows: `%APPDATA%\project-hub\project-hub.json`
 
-Example config:
+Example:
 
 ```json
 {
@@ -204,30 +185,21 @@ Example config:
 }
 ```
 
-## Settings
+If config loading fails, warning is shown and app continues:
 
-<img width="1671" height="930" alt="Settings" src="https://github.com/user-attachments/assets/cd84a94d-ce9f-442a-8d33-d5db69986221" />
-
-
-Press `3` in the TUI to open the Settings panel. Here you can view and manage your defaults:
-
-- **Default Project**: The default project ID saved in your config file
-- **Default Owner**: The default owner (org/user) saved in your config file
-
-Changes made in Settings are persisted to `project-hub.json`. Note that **CLI overrides config**—if you pass `--project` or `--owner` on the command line, those values take precedence.
-
-### Configuration Errors
-
-If the config file cannot be loaded, you will see a warning message:
-
-```
+```text
 warning: failed to load config: <error details>
 ```
 
-The application will continue to run normally; you can still use the CLI without a config file by providing values via command-line flags.
+## Optional: Remote install for released versions
 
-## Notes
+If publishing tags for users:
 
-- The binary name is the last path element in the cmd directory (`cmd/project-hub` -> `project-hub`).
-- If `--project` is missing and no default is configured, the CLI prints usage and exits.
-- Iteration filters accept `@current`, `@next`, `@previous`, or explicit iteration names. The `iteration:` prefix is also accepted (e.g. `iteration:@current`).
+1. Set `module` in `go.mod` to the repo path (for example, `github.com/AniP-gt/project-hub`).
+2. Push a tag (for example, `git tag v0.1.0 && git push origin v0.1.0`).
+
+Then users can install by version:
+
+```bash
+go install github.com/AniP-gt/project-hub/cmd/project-hub@v0.1.0
+```
