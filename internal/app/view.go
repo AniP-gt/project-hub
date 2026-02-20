@@ -94,10 +94,6 @@ func (a App) View() string {
 		body = a.boardModel.View()
 	}
 
-	if a.state.View.Mode == "edit" || a.state.View.Mode == "assign" || a.state.View.Mode == "labelsInput" || a.state.View.Mode == "milestoneInput" || a.state.View.Mode == state.ModeFiltering {
-		body = body + "\n" + a.textInput.View()
-	}
-
 	var framed string
 	if a.state.View.CurrentView == state.ViewBoard {
 		maxHeight := bodyHeight
@@ -329,6 +325,33 @@ func applySort(items []state.Item, ts state.TableSort) []state.Item {
 			}
 			return items[i].Milestone > items[j].Milestone
 		})
+	case "SubIssueProgress":
+		// Sort by sub-issue progress which is stored as "completed/total" e.g. "2/5".
+		parseRatio := func(s string) float64 {
+			if s == "" {
+				return 0.0
+			}
+			parts := strings.Split(s, "/")
+			if len(parts) != 2 {
+				return 0.0
+			}
+			var a, b float64
+			if _, err := fmt.Sscan(parts[0], &a); err != nil {
+				return 0.0
+			}
+			if _, err := fmt.Sscan(parts[1], &b); err != nil || b == 0 {
+				return 0.0
+			}
+			return a / b
+		}
+		sort.SliceStable(items, func(i, j int) bool {
+			ri := parseRatio(items[i].SubIssueProgress)
+			rj := parseRatio(items[j].SubIssueProgress)
+			if ts.Asc {
+				return ri < rj
+			}
+			return ri > rj
+		})
 	case "Priority":
 		priorityRank := func(p string) int {
 			switch strings.ToLower(p) {
@@ -349,6 +372,17 @@ func applySort(items []state.Item, ts state.TableSort) []state.Item {
 			return priorityRank(items[i].Priority) > priorityRank(items[j].Priority)
 		})
 	default:
+		if ts.Field == "Assignees" {
+			sort.SliceStable(items, func(i, j int) bool {
+				iAssignees := strings.Join(items[i].Assignees, ",")
+				jAssignees := strings.Join(items[j].Assignees, ",")
+				if ts.Asc {
+					return iAssignees < jAssignees
+				}
+				return iAssignees > jAssignees
+			})
+			break
+		}
 		switch ts.Field {
 		case "Number":
 			sort.SliceStable(items, func(i, j int) bool {
