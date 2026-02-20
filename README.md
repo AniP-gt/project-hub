@@ -1,6 +1,9 @@
 # project-hub
 
-`project-hub` is a terminal UI for browsing GitHub Projects via the `gh` CLI.
+<img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/c48a75c9-eeb9-4fbb-bb07-af1fe1677b48" />
+
+
+`project-hub` is a TUI for browsing GitHub Projects via the `gh` CLI.
 
 ## Requirements
 
@@ -106,6 +109,8 @@ Examples:
 
 ## Board
 
+<img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/89880a68-1c20-45c7-a647-a0ea9d3d0ac7" />
+
 The default view is a kanban-style board. Use the shortcuts in **Features & Operations** above for navigation, item actions, and card field toggles.
 
 ### Board shortcuts
@@ -121,6 +126,9 @@ The default view is a kanban-style board. Use the shortcuts in **Features & Oper
 | Toggle card fields (field toggle mode) | `f` | In field toggle mode: `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent; `Esc` to exit |
 
 ## Table Filter
+
+<img width="1674" height="927" alt="Table" src="https://github.com/user-attachments/assets/c28fd58e-f326-4bcd-8cf8-270f8d6ce86c" />
+
 
 Press `/` to enter Filter Mode in the TUI. The footer shows `FILTER MODE <input>` while you type. Press `Enter` to apply or `Esc` to clear.
 
@@ -197,6 +205,9 @@ Example config:
 ```
 
 ## Settings
+
+<img width="1671" height="930" alt="Settings" src="https://github.com/user-attachments/assets/cd84a94d-ce9f-442a-8d33-d5db69986221" />
+
 
 Press `3` in the TUI to open the Settings panel. Here you can view and manage your defaults:
 
