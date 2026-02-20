@@ -13,6 +13,7 @@
 Local install (from repository root):
 
 ```bash
+git clone https://github.com/AniP-gt/project-hub.git
 go install ./cmd/project-hub
 ```
 
@@ -41,93 +42,94 @@ project-hub --project <project-id-or-url> [--owner <org-or-user>] [options]
 
 `--project` is required unless you set a default in the config file.
 
+### Options
+
+| Option | Required | Default | Description |
+| --- | --- | --- | --- |
+| `--project` | Yes | — | GitHub Project ID or URL |
+| `--owner` | No | — | Owner (org/user) for the project; can be inferred from a project URL |
+| `--gh-path` | No | `gh` | Path to the `gh` CLI executable |
+| `--item-limit` | No | `100` | Maximum number of items to fetch |
+| `--iteration` | No | — | Iteration filters (repeat the flag or pass values after it) |
+
 ## Features & Operations
 
 ### Views & Navigation
 
-- **Board view**: `1` or `b`
-- **Table view**: `2` or `t`
-- **Settings**: `3`
-- **Move focus**: `h` (left), `l` (right), `k` (up), `j` (down)
-- **Reload**: `R` or `Ctrl+r`
+| Action | Keys | Notes |
+| --- | --- | --- |
+| Board view | `1` / `b` | Switch to kanban board |
+| Table view | `2` / `t` | Switch to table view |
+| Settings | `3` | Open settings panel |
+| Move focus | `h` / `l` / `k` / `j` | Left / right / up / down |
+| Reload | `R` / `Ctrl+r` | Refresh items |
 
 ### Item Actions
 
-- **Edit title**: `i` or `Enter` → type, `Enter` to save, `Esc` to cancel
-- **Assign**: `a` → type assignee, `Enter` to save, `Esc` to cancel
-- **Detail panel**: `o` → `j/k` to scroll, `Esc`/`q` to close
-- **Status select**: `w` → `j/k` to move, `Enter` to confirm, `Esc` to cancel
+| Action | Keys | Notes |
+| --- | --- | --- |
+| Edit title | `i` / `Enter` | Type → `Enter` to save, `Esc` to cancel |
+| Assign | `a` | Type assignee → `Enter` to save, `Esc` to cancel |
+| Detail panel | `o` | `j/k` to scroll, `Esc`/`q` to close |
+| Status select | `w` | `j/k` to move, `Enter` to confirm, `Esc` to cancel |
+| Open in browser | `O` | Uses system opener (macOS: `open`, Linux: `xdg-open`, Windows: `rundll32`). If unavailable, shows the URL in a notification. |
+| Copy URL | `y` | Uses clipboard tool (macOS: `pbcopy`, Windows: `clip`, Linux: `wl-copy` or `xclip`). If unavailable, shows the URL in a notification. |
 
-- **Open in browser**: `O` (capital O) → open the focused item's Issue/PR URL in the system default browser. The command uses the platform's standard opener (macOS: `open`, Linux: `xdg-open`, Windows: `rundll32`). If no opener is available on the system, the application will show the URL in a notification so you can copy it manually.
-- **Copy URL**: `y` → copy the focused item's Issue/PR URL to the system clipboard (macOS: `pbcopy`, Windows: `clip`, Linux: `wl-copy` or `xclip`). If no clipboard utility is available, the application will show the URL in a notification so you can copy it manually.
-
-### Board-only
-
-- **Toggle card fields**: `f` → `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent (toggle on/off)
-
-### Table-only
-
-- **Sort mode**: `s` (then `t` Title, `s` Status, `r` Repository, `l` Labels, `m` Milestone, `p` Priority, `n` Number, `c` CreatedAt, `u` UpdatedAt; `Esc` to cancel)
-- **Group toggle**: `g` cycles `status → assignee → iteration → none`
+ (Board-specific and Table-specific shortcuts moved to their respective sections below.)
 
 ### Filter Mode
 
-- **Enter**: `/` → type filters, `Enter` to apply, `Esc` to clear
-- **Tokens**:
-  - `label:` / `labels:` (comma/semicolon-separated values)
-  - `assignee:` / `assignees:`
-  - `status:`
-  - `iteration:` or shorthand tokens: `@current`, `@next`, `@previous`, `current`, `next`, `previous`
-  - `group:` / `group-by:` / `groupby:` (sets table grouping)
-  - `FieldName:Value` for any project field (use quotes for spaces)
-- **Examples**:
-  - `status:"In Progress" assignee:alice`
-  - `iteration:@current,@previous,@next`
-  - `@current next previous`
-  - `Sprint:Q1`
-  - `"Iteration Name":"Q1 Sprint"`
+| Action | Keys | Notes |
+| --- | --- | --- |
+| Enter filter | `/` | Type filters → `Enter` to apply, `Esc` to clear |
+
+Supported tokens:
+
+| Token | Description | Notes |
+| --- | --- | --- |
+| `label:` / `labels:` | Filter by labels | Comma/semicolon-separated values |
+| `assignee:` / `assignees:` | Filter by assignees | Multiple values supported |
+| `status:` | Filter by status | Use quotes for spaces |
+| `iteration:` | Filter by iteration | Shorthand tokens below |
+| `group:` / `group-by:` / `groupby:` | Set table grouping | `status`, `assignee`, `iteration` |
+| `FieldName:Value` | Any project field | Use quotes for spaces |
+
+Shorthand iteration tokens: `@current`, `@next`, `@previous`, `current`, `next`, `previous`
+
+Examples:
+
+- `status:"In Progress" assignee:alice`
+- `iteration:@current,@previous,@next`
+- `@current next previous`
+- `Sprint:Q1`
+- `"Iteration Name":"Q1 Sprint"`
 
 ## Board
 
-The default view is a kanban-style board. Use the following shortcuts while the board is focused:
+The default view is a kanban-style board. Use the shortcuts in **Features & Operations** above for navigation, item actions, and card field toggles.
 
-- `j` / `k`: Move between cards
-- `1` / `2` / `3`: Switch views (board / table / settings)
-- `/`: Open filter input (press Enter to apply, Esc to clear)
-- `o`: Open item detail panel
-- `i`: Edit focused item
-- `w`: Change status (select status option)
-- `f`: Toggle card fields (enter field toggle mode)
+### Board shortcuts
 
-Field toggle mode (press `f` to enter, `Esc` to exit):
-
-- `m`: Milestone
-- `r`: Repository
-- `l`: Labels
-- `s`: Sub-issue count
-- `p`: Parent issue
+| Action | Keys | Notes |
+| --- | --- | --- |
+| Move between cards | `j` / `k` | Navigate up/down between cards |
+| Switch views | `1` / `2` / `3` | Board / Table / Settings |
+| Open filter input | `/` | Press `Enter` to apply, `Esc` to clear |
+| Open item detail panel | `o` | `j/k` to scroll, `Esc`/`q` to close |
+| Edit focused item | `i` | `Enter` to save, `Esc` to cancel |
+| Change status | `w` | Select status option with `j/k`, `Enter` to confirm |
+| Toggle card fields (field toggle mode) | `f` | In field toggle mode: `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent; `Esc` to exit |
 
 ## Table Filter
 
 Press `/` to enter Filter Mode in the TUI. The footer shows `FILTER MODE <input>` while you type. Press `Enter` to apply or `Esc` to clear.
 
-Supported filter tokens:
+### Table shortcuts
 
-- `label:bug` / `labels:bug,ui`
-- `assignee:alice` / `assignees:alice,bob`
-- `status:"In Progress"`
-- `iteration:@current,@previous,@next`
-- `group:status` / `group:assignee` / `group:iteration`
-- `FieldName:Value` (any project field name, e.g. `Sprint:Q1` or `"Iteration Name":"Q1 Sprint"`)
-
-Examples:
-
-```bash
-status:"In Progress" assignee:alice
-iteration:@current,@previous,@next
-Sprint:Q1
-"Iteration Name":"Q1 Sprint"
-```
+| Action | Keys | Notes |
+| --- | --- | --- |
+| Sort mode | `s` | Then press: `t` Title, `s` Status, `r` Repository, `l` Labels, `m` Milestone, `p` Priority, `n` Number, `c` CreatedAt, `u` UpdatedAt. Press `Esc` to cancel |
+| Group toggle | `g` | Cycles `status → assignee → iteration → none` |
 
 Iteration semantics:
 
@@ -135,14 +137,6 @@ Iteration semantics:
 - `@next` matches iterations with a start date in the future
 - `@previous` matches iterations that have ended (now ≥ end)
 - Literal values match iteration **name or ID** (case-insensitive)
-
-## Options
-
-- `--project` (required): GitHub Project ID or URL
-- `--owner`: Owner (org/user) for the project (can be inferred from a project URL)
-- `--gh-path`: Path to the `gh` CLI executable (default: `gh`)
-- `--item-limit`: Maximum number of items to fetch (default: 100)
-- `--iteration`: Iteration filters (repeat the flag or pass values after it)
 
 ## Examples
 
