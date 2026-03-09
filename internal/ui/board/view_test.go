@@ -575,3 +575,32 @@ func TestCardBackgroundDifferentBetweenStates(t *testing.T) {
 		t.Errorf("selected output missing assignee")
 	}
 }
+
+func TestRenderCardFitsColumnWidth(t *testing.T) {
+	board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
+	board.Width = 80
+	board.Height = 40
+	board.ColumnWidth = 24
+
+	output := board.renderCard(state.Card{
+		ID:       "1",
+		Title:    "Selected card",
+		Assignee: "alice",
+		Priority: "High",
+	}, true)
+
+	if got := lipgloss.Width(output); got != board.ColumnWidth {
+		t.Fatalf("expected rendered card width %d, got %d", board.ColumnWidth, got)
+	}
+}
+
+func TestRenderColumnHeaderFitsColumnWidth(t *testing.T) {
+	board := NewBoardModel([]state.Item{}, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
+	board.ColumnWidth = 24
+
+	output := board.renderColumnHeader("Pending", true, 9)
+
+	if got := lipgloss.Width(output); got != board.ColumnWidth {
+		t.Fatalf("expected rendered header width %d, got %d", board.ColumnWidth, got)
+	}
+}

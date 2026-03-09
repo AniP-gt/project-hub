@@ -119,9 +119,14 @@ func (m BoardModel) View() string {
 }
 
 func (m BoardModel) renderColumnHeader(name string, isFocused bool, count int) string {
-	headerStyle := components.ColumnHeaderStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
+	headerStyle := components.ColumnHeaderStyle.Copy()
 	if isFocused {
 		headerStyle = headerStyle.BorderForeground(lipgloss.Color("205"))
 	}
+	headerWidth := m.ColumnWidth - headerStyle.GetHorizontalBorderSize()
+	if headerWidth < 1 {
+		headerWidth = 1
+	}
+	headerStyle = headerStyle.Width(headerWidth)
 	return headerStyle.Render(name + " (" + fmt.Sprintf("%d", count) + ")")
 }

@@ -14,13 +14,17 @@ const (
 )
 
 func (m BoardModel) renderCard(c state.Card, isSelected bool) string {
-	contentWidth := m.ColumnWidth - 4
-	if contentWidth < 12 {
-		contentWidth = 12
-	}
 	cardBg := components.ColorGray800
 	if isSelected {
 		cardBg = components.ColorGray700
+	}
+	style := components.CardBaseStyle.Copy()
+	if isSelected {
+		style = components.CardSelectedStyle.Copy()
+	}
+	contentWidth := m.ColumnWidth - style.GetHorizontalFrameSize()
+	if contentWidth < 12 {
+		contentWidth = 12
 	}
 	wrap := func(value string, maxLines int, isSelected bool) string {
 		if value == "" {
@@ -117,10 +121,11 @@ func (m BoardModel) renderCard(c state.Card, isSelected bool) string {
 
 	content := lipgloss.JoinVertical(lipgloss.Left, contentBlocks...)
 
-	style := components.CardBaseStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
-	if isSelected {
-		style = components.CardSelectedStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
+	cardWidth := m.ColumnWidth - style.GetHorizontalBorderSize()
+	if cardWidth < 1 {
+		cardWidth = 1
 	}
+	style = style.Width(cardWidth)
 
 	return style.Render(content)
 }
