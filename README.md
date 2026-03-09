@@ -1,6 +1,6 @@
 # project-hub
 
-<img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/c48a75c9-eeb9-4fbb-bb07-af1fe1677b48" />
+<img width="1670" height="935" alt="Board" src="https://github.com/user-attachments/assets/99c741ca-44b3-4e7e-a963-4c202f560e39" />
 
 `project-hub` is a terminal UI for browsing and updating GitHub Projects (Project V2) through the `gh` CLI.
 
@@ -103,7 +103,7 @@ project-hub --project 12345 --iteration @current "Iteration 1" "Iteration 2"
 
 ### Board view
 
-<img width="1669" height="936" alt="Board" src="https://github.com/user-attachments/assets/89880a68-1c20-45c7-a647-a0ea9d3d0ac7" />
+<img width="1670" height="935" alt="Board" src="https://github.com/user-attachments/assets/99c741ca-44b3-4e7e-a963-4c202f560e39" />
 
 Default view is a kanban-style board.
 
