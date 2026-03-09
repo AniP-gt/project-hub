@@ -44,66 +44,19 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "j", "down":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
 				currentColumn := m.Columns[m.FocusedColumnIndex]
-				maxVisibleCards := m.calculateMaxVisibleCards()
-				if len(currentColumn.Cards) > maxVisibleCards {
-					visibleCardIndex := m.FocusedCardIndex - m.CardOffset
-					if visibleCardIndex < maxVisibleCards-2 && m.FocusedCardIndex < len(currentColumn.Cards)-1 {
-						m.FocusedCardIndex++
-					} else if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
-						m.CardOffset++
-						m.FocusedCardIndex++
-					}
-				} else {
-					if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
-						m.FocusedCardIndex++
-					}
-				}
-				if m.FocusedCardIndex >= len(currentColumn.Cards) {
-					m.FocusedCardIndex = len(currentColumn.Cards) - 1
-				}
-				maxCardOffset := len(currentColumn.Cards) - maxVisibleCards
-				if maxCardOffset < 0 {
-					maxCardOffset = 0
-				}
-				if m.CardOffset > maxCardOffset {
-					m.CardOffset = maxCardOffset
-				}
-				if m.CardOffset < 0 {
-					m.CardOffset = 0
+				if m.FocusedCardIndex < len(currentColumn.Cards)-1 {
+					m.FocusedCardIndex++
+					m.ensureFocusedCardVisible()
 				}
 			}
 		case "k", "up":
 			if m.FocusedColumnIndex >= 0 && m.FocusedColumnIndex < len(m.Columns) {
-				maxVisibleCards := m.calculateMaxVisibleCards()
-				currentColumn := m.Columns[m.FocusedColumnIndex]
-				if len(currentColumn.Cards) > maxVisibleCards {
-					visibleCardIndex := m.FocusedCardIndex - m.CardOffset
-					if visibleCardIndex > 0 && m.FocusedCardIndex > 0 {
-						m.FocusedCardIndex--
-					} else if m.FocusedCardIndex > 0 {
-						m.CardOffset--
-						m.FocusedCardIndex--
-					}
-				} else {
-					if m.FocusedCardIndex > 0 {
-						m.FocusedCardIndex--
-					}
-					// Support 'O' to open the focused issue in the browser and 'y' to copy the URL.
-					// The app-level update.HandleKey will handle these keys and issue side-effect commands.
+				if m.FocusedCardIndex > 0 {
+					m.FocusedCardIndex--
+					m.ensureFocusedCardVisible()
 				}
-				if m.FocusedCardIndex < 0 {
-					m.FocusedCardIndex = 0
-				}
-				maxCardOffset := len(currentColumn.Cards) - maxVisibleCards
-				if maxCardOffset < 0 {
-					maxCardOffset = 0
-				}
-				if m.CardOffset > maxCardOffset {
-					m.CardOffset = maxCardOffset
-				}
-				if m.CardOffset < 0 {
-					m.CardOffset = 0
-				}
+				// Support 'O' to open the focused issue in the browser and 'y' to copy the URL.
+				// The app-level update.HandleKey will handle these keys and issue side-effect commands.
 			}
 		}
 	}
@@ -112,6 +65,7 @@ func (m BoardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m BoardModel) View() string {
 	m.ensureLayoutConstraints()
+	m.ensureFocusedCardVisible()
 	var renderedColumns []string
 
 	numVisibleColumns := m.visibleColumnCount()
@@ -128,26 +82,13 @@ func (m BoardModel) View() string {
 		col := m.Columns[i]
 		var columnContent []string
 
-		headerStyle := components.ColumnHeaderStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
-		if i == m.FocusedColumnIndex {
-			headerStyle = headerStyle.BorderForeground(lipgloss.Color("205"))
-		}
-		header := headerStyle.Render(col.Name + " (" + fmt.Sprintf("%d", len(col.Cards)) + ")")
+		header := m.renderColumnHeader(col.Name, i == m.FocusedColumnIndex, len(col.Cards))
+		headerHeight := lipgloss.Height(header)
 		columnContent = append(columnContent, header)
 
-		maxVisibleCards := m.calculateMaxVisibleCards()
-		startCard := 0
-		endCard := len(col.Cards)
-		if len(col.Cards) > maxVisibleCards {
-			if i == m.FocusedColumnIndex {
-				startCard = m.CardOffset
-				endCard = startCard + maxVisibleCards
-				if endCard > len(col.Cards) {
-					endCard = len(col.Cards)
-				}
-			} else {
-				endCard = maxVisibleCards
-			}
+		startCard, endCard, showAbove, showBelow := m.visibleCardRange(col, i == m.FocusedColumnIndex, headerHeight)
+		if i == m.FocusedColumnIndex && showAbove {
+			columnContent = append(columnContent, "↑")
 		}
 
 		for j := startCard; j < endCard; j++ {
@@ -156,19 +97,12 @@ func (m BoardModel) View() string {
 			columnContent = append(columnContent, cardView)
 		}
 
-		if len(col.Cards) > maxVisibleCards {
-			if i == m.FocusedColumnIndex {
-				if m.CardOffset > 0 {
-					columnContent = append([]string{"↑"}, columnContent...)
-				}
-				if endCard < len(col.Cards) {
-					columnContent = append(columnContent, "↓")
-				}
-			} else {
-				if len(col.Cards) > maxVisibleCards {
-					columnContent = append(columnContent, "...")
-				}
+		if i == m.FocusedColumnIndex {
+			if showBelow {
+				columnContent = append(columnContent, "↓")
 			}
+		} else if showBelow {
+			columnContent = append(columnContent, "...")
 		}
 
 		currentColumnStyle := components.ColumnContainerStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
@@ -182,4 +116,12 @@ func (m BoardModel) View() string {
 
 	boardContent := lipgloss.JoinHorizontal(lipgloss.Top, renderedColumns...)
 	return boardContent
+}
+
+func (m BoardModel) renderColumnHeader(name string, isFocused bool, count int) string {
+	headerStyle := components.ColumnHeaderStyle.Copy().Width(m.ColumnWidth).MaxWidth(m.ColumnWidth)
+	if isFocused {
+		headerStyle = headerStyle.BorderForeground(lipgloss.Color("205"))
+	}
+	return headerStyle.Render(name + " (" + fmt.Sprintf("%d", count) + ")")
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"project-hub/internal/state"
 )
 
@@ -286,6 +287,64 @@ func TestScrollOffsetClampingUp(t *testing.T) {
 	}
 	if board.FocusedCardIndex < 0 {
 		t.Errorf("FocusedCardIndex is negative: %d", board.FocusedCardIndex)
+	}
+}
+
+func TestBoardViewUsesScrollBeforeColumnOverflows(t *testing.T) {
+	items := make([]state.Item, 8)
+	for i := 0; i < len(items); i++ {
+		items[i] = state.Item{
+			ID:        string(rune('A' + i)),
+			Status:    "Todo",
+			Position:  i,
+			Title:     "Card " + string(rune('A'+i)),
+			Assignees: []string{"alice"},
+			Labels:    []string{"bug"},
+			Priority:  "High",
+		}
+	}
+
+	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
+	board.Width = 80
+	board.EnsureLayout()
+
+	headerHeight := board.columnHeaderHeight(board.Columns[0].Name, true, len(board.Columns[0].Cards))
+	cardHeight := lipgloss.Height(board.renderCard(board.Columns[0].Cards[0], false))
+	board.Height = headerHeight + cardHeight*7
+
+	view := board.View()
+
+	if !strings.Contains(view, "↓") {
+		t.Fatalf("expected board view to show a scroll indicator when 8 cards do not fit, got: %q", view)
+	}
+
+	if gotHeight := lipgloss.Height(view); gotHeight > board.Height {
+		t.Fatalf("expected board height <= %d, got %d", board.Height, gotHeight)
+	}
+}
+
+func TestBoardViewAccountsForWrappedHeaderHeight(t *testing.T) {
+	items := make([]state.Item, 8)
+	for i := 0; i < len(items); i++ {
+		items[i] = state.Item{ID: string(rune('A' + i)), Status: "Todo", Position: i, Title: "Card"}
+	}
+
+	board := NewBoardModel(items, []state.Field{}, state.FilterState{}, "", state.DefaultCardFieldVisibility())
+	board.Columns[0].Name = "Very long status name that wraps in a narrow column"
+	board.Width = minColumnWidth
+	board.EnsureLayout()
+
+	headerHeight := board.columnHeaderHeight(board.Columns[0].Name, true, len(board.Columns[0].Cards))
+	cardHeight := lipgloss.Height(board.renderCard(board.Columns[0].Cards[0], false))
+	board.Height = headerHeight + cardHeight*3
+
+	view := board.View()
+
+	if gotHeight := lipgloss.Height(view); gotHeight > board.Height {
+		t.Fatalf("expected wrapped header to stay within height %d, got %d", board.Height, gotHeight)
+	}
+	if !strings.Contains(view, "↓") {
+		t.Fatalf("expected wrapped header case to still scroll, got: %q", view)
 	}
 }
 
