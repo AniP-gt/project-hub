@@ -201,13 +201,29 @@ func ParseItemMap(r any) (state.Item, bool) {
 		if content, ok := m["content"].(map[string]any); ok {
 			if subVal, ok := content["subIssues"]; ok {
 				item.SubIssueProgress = parseSubIssueCount(subVal)
+				item.SubIssueTitles = parseSubIssueTitles(subVal)
 			} else if subVal, ok := content["subIssue"]; ok {
 				item.SubIssueProgress = parseSubIssueCount(subVal)
+				item.SubIssueTitles = parseSubIssueTitles(subVal)
 			}
 		}
 		if item.SubIssueProgress == "" {
 			if subVal, ok := m["subIssues"]; ok {
 				item.SubIssueProgress = parseSubIssueCount(subVal)
+				item.SubIssueTitles = parseSubIssueTitles(subVal)
+			}
+		}
+	} else if len(item.SubIssueTitles) == 0 {
+		if content, ok := m["content"].(map[string]any); ok {
+			if subVal, ok := content["subIssues"]; ok {
+				item.SubIssueTitles = parseSubIssueTitles(subVal)
+			} else if subVal, ok := content["subIssue"]; ok {
+				item.SubIssueTitles = parseSubIssueTitles(subVal)
+			}
+		}
+		if len(item.SubIssueTitles) == 0 {
+			if subVal, ok := m["subIssues"]; ok {
+				item.SubIssueTitles = parseSubIssueTitles(subVal)
 			}
 		}
 	}

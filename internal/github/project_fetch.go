@@ -155,6 +155,9 @@ func (c *CLIClient) FetchItems(ctx context.Context, projectID string, owner stri
 			if items[i].SubIssueProgress == "" && info.SubIssueTotal > 0 {
 				items[i].SubIssueProgress = fmt.Sprintf("%d", info.SubIssueTotal)
 			}
+			if len(items[i].SubIssueTitles) == 0 && len(info.SubIssueTitles) > 0 {
+				items[i].SubIssueTitles = append([]string(nil), info.SubIssueTitles...)
+			}
 			if items[i].ParentIssue == "" {
 				if info.ParentTitle != "" {
 					items[i].ParentIssue = info.ParentTitle
@@ -179,9 +182,10 @@ func isUnknownFlagError(err error, flag string) bool {
 }
 
 type projectHierarchy struct {
-	SubIssueTotal int
-	ParentTitle   string
-	ParentNumber  int
+	SubIssueTotal  int
+	SubIssueTitles []string
+	ParentTitle    string
+	ParentNumber   int
 }
 
 func issueKey(repo string, number int) string {
@@ -228,6 +232,9 @@ type projectHierarchyNode struct {
 					} `json:"repository"`
 					SubIssues struct {
 						TotalCount int `json:"totalCount"`
+						Nodes      []struct {
+							Title string `json:"title"`
+						} `json:"nodes"`
 					} `json:"subIssues"`
 					Parent *struct {
 						Title  string `json:"title"`
@@ -249,13 +256,13 @@ func (c *CLIClient) fetchProjectHierarchy(ctx context.Context, owner, projectID 
 		return nil, fmt.Errorf("project number required for hierarchy fetch")
 	}
 
-	query := `query($owner:String!,$number:Int!,$after:String){user(login:$owner){projectV2(number:$number){items(first:100, after:$after){nodes{content{... on Issue{number repository{nameWithOwner} subIssues{totalCount} parent{title number}}}} pageInfo{hasNextPage endCursor}}}}}`
+	query := `query($owner:String!,$number:Int!,$after:String){user(login:$owner){projectV2(number:$number){items(first:100, after:$after){nodes{content{... on Issue{number repository{nameWithOwner} subIssues(first:20){totalCount nodes{title}} parent{title number}}}} pageInfo{hasNextPage endCursor}}}}}`
 	res, err := c.fetchProjectHierarchyForOwner(ctx, "user", owner, projectNumber, query)
 	if err == nil {
 		return res, nil
 	}
 
-	query = `query($owner:String!,$number:Int!,$after:String){organization(login:$owner){projectV2(number:$number){items(first:100, after:$after){nodes{content{... on Issue{number repository{nameWithOwner} subIssues{totalCount} parent{title number}}}} pageInfo{hasNextPage endCursor}}}}}`
+	query = `query($owner:String!,$number:Int!,$after:String){organization(login:$owner){projectV2(number:$number){items(first:100, after:$after){nodes{content{... on Issue{number repository{nameWithOwner} subIssues(first:20){totalCount nodes{title}} parent{title number}}}} pageInfo{hasNextPage endCursor}}}}}`
 	return c.fetchProjectHierarchyForOwner(ctx, "organization", owner, projectNumber, query)
 }
 
@@ -307,9 +314,10 @@ func (c *CLIClient) fetchProjectHierarchyForOwner(ctx context.Context, ownerType
 				parentNumber = item.Content.Parent.Number
 			}
 			out[key] = projectHierarchy{
-				SubIssueTotal: item.Content.SubIssues.TotalCount,
-				ParentTitle:   parentTitle,
-				ParentNumber:  parentNumber,
+				SubIssueTotal:  item.Content.SubIssues.TotalCount,
+				SubIssueTitles: collectSubIssueTitles(item.Content.SubIssues.Nodes),
+				ParentTitle:    parentTitle,
+				ParentNumber:   parentNumber,
 			}
 		}
 		if !node.ProjectV2.Items.PageInfo.HasNextPage {
@@ -318,4 +326,24 @@ func (c *CLIClient) fetchProjectHierarchyForOwner(ctx context.Context, ownerType
 		after = node.ProjectV2.Items.PageInfo.EndCursor
 	}
 	return out, nil
+}
+
+func collectSubIssueTitles(nodes []struct {
+	Title string `json:"title"`
+}) []string {
+	if len(nodes) == 0 {
+		return nil
+	}
+	titles := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		title := strings.TrimSpace(node.Title)
+		if title == "" {
+			continue
+		}
+		titles = append(titles, title)
+	}
+	if len(titles) == 0 {
+		return nil
+	}
+	return titles
 }

@@ -81,6 +81,7 @@ type Item struct {
 	IterationDurationDays int
 	Position              int
 	SubIssueProgress      string // e.g., "2/5" showing completed/total sub-issues
+	SubIssueTitles        []string
 	ParentIssue           string // Parent issue title or reference
 	FieldValues           map[string][]string
 }

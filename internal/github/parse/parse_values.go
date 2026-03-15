@@ -89,3 +89,35 @@ func parseSubIssueCount(val any) string {
 	}
 	return ""
 }
+
+func parseSubIssueTitles(val any) []string {
+	switch data := val.(type) {
+	case map[string]any:
+		if nodes, ok := data["nodes"].([]any); ok {
+			return parseSubIssueTitles(nodes)
+		}
+		if title, ok := data["title"].(string); ok {
+			title = strings.TrimSpace(title)
+			if title != "" {
+				return []string{title}
+			}
+		}
+		if content, ok := data["content"].(map[string]any); ok {
+			return parseSubIssueTitles(content)
+		}
+	case []any:
+		var titles []string
+		seen := make(map[string]struct{})
+		for _, entry := range data {
+			for _, title := range parseSubIssueTitles(entry) {
+				if _, ok := seen[title]; ok {
+					continue
+				}
+				seen[title] = struct{}{}
+				titles = append(titles, title)
+			}
+		}
+		return titles
+	}
+	return nil
+}
