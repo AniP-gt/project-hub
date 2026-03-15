@@ -34,16 +34,19 @@ func EnterDetailMode(s State) (State, tea.Cmd) {
 				return core.NewErrMsg(err)
 			}
 			return core.DetailReadyMsg{Item: state.Item{
-				Title:       focusedItem.Title,
-				Description: body,
-				Number:      focusedItem.Number,
-				Repository:  focusedItem.Repository,
-				Status:      focusedItem.Status,
-				Assignees:   focusedItem.Assignees,
-				Labels:      focusedItem.Labels,
-				Priority:    focusedItem.Priority,
-				Milestone:   focusedItem.Milestone,
-				URL:         focusedItem.URL,
+				Title:            focusedItem.Title,
+				Description:      body,
+				Number:           focusedItem.Number,
+				Repository:       focusedItem.Repository,
+				Status:           focusedItem.Status,
+				Assignees:        focusedItem.Assignees,
+				Labels:           focusedItem.Labels,
+				Priority:         focusedItem.Priority,
+				Milestone:        focusedItem.Milestone,
+				URL:              focusedItem.URL,
+				SubIssueProgress: focusedItem.SubIssueProgress,
+				SubIssueTitles:   append([]string(nil), focusedItem.SubIssueTitles...),
+				ParentIssue:      focusedItem.ParentIssue,
 			}}
 		}
 		s.Model.View.Mode = state.ModeDetail
