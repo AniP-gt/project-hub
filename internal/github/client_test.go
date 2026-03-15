@@ -244,6 +244,33 @@ func TestParseItemMap(t *testing.T) {
 			},
 			wantOK: true,
 		},
+		{
+			name: "Parent issue and sub-issue titles from content",
+			inputJSON: `{
+				"id": "I_relationships",
+				"title": "Parent task",
+				"content": {
+					"title": "Parent task",
+					"parent": {"title": "Epic task"},
+					"subIssues": {
+						"totalCount": 2,
+						"nodes": [
+							{"title": "Child A"},
+							{"title": "Child B"}
+						]
+					}
+				}
+			}`,
+			wantItem: state.Item{
+				ID:               "I_relationships",
+				Title:            "Parent task",
+				Status:           "Unknown",
+				ParentIssue:      "Epic task",
+				SubIssueProgress: "2",
+				SubIssueTitles:   []string{"Child A", "Child B"},
+			},
+			wantOK: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -286,6 +313,15 @@ func TestParseItemMap(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got.Labels, tt.wantItem.Labels) {
 				t.Errorf("parseItemMap() Labels = %v, want %v", got.Labels, tt.wantItem.Labels)
+			}
+			if got.ParentIssue != tt.wantItem.ParentIssue {
+				t.Errorf("parseItemMap() ParentIssue = %v, want %v", got.ParentIssue, tt.wantItem.ParentIssue)
+			}
+			if got.SubIssueProgress != tt.wantItem.SubIssueProgress {
+				t.Errorf("parseItemMap() SubIssueProgress = %v, want %v", got.SubIssueProgress, tt.wantItem.SubIssueProgress)
+			}
+			if !reflect.DeepEqual(got.SubIssueTitles, tt.wantItem.SubIssueTitles) {
+				t.Errorf("parseItemMap() SubIssueTitles = %v, want %v", got.SubIssueTitles, tt.wantItem.SubIssueTitles)
 			}
 		})
 	}

@@ -125,6 +125,27 @@ func (m *DetailPanelModel) updateContent() {
 		s.WriteString("\n")
 	}
 
+	if m.item.ParentIssue != "" {
+		s.WriteString(DetailLabelStyle.Render("Parent: "))
+		s.WriteString(DetailValueStyle.Render(m.item.ParentIssue))
+		s.WriteString("\n")
+	}
+
+	if m.item.SubIssueProgress != "" {
+		s.WriteString(DetailLabelStyle.Render("Sub-issue progress: "))
+		s.WriteString(DetailValueStyle.Render(m.item.SubIssueProgress))
+		s.WriteString("\n")
+	}
+
+	if len(m.item.SubIssueTitles) > 0 {
+		s.WriteString(DetailLabelStyle.Render("Sub-issues:"))
+		s.WriteString("\n")
+		for _, title := range m.item.SubIssueTitles {
+			s.WriteString(DetailValueStyle.Render("- " + title))
+			s.WriteString("\n")
+		}
+	}
+
 	if m.item.URL != "" {
 		s.WriteString(DetailLabelStyle.Render("URL: "))
 		s.WriteString(DetailValueStyle.Render(m.item.URL))
