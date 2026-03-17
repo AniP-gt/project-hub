@@ -122,6 +122,14 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 			s.Model.Notifications = append(s.Model.Notifications, notif)
 			cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
 		}
+	case core.IssueCreatedMsg:
+		s.Model.View.Mode = state.ModeNormal
+		if !s.Model.SuppressHints {
+			notif := state.Notification{Message: fmt.Sprintf("Issue created: %s", m.Item.Title), Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			s.Model.Notifications = append(s.Model.Notifications, notif)
+			cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
+		}
+		cmds = append(cmds, core.FetchProjectCmd(s.Github, s.Model.Project.ID, s.Model.Project.Owner, s.ItemLimit, s.Model.View.Filter.Iterations))
 	case core.DetailReadyMsg:
 		s.DetailPanel = components.NewDetailPanelModel(m.Item, s.Model.Width, s.Model.Height)
 		if !s.Model.SuppressHints {
@@ -180,14 +188,26 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 		updated, assignCmd := EnterAssignMode(s, m)
 		s = updated
 		cmds = append(cmds, assignCmd)
+	case EnterCreateIssueModeMsg:
+		updated, createCmd := EnterCreateIssueMode(s, m)
+		s = updated
+		cmds = append(cmds, createCmd)
 	case SaveAssignMsg:
 		updated, assignCmd := SaveAssign(s, m)
 		s = updated
 		cmds = append(cmds, assignCmd)
+	case SaveCreateIssueMsg:
+		updated, createCmd := SaveCreateIssue(s, m)
+		s = updated
+		cmds = append(cmds, createCmd)
 	case CancelAssignMsg:
 		updated, assignCmd := CancelAssign(s, m)
 		s = updated
 		cmds = append(cmds, assignCmd)
+	case CancelCreateIssueMsg:
+		updated, createCmd := CancelCreateIssue(s, m)
+		s = updated
+		cmds = append(cmds, createCmd)
 	case AssignMsg:
 		updated, assignCmd := Assign(s, m)
 		s = updated

@@ -75,3 +75,47 @@ func TestFullAssignFlow(t *testing.T) {
 		t.Fatalf("card index changed: orig=%d new=%d", origCardIdx, newCardIdx)
 	}
 }
+
+func TestFullCreateIssueFlow(t *testing.T) {
+	items := []state.Item{
+		{ID: "1", Title: "A", Status: "Todo", Type: "Issue", Repository: "owner/repo"},
+	}
+	initial := state.Model{
+		Project: state.Project{ID: "1", Owner: "owner"},
+		Items:   items,
+		View:    state.ViewContext{CurrentView: state.ViewBoard, Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "1"},
+	}
+
+	app := New(initial, &noopClient{}, 100)
+
+	model, cmd := app.Update(update.EnterCreateIssueModeMsg{})
+	app = model.(App)
+	if cmd != nil {
+		_ = cmd()
+	}
+	if app.state.View.Mode != state.ModeCreateIssueTitle {
+		t.Fatalf("expected create issue title mode, got %q", app.state.View.Mode)
+	}
+
+	model, cmd = app.Update(update.SaveCreateIssueMsg{Value: "Created from test"})
+	app = model.(App)
+	if app.state.View.Mode != state.ModeCreateIssueBody {
+		t.Fatalf("expected create issue body mode, got %q", app.state.View.Mode)
+	}
+
+	model, cmd = app.Update(update.SaveCreateIssueMsg{Value: "Created from test body"})
+	app = model.(App)
+	if cmd == nil {
+		t.Fatalf("expected create issue command")
+	}
+	msg := cmd()
+	model, _ = app.Update(msg)
+	app = model.(App)
+
+	if len(app.state.Notifications) == 0 {
+		t.Fatalf("expected success notification after issue creation")
+	}
+	if app.state.View.Mode != state.ModeNormal {
+		t.Fatalf("expected mode to return to normal, got %q", app.state.View.Mode)
+	}
+}

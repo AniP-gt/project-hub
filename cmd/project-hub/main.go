@@ -177,9 +177,13 @@ func main() {
 			FocusedItemID:       "1",
 			CardFieldVisibility: cardFieldVis,
 		},
-		ItemLimit:     itemLimit,
-		SuppressHints: suppressHints,
-		ExcludeDone:   excludeDone,
+		ItemLimit:           itemLimit,
+		SuppressHints:       suppressHints,
+		ExcludeDone:         excludeDone,
+		CreateIssueRepoMode: state.CreateIssueRepoModeAuto,
+	}
+	if cfg.CreateIssueRepoMode == string(state.CreateIssueRepoModeRequired) {
+		initial.CreateIssueRepoMode = state.CreateIssueRepoModeRequired
 	}
 	initial.View.Filter.Iterations = iterationFilters
 

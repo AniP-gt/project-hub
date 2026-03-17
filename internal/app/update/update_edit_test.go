@@ -11,12 +11,21 @@ import (
 
 type mockClient struct{}
 
+var mockCreateIssueLastTitle string
+var mockCreateIssueLastBody string
+
 func (m *mockClient) FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error) {
 	return state.Project{}, nil, nil
 }
 
 func (m *mockClient) FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error) {
 	return nil, nil
+}
+
+func (m *mockClient) CreateIssue(ctx context.Context, projectID string, owner string, repo string, title string, body string) (state.Item, error) {
+	mockCreateIssueLastTitle = title
+	mockCreateIssueLastBody = body
+	return state.Item{ID: "PVTI_new", Repository: repo, Title: title, Description: body, Type: "Issue"}, nil
 }
 
 func (m *mockClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
@@ -45,6 +54,128 @@ func (m *mockClient) UpdateItem(ctx context.Context, projectID string, owner str
 
 func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
 	return "", nil
+}
+
+func TestEnterCreateIssueMode_UsesFocusedRepository(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test Item", Repository: "owner/repo", Status: "Todo", Position: 1}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, CreateIssueRepoMode: state.CreateIssueRepoModeAuto}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	updated, _ := EnterCreateIssueMode(stateModel, EnterCreateIssueModeMsg{})
+
+	if updated.Model.View.Mode != state.ModeCreateIssueTitle {
+		t.Fatalf("expected mode to be %q, got %q", state.ModeCreateIssueTitle, updated.Model.View.Mode)
+	}
+	if !strings.Contains(updated.TextInput.Placeholder, "owner/repo") {
+		t.Fatalf("expected placeholder to mention repo, got %q", updated.TextInput.Placeholder)
+	}
+}
+
+func TestEnterCreateIssueMode_UsesRepoStepWhenMultipleRepositoriesAndNoFocusedRepo(t *testing.T) {
+	items := []state.Item{
+		{ID: "item1", Title: "One", Repository: "owner/repo-a", Status: "Todo", Position: 1},
+		{ID: "item2", Title: "Two", Repository: "owner/repo-b", Status: "Todo", Position: 2},
+	}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeNormal, FocusedIndex: -1}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, CreateIssueRepoMode: state.CreateIssueRepoModeAuto}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	updated, _ := EnterCreateIssueMode(stateModel, EnterCreateIssueModeMsg{})
+
+	if updated.Model.View.Mode != state.ModeCreateIssueRepo {
+		t.Fatalf("expected mode to be %q, got %q", state.ModeCreateIssueRepo, updated.Model.View.Mode)
+	}
+	if updated.TextInput.Placeholder != "Repository (owner/repo)..." {
+		t.Fatalf("expected generic repository placeholder, got %q", updated.TextInput.Placeholder)
+	}
+}
+
+func TestEnterCreateIssueMode_RequiredModeAlwaysStartsWithRepoStep(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test Item", Repository: "owner/repo", Status: "Todo", Position: 1}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeNormal, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, CreateIssueRepoMode: state.CreateIssueRepoModeRequired}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	updated, _ := EnterCreateIssueMode(stateModel, EnterCreateIssueModeMsg{})
+
+	if updated.Model.View.Mode != state.ModeCreateIssueRepo {
+		t.Fatalf("expected mode to be %q, got %q", state.ModeCreateIssueRepo, updated.Model.View.Mode)
+	}
+}
+
+func TestSaveCreateIssueRepoAdvancesToTitle(t *testing.T) {
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeCreateIssueRepo}
+	initialState := state.Model{Project: project, View: viewContext, Width: 100}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	updated, _ := SaveCreateIssue(stateModel, SaveCreateIssueMsg{Value: "owner/repo"})
+
+	if updated.Model.View.Mode != state.ModeCreateIssueTitle {
+		t.Fatalf("expected mode to be %q, got %q", state.ModeCreateIssueTitle, updated.Model.View.Mode)
+	}
+	if updated.CreateIssueRepo != "owner/repo" {
+		t.Fatalf("expected repo to be stored, got %q", updated.CreateIssueRepo)
+	}
+}
+
+func TestSaveCreateIssueTitleAdvancesToBody(t *testing.T) {
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeCreateIssueTitle}
+	initialState := state.Model{Project: project, View: viewContext, Width: 100}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.CreateIssueRepo = "owner/repo"
+	updated, _ := SaveCreateIssue(stateModel, SaveCreateIssueMsg{Value: "New issue"})
+
+	if updated.Model.View.Mode != state.ModeCreateIssueBody {
+		t.Fatalf("expected mode to be %q, got %q", state.ModeCreateIssueBody, updated.Model.View.Mode)
+	}
+	if updated.CreateIssueTitle != "New issue" {
+		t.Fatalf("expected title to be stored, got %q", updated.CreateIssueTitle)
+	}
+}
+
+func TestSaveCreateIssueBodyReturnsCreatedMessage(t *testing.T) {
+	mockCreateIssueLastTitle = ""
+	mockCreateIssueLastBody = ""
+	items := []state.Item{{ID: "item1", Title: "Test Item", Repository: "owner/repo", Status: "Todo", Position: 1}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeCreateIssueBody, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.CreateIssueRepo = "owner/repo"
+	stateModel.CreateIssueTitle = "New issue"
+	updated, cmd := SaveCreateIssue(stateModel, SaveCreateIssueMsg{Value: "Issue body"})
+
+	if updated.Model.View.Mode != state.ModeNormal {
+		t.Fatalf("expected mode to be %q after save, got %q", state.ModeNormal, updated.Model.View.Mode)
+	}
+	if cmd == nil {
+		t.Fatalf("expected save command")
+	}
+	msg := cmd()
+	created, ok := msg.(core.IssueCreatedMsg)
+	if !ok {
+		t.Fatalf("expected IssueCreatedMsg, got %T", msg)
+	}
+	if created.Item.Title != "New issue" {
+		t.Fatalf("expected created issue title, got %q", created.Item.Title)
+	}
+	if created.Item.Description != "Issue body" {
+		t.Fatalf("expected created issue body, got %q", created.Item.Description)
+	}
+	if mockCreateIssueLastTitle != "New issue" {
+		t.Fatalf("expected client to receive title, got %q", mockCreateIssueLastTitle)
+	}
+	if mockCreateIssueLastBody != "Issue body" {
+		t.Fatalf("expected client to receive body, got %q", mockCreateIssueLastBody)
+	}
 }
 
 func TestEnterAssignMode_PrefillsWithExistingAssignee(t *testing.T) {

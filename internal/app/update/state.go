@@ -13,18 +13,21 @@ import (
 )
 
 type State struct {
-	Model          state.Model
-	Github         github.Client
-	ItemLimit      int
-	BoardModel     boardPkg.BoardModel
-	TextInput      textinput.Model
-	StatusSelector components.StatusSelectorModel
-	FieldSelector  components.FieldSelectorModel
-	SettingsModel  settings.SettingsModel
-	DetailPanel    components.DetailPanelModel
-	TableViewport  *viewport.Model
-	LastKey        string
-	LastKeyAt      time.Time
+	Model            state.Model
+	Github           github.Client
+	ItemLimit        int
+	BoardModel       boardPkg.BoardModel
+	TextInput        textinput.Model
+	StatusSelector   components.StatusSelectorModel
+	FieldSelector    components.FieldSelectorModel
+	SettingsModel    settings.SettingsModel
+	DetailPanel      components.DetailPanelModel
+	TableViewport    *viewport.Model
+	LastKey          string
+	LastKeyAt        time.Time
+	CreateIssueRepo  string
+	CreateIssueTitle string
+	CreateIssueBody  string
 }
 
 func NewState(initial state.Model, client github.Client, itemLimit int) State {
@@ -35,7 +38,7 @@ func NewState(initial state.Model, client github.Client, itemLimit int) State {
 	ti.Width = 50
 	ti.CharLimit = 500
 	tableVP := viewport.New(0, 0)
-	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner, initial.SuppressHints, initial.ItemLimit, initial.ExcludeDone, initial.View.Filter.Iterations)
+	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner, initial.SuppressHints, initial.ItemLimit, initial.ExcludeDone, string(initial.CreateIssueRepoMode), initial.View.Filter.Iterations)
 	return State{
 		Model:         initial,
 		Github:        client,

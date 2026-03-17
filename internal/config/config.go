@@ -26,6 +26,7 @@ type Config struct {
 	SuppressHints           bool                `json:"suppressHints"`
 	DefaultItemLimit        int                 `json:"defaultItemLimit"`
 	DefaultExcludeDone      bool                `json:"defaultExcludeDone"`
+	CreateIssueRepoMode     string              `json:"createIssueRepoMode"`
 	DefaultIterationFilters []string            `json:"defaultIterationFilters"`
 	CardFieldVisibility     CardFieldVisibility `json:"cardFieldVisibility"`
 }

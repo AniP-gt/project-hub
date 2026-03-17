@@ -22,6 +22,10 @@ func (m *mockClient) FetchItems(ctx context.Context, projectID string, owner str
 	return nil, nil
 }
 
+func (m *mockClient) CreateIssue(ctx context.Context, projectID string, owner string, repo string, title string, body string) (state.Item, error) {
+	return state.Item{}, nil
+}
+
 func (m *mockClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
 	return state.Item{}, nil
 }
@@ -83,7 +87,7 @@ func TestSettingsSaveWritesConfigAndReturnsToBoard(t *testing.T) {
 	}
 
 	a := New(initialState, &mockClient{}, 100)
-	updated, _ := a.Update(settings.SaveMsg{ProjectID: "1", Owner: "User"})
+	updated, _ := a.Update(settings.SaveMsg{ProjectID: "1", Owner: "User", CreateIssueRepoMode: "required"})
 	appModel := updated.(App)
 
 	if appModel.state.View.CurrentView != state.ViewBoard {
@@ -111,6 +115,9 @@ func TestSettingsSaveWritesConfigAndReturnsToBoard(t *testing.T) {
 	}
 	if !strings.Contains(text, `"defaultOwner": "User"`) {
 		t.Fatalf("expected owner in config, got: %s", text)
+	}
+	if !strings.Contains(text, `"createIssueRepoMode": "required"`) {
+		t.Fatalf("expected create issue repo mode in config, got: %s", text)
 	}
 }
 

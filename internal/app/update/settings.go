@@ -32,6 +32,7 @@ func SettingsSave(s State, msg settings.SaveMsg) (State, tea.Cmd) {
 		SuppressHints:           msg.SuppressHints,
 		DefaultItemLimit:        msg.ItemLimit,
 		DefaultExcludeDone:      msg.ExcludeDone,
+		CreateIssueRepoMode:     msg.CreateIssueRepoMode,
 		DefaultIterationFilters: msg.IterationFilter,
 	}
 	saveErr := config.Save(configPath, cfg)
@@ -50,6 +51,11 @@ func SettingsSave(s State, msg settings.SaveMsg) (State, tea.Cmd) {
 	s.Model.SuppressHints = msg.SuppressHints
 	s.Model.ItemLimit = msg.ItemLimit
 	s.Model.ExcludeDone = msg.ExcludeDone
+	if msg.CreateIssueRepoMode == string(state.CreateIssueRepoModeRequired) {
+		s.Model.CreateIssueRepoMode = state.CreateIssueRepoModeRequired
+	} else {
+		s.Model.CreateIssueRepoMode = state.CreateIssueRepoModeAuto
+	}
 	s.Model.View.Filter.Iterations = msg.IterationFilter
 	if !s.Model.SuppressHints {
 		notif := state.Notification{

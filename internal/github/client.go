@@ -22,6 +22,7 @@ const (
 type Client interface {
 	FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error)
 	FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error)
+	CreateIssue(ctx context.Context, projectID string, owner string, repo string, title string, body string) (state.Item, error)
 	UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error)
 	UpdateField(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string, fieldName string) (state.Item, error)
 	UpdateLabels(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, labels []string) (state.Item, error)
@@ -40,6 +41,73 @@ func NewCLIClient(ghPath string) *CLIClient {
 		ghPath = "gh"
 	}
 	return &CLIClient{GhPath: ghPath}
+}
+
+func (c *CLIClient) CreateIssue(ctx context.Context, projectID string, owner string, repo string, title string, body string) (state.Item, error) {
+	projectNumber, err := strconv.Atoi(strings.TrimSpace(projectID))
+	if err != nil || projectNumber <= 0 {
+		return state.Item{}, fmt.Errorf("project number required to create issue: %q", projectID)
+	}
+
+	repo = strings.TrimSpace(repo)
+	if repo == "" {
+		return state.Item{}, fmt.Errorf("repository is required")
+	}
+
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return state.Item{}, fmt.Errorf("issue title is required")
+	}
+
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return state.Item{}, fmt.Errorf("issue body is required")
+	}
+
+	issueURLBytes, err := c.runGh(ctx, "issue", "create", "--repo", repo, "--title", title, "--body", body)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh issue create failed: %w", err)
+	}
+
+	issueURL := strings.TrimSpace(string(issueURLBytes))
+	if issueURL == "" {
+		return state.Item{}, fmt.Errorf("gh issue create returned empty issue URL")
+	}
+
+	args := []string{"project", "item-add", strconv.Itoa(projectNumber), "--url", issueURL, "--format", "json"}
+	if owner != "" {
+		args = append(args, "--owner", owner)
+	}
+
+	out, err := c.runGh(ctx, args...)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("gh project item-add failed: %w", err)
+	}
+
+	var rawItem map[string]any
+	if err := json.Unmarshal(out, &rawItem); err != nil {
+		return state.Item{}, fmt.Errorf("parse gh project item-add json: %w", err)
+	}
+
+	item, ok := parse.ParseItemMap(rawItem)
+	if !ok {
+		return state.Item{}, fmt.Errorf("failed to parse created project item from gh project item-add output")
+	}
+
+	if item.URL == "" {
+		item.URL = issueURL
+	}
+	if item.Title == "" {
+		item.Title = title
+	}
+	if item.Repository == "" {
+		item.Repository = repo
+	}
+	if item.Type == "" {
+		item.Type = "Issue"
+	}
+
+	return item, nil
 }
 
 func (c *CLIClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
