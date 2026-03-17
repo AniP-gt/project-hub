@@ -11,12 +11,13 @@ import (
 
 // SaveMsg is sent when user confirms settings save
 type SaveMsg struct {
-	ProjectID       string
-	Owner           string
-	SuppressHints   bool
-	ItemLimit       int
-	ExcludeDone     bool
-	IterationFilter []string
+	ProjectID           string
+	Owner               string
+	SuppressHints       bool
+	ItemLimit           int
+	ExcludeDone         bool
+	CreateIssueRepoMode string
+	IterationFilter     []string
 }
 
 // CancelMsg is sent when user cancels settings
@@ -29,14 +30,15 @@ type SettingsModel struct {
 	itemLimitInput            textinput.Model
 	excludeDoneInput          textinput.Model
 	disableNotificationsInput textinput.Model
+	createIssueRepoModeInput  textinput.Model
 	iterationInput            textinput.Model
-	focusedField              int // 0=project, 1=owner, 2=itemLimit, 3=excludeDone, 4=disableNotifications, 5=iteration
+	focusedField              int
 	width                     int
 	height                    int
 }
 
 // New creates a new SettingsModel with initial values
-func New(projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool, iterationFilters []string) SettingsModel {
+func New(projectID, owner string, disableNotifications bool, itemLimit int, excludeDone bool, createIssueRepoMode string, iterationFilters []string) SettingsModel {
 	// Project input
 	pi := textinput.New()
 	pi.Placeholder = "Project ID (e.g., 9 or PVT_xxx)"
@@ -80,6 +82,16 @@ func New(projectID, owner string, disableNotifications bool, itemLimit int, excl
 	dn.CharLimit = 1
 	dn.Width = 50
 
+	crm := textinput.New()
+	crm.Placeholder = "Create issue repo mode (a/r)"
+	if strings.ToLower(strings.TrimSpace(createIssueRepoMode)) == "required" {
+		crm.SetValue("r")
+	} else {
+		crm.SetValue("a")
+	}
+	crm.CharLimit = 1
+	crm.Width = 50
+
 	it := textinput.New()
 	it.Placeholder = "Iteration filter (e.g., @current,@next)"
 	it.SetValue(strings.Join(iterationFilters, ","))
@@ -92,6 +104,7 @@ func New(projectID, owner string, disableNotifications bool, itemLimit int, excl
 		itemLimitInput:            li,
 		excludeDoneInput:          ed,
 		disableNotificationsInput: dn,
+		createIssueRepoModeInput:  crm,
 		iterationInput:            it,
 		focusedField:              0,
 	}
@@ -114,12 +127,12 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyTab:
-			m.focusedField = (m.focusedField + 1) % 6
+			m.focusedField = (m.focusedField + 1) % 7
 			m.focusField(m.focusedField)
 			return m, nil
 
 		case tea.KeyShiftTab:
-			m.focusedField = (m.focusedField - 1 + 6) % 6
+			m.focusedField = (m.focusedField - 1 + 7) % 7
 			m.focusField(m.focusedField)
 			return m, nil
 
@@ -141,6 +154,18 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 			}
 			return m, nil
 
+		case tea.KeyRunes:
+			if m.focusedField == 5 && len(msg.Runes) == 1 {
+				switch strings.ToLower(string(msg.Runes[0])) {
+				case "a":
+					m.createIssueRepoModeInput.SetValue("a")
+					return m, nil
+				case "r":
+					m.createIssueRepoModeInput.SetValue("r")
+					return m, nil
+				}
+			}
+
 		case tea.KeyEnter:
 			itemLimit := 100
 			if val := m.itemLimitInput.Value(); val != "" {
@@ -158,13 +183,15 @@ func (m SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 				iterationFilter = strings.Split(val, ",")
 			}
 			return m, func() tea.Msg {
+				createIssueRepoMode := normalizeCreateIssueRepoMode(m.createIssueRepoModeInput.Value())
 				return SaveMsg{
-					ProjectID:       m.projectInput.Value(),
-					Owner:           m.ownerInput.Value(),
-					ItemLimit:       itemLimit,
-					ExcludeDone:     excludeDone,
-					SuppressHints:   disableNotifications,
-					IterationFilter: iterationFilter,
+					ProjectID:           m.projectInput.Value(),
+					Owner:               m.ownerInput.Value(),
+					ItemLimit:           itemLimit,
+					ExcludeDone:         excludeDone,
+					SuppressHints:       disableNotifications,
+					CreateIssueRepoMode: createIssueRepoMode,
+					IterationFilter:     iterationFilter,
 				}
 			}
 
@@ -185,6 +212,7 @@ func (m *SettingsModel) focusField(idx int) {
 	m.itemLimitInput.Blur()
 	m.excludeDoneInput.Blur()
 	m.disableNotificationsInput.Blur()
+	m.createIssueRepoModeInput.Blur()
 	m.iterationInput.Blur()
 
 	switch idx {
@@ -199,6 +227,8 @@ func (m *SettingsModel) focusField(idx int) {
 	case 4:
 		m.disableNotificationsInput.Focus()
 	case 5:
+		m.createIssueRepoModeInput.Focus()
+	case 6:
 		m.iterationInput.Focus()
 	}
 }
@@ -216,6 +246,9 @@ func (m *SettingsModel) updateFocusedInput(msg tea.Msg) {
 	case 4:
 		m.disableNotificationsInput, _ = m.disableNotificationsInput.Update(msg)
 	case 5:
+		m.createIssueRepoModeInput, _ = m.createIssueRepoModeInput.Update(msg)
+		m.createIssueRepoModeInput.SetValue(shortCreateIssueRepoMode(m.createIssueRepoModeInput.Value()))
+	case 6:
 		m.iterationInput, _ = m.iterationInput.Update(msg)
 	}
 }
@@ -234,7 +267,7 @@ func (m SettingsModel) View() string {
 		Foreground(lipgloss.Color("#6b7280")).
 		MarginTop(1)
 
-	labels := make([]string, 6)
+	labels := make([]string, 7)
 	for i := range labels {
 		labels[i] = labelStyle.Render("  ")
 	}
@@ -245,9 +278,10 @@ func (m SettingsModel) View() string {
 	itemLimitLabel := labels[2] + "Item Limit:"
 	excludeDoneLabel := labels[3] + "Exclude Done:"
 	suppressHintsLabel := labels[4] + "Suppress Hints:"
-	iterationLabel := labels[5] + "Iteration Filter:"
+	createIssueRepoModeLabel := labels[5] + "Create Issue Repo Mode:"
+	iterationLabel := labels[6] + "Iteration Filter:"
 
-	helpText := "tab: switch field • space: toggle y/n • enter: save • esc: cancel"
+	helpText := "tab: switch field • space: toggle y/n • a/r: repo mode • enter: save • esc: cancel"
 
 	form := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -267,6 +301,9 @@ func (m SettingsModel) View() string {
 		"",
 		suppressHintsLabel,
 		m.disableNotificationsInput.View(),
+		"",
+		createIssueRepoModeLabel,
+		m.createIssueRepoModeInput.View(),
 		"",
 		iterationLabel,
 		m.iterationInput.View(),
@@ -290,7 +327,7 @@ func (m *SettingsModel) SetSize(width, height int) {
 }
 
 // GetValues returns current input values
-func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool, itemLimit int, excludeDone bool, iterationFilter []string) {
+func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool, itemLimit int, excludeDone bool, createIssueRepoMode string, iterationFilter []string) {
 	itemLimit = 100
 	if val := m.itemLimitInput.Value(); val != "" {
 		if parsed, err := fmt.Sscanf(val, "%d", &itemLimit); err != nil || parsed == 0 {
@@ -302,8 +339,28 @@ func (m SettingsModel) GetValues() (projectID, owner string, suppressHints bool,
 	}
 	excludeDone = m.excludeDoneInput.Value() == "y"
 	suppressHints = m.disableNotificationsInput.Value() == "y"
+	createIssueRepoMode = strings.ToLower(strings.TrimSpace(m.createIssueRepoModeInput.Value()))
+	createIssueRepoMode = normalizeCreateIssueRepoMode(createIssueRepoMode)
 	if val := m.iterationInput.Value(); val != "" {
 		iterationFilter = strings.Split(val, ",")
 	}
-	return m.projectInput.Value(), m.ownerInput.Value(), suppressHints, itemLimit, excludeDone, iterationFilter
+	return m.projectInput.Value(), m.ownerInput.Value(), suppressHints, itemLimit, excludeDone, createIssueRepoMode, iterationFilter
+}
+
+func normalizeCreateIssueRepoMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "r", "required":
+		return "required"
+	default:
+		return "auto"
+	}
+}
+
+func shortCreateIssueRepoMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "r", "required":
+		return "r"
+	default:
+		return "a"
+	}
 }

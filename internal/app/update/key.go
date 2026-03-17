@@ -20,7 +20,7 @@ type pendingKeyTimeout struct {
 
 func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	// Support vim-style navigation: 'g' -> go to top, 'G' (shift+g) -> go to bottom.
-	if s.Model.View.Mode == "edit" || s.Model.View.Mode == "assign" || s.Model.View.Mode == "labelsInput" || s.Model.View.Mode == "milestoneInput" || s.Model.View.Mode == state.ModeFiltering {
+	if s.Model.View.Mode == "edit" || s.Model.View.Mode == "assign" || s.Model.View.Mode == "labelsInput" || s.Model.View.Mode == "milestoneInput" || s.Model.View.Mode == state.ModeFiltering || s.Model.View.Mode == state.ModeCreateIssueRepo || s.Model.View.Mode == state.ModeCreateIssueTitle || s.Model.View.Mode == state.ModeCreateIssueBody {
 		switch k.String() {
 		case "enter":
 			if s.Model.View.Mode == "edit" {
@@ -33,6 +33,8 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 				return SaveMilestoneInput(s, SaveMilestoneInputMsg{Milestone: s.TextInput.Value()})
 			} else if s.Model.View.Mode == state.ModeFiltering {
 				return ApplyFilter(s, ApplyFilterMsg{Query: s.TextInput.Value()})
+			} else if s.Model.View.Mode == state.ModeCreateIssueRepo || s.Model.View.Mode == state.ModeCreateIssueTitle || s.Model.View.Mode == state.ModeCreateIssueBody {
+				return SaveCreateIssue(s, SaveCreateIssueMsg{Value: s.TextInput.Value()})
 			}
 		case "esc":
 			if s.Model.View.Mode == "edit" {
@@ -45,6 +47,8 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 				return CancelMilestoneInput(s, CancelMilestoneInputMsg{})
 			} else if s.Model.View.Mode == state.ModeFiltering {
 				return ClearFilter(s, ClearFilterMsg{})
+			} else if s.Model.View.Mode == state.ModeCreateIssueRepo || s.Model.View.Mode == state.ModeCreateIssueTitle || s.Model.View.Mode == state.ModeCreateIssueBody {
+				return CancelCreateIssue(s, CancelCreateIssueMsg{})
 			}
 		default:
 			var cmd tea.Cmd
@@ -265,6 +269,11 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	case "a":
 		if s.Model.View.Mode == state.ModeNormal {
 			return EnterAssignMode(s, EnterAssignModeMsg{})
+		}
+		return s, nil
+	case "c":
+		if s.Model.View.Mode == state.ModeNormal {
+			return EnterCreateIssueMode(s, EnterCreateIssueModeMsg{})
 		}
 		return s, nil
 	case "w":

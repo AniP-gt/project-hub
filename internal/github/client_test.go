@@ -522,6 +522,82 @@ func TestBuildIterationQuery(t *testing.T) {
 	}
 }
 
+func TestCreateIssueRejectsNonNumericProjectID(t *testing.T) {
+	client := NewCLIClient("gh")
+	_, err := client.CreateIssue(context.Background(), "PVT_kw123", "owner", "owner/repo", "Test issue", "Body")
+	if err == nil {
+		t.Fatalf("expected error for non-numeric project id")
+	}
+	if !strings.Contains(err.Error(), "project number required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateIssueRejectsEmptyTitle(t *testing.T) {
+	client := NewCLIClient("gh")
+	_, err := client.CreateIssue(context.Background(), "1", "owner", "owner/repo", "   ", "Body")
+	if err == nil {
+		t.Fatalf("expected error for empty title")
+	}
+	if !strings.Contains(err.Error(), "issue title is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateIssueRejectsEmptyBody(t *testing.T) {
+	client := NewCLIClient("gh")
+	_, err := client.CreateIssue(context.Background(), "1", "owner", "owner/repo", "Test issue", "   ")
+	if err == nil {
+		t.Fatalf("expected error for empty body")
+	}
+	if !strings.Contains(err.Error(), "issue body is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestParseProjectItemAddOutput(t *testing.T) {
+	rawJSON := `{
+		"id": "PVTI_created123",
+		"content": {
+			"id": "I_created123",
+			"type": "Issue",
+			"title": "Created issue",
+			"number": 42,
+			"url": "https://github.com/owner/repo/issues/42",
+			"repository": "owner/repo"
+		},
+		"fieldValues": []
+	}`
+
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(rawJSON), &raw); err != nil {
+		t.Fatalf("Failed to unmarshal test JSON: %v", err)
+	}
+
+	item, ok := parse.ParseItemMap(raw)
+	if !ok {
+		t.Fatalf("expected parse to succeed")
+	}
+	if item.ID != "PVTI_created123" {
+		t.Fatalf("expected project item id, got %q", item.ID)
+	}
+	if item.Type != "Issue" {
+		t.Fatalf("expected issue type, got %q", item.Type)
+	}
+	if item.Title != "Created issue" {
+		t.Fatalf("expected title, got %q", item.Title)
+	}
+	if item.Number != 42 {
+		t.Fatalf("expected number 42, got %d", item.Number)
+	}
+	if item.Repository != "owner/repo" {
+		t.Fatalf("expected repository owner/repo, got %q", item.Repository)
+	}
+	if item.URL != "https://github.com/owner/repo/issues/42" {
+		t.Fatalf("expected URL to be populated, got %q", item.URL)
+	}
+}
+
 func TestIsUnknownFlagError(t *testing.T) {
 	tests := []struct {
 		name   string

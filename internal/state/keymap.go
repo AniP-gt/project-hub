@@ -14,6 +14,7 @@ type KeyMap struct {
 	FilterMode   key.Binding
 	EditMode     key.Binding
 	Assign       key.Binding
+	Create       key.Binding
 	ViewDetail   key.Binding
 	ToggleFields key.Binding
 	GroupMode    key.Binding
@@ -32,6 +33,7 @@ func DefaultKeyMap() KeyMap {
 		FilterMode:   key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		EditMode:     key.NewBinding(key.WithKeys("i", "enter"), key.WithHelp("i/enter", "edit")),
 		Assign:       key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "assign")),
+		Create:       key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "create")),
 		ViewDetail:   key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "detail")),
 		ToggleFields: key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "fields")),
 		GroupMode:    key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "group")),

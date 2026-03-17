@@ -30,6 +30,10 @@ type DetailReadyMsg struct {
 	Item state.Item
 }
 
+type IssueCreatedMsg struct {
+	Item state.Item
+}
+
 // ActionResultMsg is used to convey the result of a small side-effect action
 // such as opening a browser URL or copying to clipboard. Handlers can turn
 // this into a user-visible notification.

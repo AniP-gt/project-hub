@@ -17,16 +17,19 @@ import (
 )
 
 type App struct {
-	state          state.Model
-	github         github.Client
-	itemLimit      int
-	boardModel     boardPkg.BoardModel
-	textInput      textinput.Model
-	statusSelector components.StatusSelectorModel
-	fieldSelector  components.FieldSelectorModel
-	settingsModel  settings.SettingsModel
-	detailPanel    components.DetailPanelModel
-	tableViewport  *viewport.Model
+	state            state.Model
+	github           github.Client
+	itemLimit        int
+	boardModel       boardPkg.BoardModel
+	textInput        textinput.Model
+	statusSelector   components.StatusSelectorModel
+	fieldSelector    components.FieldSelectorModel
+	settingsModel    settings.SettingsModel
+	detailPanel      components.DetailPanelModel
+	tableViewport    *viewport.Model
+	createIssueRepo  string
+	createIssueTitle string
+	createIssueBody  string
 }
 
 func New(initial state.Model, client github.Client, itemLimit int) App {
@@ -60,16 +63,19 @@ func (a *App) LoadInitialState(ctx context.Context, projectID string, owner stri
 
 func (a App) toUpdateState() update.State {
 	return update.State{
-		Model:          a.state,
-		Github:         a.github,
-		ItemLimit:      a.itemLimit,
-		BoardModel:     a.boardModel,
-		TextInput:      a.textInput,
-		StatusSelector: a.statusSelector,
-		FieldSelector:  a.fieldSelector,
-		SettingsModel:  a.settingsModel,
-		DetailPanel:    a.detailPanel,
-		TableViewport:  a.tableViewport,
+		Model:            a.state,
+		Github:           a.github,
+		ItemLimit:        a.itemLimit,
+		BoardModel:       a.boardModel,
+		TextInput:        a.textInput,
+		StatusSelector:   a.statusSelector,
+		FieldSelector:    a.fieldSelector,
+		SettingsModel:    a.settingsModel,
+		DetailPanel:      a.detailPanel,
+		TableViewport:    a.tableViewport,
+		CreateIssueRepo:  a.createIssueRepo,
+		CreateIssueTitle: a.createIssueTitle,
+		CreateIssueBody:  a.createIssueBody,
 	}
 }
 
@@ -84,20 +90,26 @@ func (a App) applyUpdateState(s update.State) App {
 	a.settingsModel = s.SettingsModel
 	a.detailPanel = s.DetailPanel
 	a.tableViewport = s.TableViewport
+	a.createIssueRepo = s.CreateIssueRepo
+	a.createIssueTitle = s.CreateIssueTitle
+	a.createIssueBody = s.CreateIssueBody
 	return a
 }
 
 func fromUpdateState(s update.State) App {
 	return App{
-		state:          s.Model,
-		github:         s.Github,
-		itemLimit:      s.ItemLimit,
-		boardModel:     s.BoardModel,
-		textInput:      s.TextInput,
-		statusSelector: s.StatusSelector,
-		fieldSelector:  s.FieldSelector,
-		settingsModel:  s.SettingsModel,
-		detailPanel:    s.DetailPanel,
-		tableViewport:  s.TableViewport,
+		state:            s.Model,
+		github:           s.Github,
+		itemLimit:        s.ItemLimit,
+		boardModel:       s.BoardModel,
+		textInput:        s.TextInput,
+		statusSelector:   s.StatusSelector,
+		fieldSelector:    s.FieldSelector,
+		settingsModel:    s.SettingsModel,
+		detailPanel:      s.DetailPanel,
+		tableViewport:    s.TableViewport,
+		createIssueRepo:  s.CreateIssueRepo,
+		createIssueTitle: s.CreateIssueTitle,
+		createIssueBody:  s.CreateIssueBody,
 	}
 }

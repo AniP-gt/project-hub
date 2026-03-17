@@ -17,6 +17,9 @@ func (n *noopClient) FetchProject(ctx context.Context, projectID string, owner s
 func (n *noopClient) FetchItems(ctx context.Context, projectID string, owner string, filter string, limit int) ([]state.Item, error) {
 	return nil, nil
 }
+func (n *noopClient) CreateIssue(ctx context.Context, projectID string, owner string, repo string, title string, body string) (state.Item, error) {
+	return state.Item{ID: "PVTI_new", Repository: repo, Title: title, Description: body, Type: "Issue"}, nil
+}
 func (n *noopClient) UpdateStatus(ctx context.Context, projectID string, owner string, itemID string, fieldID string, optionID string) (state.Item, error) {
 	return state.Item{}, nil
 }

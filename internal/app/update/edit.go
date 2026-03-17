@@ -30,6 +30,14 @@ type SaveAssignMsg struct {
 
 type CancelAssignMsg struct{}
 
+type EnterCreateIssueModeMsg struct{}
+
+type SaveCreateIssueMsg struct {
+	Value string
+}
+
+type CancelCreateIssueMsg struct{}
+
 type EnterLabelSelectModeMsg struct{}
 
 type LabelSelectedMsg struct {
@@ -178,6 +186,158 @@ func CancelAssign(s State, _ CancelAssignMsg) (State, tea.Cmd) {
 		s.Model.View.Mode = "normal"
 	}
 	return s, nil
+}
+
+func EnterCreateIssueMode(s State, _ EnterCreateIssueModeMsg) (State, tea.Cmd) {
+	s.CreateIssueRepo = ""
+	s.CreateIssueTitle = ""
+	s.CreateIssueBody = ""
+
+	if s.Model.CreateIssueRepoMode == state.CreateIssueRepoModeRequired {
+		if err := prepareTextInput(&s, "", repoPlaceholder(s.Model)); err != nil {
+			return s, nil
+		}
+		s.Model.View.Mode = state.ModeCreateIssueRepo
+		return s, s.TextInput.Focus()
+	}
+
+	repo, err := resolveCreateIssueRepo(s.Model)
+	if err == nil {
+		s.CreateIssueRepo = repo
+		return prepareCreateIssueTitleStep(s)
+	}
+
+	if err := prepareTextInput(&s, "", repoPlaceholder(s.Model)); err != nil {
+		return s, nil
+	}
+	s.Model.View.Mode = state.ModeCreateIssueRepo
+	return s, s.TextInput.Focus()
+}
+
+func SaveCreateIssue(s State, msg SaveCreateIssueMsg) (State, tea.Cmd) {
+	value := strings.TrimSpace(msg.Value)
+
+	switch s.Model.View.Mode {
+	case state.ModeCreateIssueRepo:
+		if value == "" {
+			return s, func() tea.Msg { return core.NewErrMsg(fmt.Errorf("repository is required")) }
+		}
+		s.CreateIssueRepo = value
+		return prepareCreateIssueTitleStep(s)
+	case state.ModeCreateIssueTitle:
+		if value == "" {
+			return s, func() tea.Msg { return core.NewErrMsg(fmt.Errorf("issue title is required")) }
+		}
+		s.CreateIssueTitle = value
+		return prepareCreateIssueBodyStep(s)
+	case state.ModeCreateIssueBody:
+		if value == "" {
+			return s, func() tea.Msg { return core.NewErrMsg(fmt.Errorf("issue body is required")) }
+		}
+		s.CreateIssueBody = value
+		repo := s.CreateIssueRepo
+		title := s.CreateIssueTitle
+		body := s.CreateIssueBody
+
+		createCmd := func() tea.Msg {
+			item, err := s.Github.CreateIssue(
+				context.Background(),
+				s.Model.Project.ID,
+				s.Model.Project.Owner,
+				repo,
+				title,
+				body,
+			)
+			if err != nil {
+				return core.NewErrMsg(err)
+			}
+			return core.IssueCreatedMsg{Item: item}
+		}
+
+		s = resetCreateIssueState(s)
+		s.Model.View.Mode = state.ModeNormal
+		return s, tea.Batch(createCmd)
+	default:
+		return s, nil
+	}
+}
+
+func CancelCreateIssue(s State, _ CancelCreateIssueMsg) (State, tea.Cmd) {
+	if s.Model.View.Mode == state.ModeCreateIssueRepo || s.Model.View.Mode == state.ModeCreateIssueTitle || s.Model.View.Mode == state.ModeCreateIssueBody {
+		s = resetCreateIssueState(s)
+		s.Model.View.Mode = state.ModeNormal
+	}
+	return s, nil
+}
+
+func prepareCreateIssueTitleStep(s State) (State, tea.Cmd) {
+	if err := prepareTextInput(&s, "", fmt.Sprintf("Title for %s...", s.CreateIssueRepo)); err != nil {
+		return s, nil
+	}
+	s.Model.View.Mode = state.ModeCreateIssueTitle
+	return s, s.TextInput.Focus()
+}
+
+func prepareCreateIssueBodyStep(s State) (State, tea.Cmd) {
+	if err := prepareTextInput(&s, "", "Issue body..."); err != nil {
+		return s, nil
+	}
+	s.Model.View.Mode = state.ModeCreateIssueBody
+	return s, s.TextInput.Focus()
+}
+
+func prepareTextInput(s *State, value string, placeholder string) error {
+	s.TextInput.Width = s.Model.Width - 10
+	if s.TextInput.Width < 30 {
+		s.TextInput.Width = 30
+	}
+	s.TextInput.SetValue(value)
+	s.TextInput.Prompt = ""
+	s.TextInput.Placeholder = placeholder
+	return nil
+}
+
+func repoPlaceholder(model state.Model) string {
+	_ = model
+	return "Repository (owner/repo)..."
+}
+
+func resetCreateIssueState(s State) State {
+	s.CreateIssueRepo = ""
+	s.CreateIssueTitle = ""
+	s.CreateIssueBody = ""
+	return s
+}
+
+func resolveCreateIssueRepo(model state.Model) (string, error) {
+	idx := model.View.FocusedIndex
+	if idx >= 0 && idx < len(model.Items) {
+		repo := strings.TrimSpace(model.Items[idx].Repository)
+		if repo != "" {
+			return repo, nil
+		}
+	}
+
+	repoSet := map[string]struct{}{}
+	for _, item := range model.Items {
+		repo := strings.TrimSpace(item.Repository)
+		if repo == "" {
+			continue
+		}
+		repoSet[repo] = struct{}{}
+	}
+
+	if len(repoSet) == 1 {
+		for repo := range repoSet {
+			return repo, nil
+		}
+	}
+
+	if len(repoSet) == 0 {
+		return "", fmt.Errorf("cannot create issue: no repository found in current items")
+	}
+
+	return "", fmt.Errorf("repository selection required")
 }
 
 func SaveEdit(s State, msg SaveEditMsg) (State, tea.Cmd) {

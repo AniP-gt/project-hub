@@ -4,21 +4,31 @@ import (
 	"time"
 )
 
+type CreateIssueRepoMode string
+
+const (
+	CreateIssueRepoModeAuto     CreateIssueRepoMode = "auto"
+	CreateIssueRepoModeRequired CreateIssueRepoMode = "required"
+)
+
 // ViewMode represents current interaction mode.
 type ViewMode string
 
 const (
-	ModeNormal          ViewMode = "normal"
-	ModeFiltering       ViewMode = "filtering"
-	ModeEdit            ViewMode = "edit"
-	ModeSort            ViewMode = "sort"
-	ModeStatusSelect    ViewMode = "statusSelect"
-	ModeLabelSelect     ViewMode = "labelSelect"
-	ModeMilestoneSelect ViewMode = "milestoneSelect"
-	ModePrioritySelect  ViewMode = "prioritySelect"
-	ModeSettings        ViewMode = "settings"
-	ModeDetail          ViewMode = "detail"
-	ModeFieldToggle     ViewMode = "fieldToggle"
+	ModeNormal           ViewMode = "normal"
+	ModeFiltering        ViewMode = "filtering"
+	ModeEdit             ViewMode = "edit"
+	ModeSort             ViewMode = "sort"
+	ModeStatusSelect     ViewMode = "statusSelect"
+	ModeLabelSelect      ViewMode = "labelSelect"
+	ModeMilestoneSelect  ViewMode = "milestoneSelect"
+	ModePrioritySelect   ViewMode = "prioritySelect"
+	ModeSettings         ViewMode = "settings"
+	ModeDetail           ViewMode = "detail"
+	ModeFieldToggle      ViewMode = "fieldToggle"
+	ModeCreateIssueRepo  ViewMode = "createIssueRepo"
+	ModeCreateIssueTitle ViewMode = "createIssueTitle"
+	ModeCreateIssueBody  ViewMode = "createIssueBody"
 )
 
 // ViewType represents the active view.
@@ -190,13 +200,14 @@ type Column struct {
 
 // Model is the root state for Bubbletea Update/View.
 type Model struct {
-	Project       Project
-	Items         []Item
-	View          ViewContext
-	Notifications []Notification
-	Width         int
-	Height        int
-	ItemLimit     int
-	SuppressHints bool
-	ExcludeDone   bool
+	Project             Project
+	Items               []Item
+	View                ViewContext
+	Notifications       []Notification
+	Width               int
+	Height              int
+	ItemLimit           int
+	SuppressHints       bool
+	ExcludeDone         bool
+	CreateIssueRepoMode CreateIssueRepoMode
 }
