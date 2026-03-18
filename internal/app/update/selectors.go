@@ -128,6 +128,15 @@ func FieldSelectMode(s State, msg tea.Msg) (State, tea.Cmd) {
 }
 
 func DetailMode(s State, msg tea.Msg) (State, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "i":
+			return EnterDetailEditMode(s)
+		case "a":
+			return EnterDetailCommentMode(s)
+		}
+	}
+
 	var cmds []tea.Cmd
 	updatedDetailPanel, detailPanelCmd := s.DetailPanel.Update(msg)
 	s.DetailPanel = updatedDetailPanel.(components.DetailPanelModel)

@@ -345,7 +345,13 @@ func RenderFooter(mode, view string, width int, editTitle string, visibleCols []
 		}
 
 	case "detail":
-		modeLabel = "DETAIL MODE"
+		modeLabel = "DETAIL MODE (i:edit body a:comment esc/q:close)"
+	case "detailedit":
+		modeLabel = "DETAIL EDIT MODE (enter:newline ctrl+s:save esc:cancel)"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorYellow400)
+	case "detailcomment":
+		modeLabel = "DETAIL COMMENT MODE (enter:newline ctrl+s:save esc:cancel)"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorCyan400)
 	case "fieldtoggle":
 		modeLabel = "FIELD TOGGLE MODE (m:milestone r:repository l:labels s:sub-issue p:parent esc:cancel)"
 	case "sort":

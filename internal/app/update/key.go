@@ -20,6 +20,25 @@ type pendingKeyTimeout struct {
 
 func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	// Support vim-style navigation: 'g' -> go to top, 'G' (shift+g) -> go to bottom.
+	if s.Model.View.Mode == state.ModeDetailEdit || s.Model.View.Mode == state.ModeDetailComment {
+		switch k.String() {
+		case "ctrl+s":
+			if s.Model.View.Mode == state.ModeDetailEdit {
+				return SaveDetailEdit(s, SaveDetailEditMsg{Description: s.TextArea.Value()})
+			}
+			return SaveDetailComment(s, SaveDetailCommentMsg{Body: s.TextArea.Value()})
+		case "esc":
+			if s.Model.View.Mode == state.ModeDetailEdit {
+				return CancelDetailEdit(s)
+			}
+			return CancelDetailComment(s)
+		default:
+			var cmd tea.Cmd
+			s.TextArea, cmd = s.TextArea.Update(k)
+			return s, cmd
+		}
+	}
+
 	if s.Model.View.Mode == "edit" || s.Model.View.Mode == "assign" || s.Model.View.Mode == "labelsInput" || s.Model.View.Mode == "milestoneInput" || s.Model.View.Mode == state.ModeFiltering || s.Model.View.Mode == state.ModeCreateIssueRepo || s.Model.View.Mode == state.ModeCreateIssueTitle || s.Model.View.Mode == state.ModeCreateIssueBody {
 		switch k.String() {
 		case "enter":

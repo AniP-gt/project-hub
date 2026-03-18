@@ -3,6 +3,7 @@ package update
 import (
 	"time"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"project-hub/internal/github"
@@ -18,10 +19,12 @@ type State struct {
 	ItemLimit        int
 	BoardModel       boardPkg.BoardModel
 	TextInput        textinput.Model
+	TextArea         textarea.Model
 	StatusSelector   components.StatusSelectorModel
 	FieldSelector    components.FieldSelectorModel
 	SettingsModel    settings.SettingsModel
 	DetailPanel      components.DetailPanelModel
+	DetailItem       state.Item
 	TableViewport    *viewport.Model
 	LastKey          string
 	LastKeyAt        time.Time
@@ -37,6 +40,12 @@ func NewState(initial state.Model, client github.Client, itemLimit int) State {
 	ti.Focus()
 	ti.Width = 50
 	ti.CharLimit = 500
+	ta := textarea.New()
+	ta.Placeholder = ""
+	ta.Prompt = ""
+	ta.ShowLineNumbers = false
+	ta.SetWidth(60)
+	ta.SetHeight(12)
 	tableVP := viewport.New(0, 0)
 	settingsModel := settings.New(initial.Project.ID, initial.Project.Owner, initial.SuppressHints, initial.ItemLimit, initial.ExcludeDone, string(initial.CreateIssueRepoMode), initial.View.Filter.Iterations)
 	return State{
@@ -45,6 +54,7 @@ func NewState(initial state.Model, client github.Client, itemLimit int) State {
 		ItemLimit:     itemLimit,
 		BoardModel:    boardModel,
 		TextInput:     ti,
+		TextArea:      ta,
 		SettingsModel: settingsModel,
 		TableViewport: &tableVP,
 	}

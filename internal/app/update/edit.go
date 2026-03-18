@@ -99,6 +99,30 @@ type SaveMilestoneInputMsg struct {
 
 type CancelMilestoneInputMsg struct{}
 
+type EnterDetailEditModeMsg struct{}
+
+type SaveDetailEditMsg struct {
+	Description string
+}
+
+type CancelDetailEditMsg struct{}
+
+type EnterDetailCommentModeMsg struct{}
+
+type SaveDetailCommentMsg struct {
+	Body string
+}
+
+type CancelDetailCommentMsg struct{}
+
+type DetailEditSavedMsg struct {
+	Index       int
+	ItemID      string
+	Description string
+}
+
+type DetailCommentAddedMsg struct{}
+
 func EnterEditMode(s State, _ EnterEditModeMsg) (State, tea.Cmd) {
 	idx := s.Model.View.FocusedIndex
 	if idx < 0 || idx >= len(s.Model.Items) {
@@ -297,6 +321,38 @@ func prepareTextInput(s *State, value string, placeholder string) error {
 	return nil
 }
 
+func prepareDetailTextArea(s *State, value string, placeholder string) {
+	width := s.Model.Width - 20
+	if width < 40 {
+		width = 40
+	}
+	height := s.Model.Height / 2
+	if height < 8 {
+		height = 8
+	}
+	if height > 20 {
+		height = 20
+	}
+
+	s.TextArea.SetWidth(width)
+	s.TextArea.SetHeight(height)
+	s.TextArea.Prompt = ""
+	s.TextArea.Placeholder = placeholder
+	s.TextArea.SetValue(value)
+}
+
+func currentDetailItem(s State) (state.Item, int, bool) {
+	item := s.DetailItem
+	idx := s.Model.View.FocusedIndex
+	if item.ID == "" && idx >= 0 && idx < len(s.Model.Items) {
+		item = s.Model.Items[idx]
+	}
+	if item.Repository == "" || item.Number <= 0 {
+		return state.Item{}, idx, false
+	}
+	return item, idx, true
+}
+
 func repoPlaceholder(model state.Model) string {
 	_ = model
 	return "Repository (owner/repo)..."
@@ -364,6 +420,96 @@ func SaveEdit(s State, msg SaveEditMsg) (State, tea.Cmd) {
 
 	s.Model.View.Mode = state.ModeNormal
 	return s, tea.Batch(updateCmd)
+}
+
+func EnterDetailEditMode(s State) (State, tea.Cmd) {
+	item, _, ok := currentDetailItem(s)
+	if !ok {
+		return s, func() tea.Msg {
+			return core.NewErrMsg(fmt.Errorf("detail editing is only available for issues with a repository and number"))
+		}
+	}
+
+	prepareDetailTextArea(&s, item.Description, "Edit issue description...")
+	s.Model.View.Mode = state.ModeDetailEdit
+	return s, s.TextArea.Focus()
+}
+
+func SaveDetailEdit(s State, msg SaveDetailEditMsg) (State, tea.Cmd) {
+	item, idx, ok := currentDetailItem(s)
+	if !ok {
+		return s, func() tea.Msg {
+			return core.NewErrMsg(fmt.Errorf("cannot edit issue description: missing repository or issue number"))
+		}
+	}
+
+	cmd := func() tea.Msg {
+		err := s.Github.UpdateIssueBody(context.Background(), item.Repository, item.Number, msg.Description)
+		if err != nil {
+			return core.NewErrMsg(err)
+		}
+		return DetailEditSavedMsg{Index: idx, ItemID: item.ID, Description: msg.Description}
+	}
+
+	s.DetailItem.Description = msg.Description
+	s.DetailPanel = components.NewDetailPanelModel(s.DetailItem, s.Model.Width, s.Model.Height)
+	s.Model.View.Mode = state.ModeDetail
+	return s, tea.Batch(cmd)
+}
+
+func CancelDetailEdit(s State) (State, tea.Cmd) {
+	if s.Model.View.Mode == state.ModeDetailEdit {
+		s.TextArea.Blur()
+		s.Model.View.Mode = state.ModeDetail
+	}
+	return s, nil
+}
+
+func EnterDetailCommentMode(s State) (State, tea.Cmd) {
+	_, _, ok := currentDetailItem(s)
+	if !ok {
+		return s, func() tea.Msg {
+			return core.NewErrMsg(fmt.Errorf("commenting is only available for issues with a repository and number"))
+		}
+	}
+
+	prepareDetailTextArea(&s, "", "Add comment...")
+	s.Model.View.Mode = state.ModeDetailComment
+	return s, s.TextArea.Focus()
+}
+
+func SaveDetailComment(s State, msg SaveDetailCommentMsg) (State, tea.Cmd) {
+	item, _, ok := currentDetailItem(s)
+	if !ok {
+		return s, func() tea.Msg {
+			return core.NewErrMsg(fmt.Errorf("cannot add issue comment: missing repository or issue number"))
+		}
+	}
+
+	if strings.TrimSpace(msg.Body) == "" {
+		return s, func() tea.Msg {
+			return core.NewErrMsg(fmt.Errorf("comment body is required"))
+		}
+	}
+
+	cmd := func() tea.Msg {
+		err := s.Github.AddIssueComment(context.Background(), item.Repository, item.Number, msg.Body)
+		if err != nil {
+			return core.NewErrMsg(err)
+		}
+		return DetailCommentAddedMsg{}
+	}
+
+	s.Model.View.Mode = state.ModeDetail
+	return s, tea.Batch(cmd)
+}
+
+func CancelDetailComment(s State) (State, tea.Cmd) {
+	if s.Model.View.Mode == state.ModeDetailComment {
+		s.TextArea.Blur()
+		s.Model.View.Mode = state.ModeDetail
+	}
+	return s, nil
 }
 
 func ColumnEdit(s State, msg EnterEditModeMsg) (State, tea.Cmd) {

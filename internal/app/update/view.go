@@ -24,6 +24,7 @@ func EnterDetailMode(s State) (State, tea.Cmd) {
 		return s, nil
 	}
 	focusedItem := s.Model.Items[idx]
+	s.DetailItem = focusedItem
 
 	if focusedItem.Repository != "" && focusedItem.Number > 0 {
 		s.DetailPanel = components.NewDetailPanelModel(focusedItem, s.Model.Width, s.Model.Height)
@@ -56,7 +57,7 @@ func EnterDetailMode(s State) (State, tea.Cmd) {
 	s.Model.View.Mode = state.ModeDetail
 	if !s.Model.SuppressHints {
 		detailNotif := state.Notification{
-			Message:      "Detail mode: j/k to scroll, esc/q to close",
+			Message:      "Detail mode: j/k to scroll, i=edit body, a=comment, esc/q to close",
 			Level:        "info",
 			At:           time.Now(),
 			DismissAfter: 3 * time.Second,

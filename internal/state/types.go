@@ -25,6 +25,8 @@ const (
 	ModePrioritySelect   ViewMode = "prioritySelect"
 	ModeSettings         ViewMode = "settings"
 	ModeDetail           ViewMode = "detail"
+	ModeDetailEdit       ViewMode = "detailEdit"
+	ModeDetailComment    ViewMode = "detailComment"
 	ModeFieldToggle      ViewMode = "fieldToggle"
 	ModeCreateIssueRepo  ViewMode = "createIssueRepo"
 	ModeCreateIssueTitle ViewMode = "createIssueTitle"

@@ -555,6 +555,28 @@ func TestCreateIssueRejectsEmptyBody(t *testing.T) {
 	}
 }
 
+func TestUpdateIssueBodyRejectsMissingRepository(t *testing.T) {
+	client := NewCLIClient("gh")
+	err := client.UpdateIssueBody(context.Background(), "", 1, "Body")
+	if err == nil {
+		t.Fatalf("expected error for missing repository")
+	}
+	if !strings.Contains(err.Error(), "missing repository or issue number") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAddIssueCommentRejectsEmptyBody(t *testing.T) {
+	client := NewCLIClient("gh")
+	err := client.AddIssueComment(context.Background(), "owner/repo", 1, "   ")
+	if err == nil {
+		t.Fatalf("expected error for empty comment body")
+	}
+	if !strings.Contains(err.Error(), "comment body is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseProjectItemAddOutput(t *testing.T) {
 	rawJSON := `{
 		"id": "PVTI_created123",

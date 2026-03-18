@@ -13,6 +13,8 @@ type mockClient struct{}
 
 var mockCreateIssueLastTitle string
 var mockCreateIssueLastBody string
+var mockUpdateIssueBodyLastBody string
+var mockAddIssueCommentLastBody string
 
 func (m *mockClient) FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error) {
 	return state.Project{}, nil, nil
@@ -52,8 +54,95 @@ func (m *mockClient) UpdateItem(ctx context.Context, projectID string, owner str
 	return state.Item{}, nil
 }
 
+func (m *mockClient) UpdateIssueBody(ctx context.Context, repo string, number int, body string) error {
+	mockUpdateIssueBodyLastBody = body
+	return nil
+}
+
+func (m *mockClient) AddIssueComment(ctx context.Context, repo string, number int, body string) error {
+	mockAddIssueCommentLastBody = body
+	return nil
+}
+
 func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
 	return "", nil
+}
+
+func TestEnterDetailEditMode_PrefillsDescription(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "Old body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetail, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+
+	updated, _ := EnterDetailEditMode(stateModel)
+
+	if updated.Model.View.Mode != state.ModeDetailEdit {
+		t.Fatalf("expected mode to be %q, got %q", state.ModeDetailEdit, updated.Model.View.Mode)
+	}
+	if updated.TextArea.Value() != "Old body" {
+		t.Fatalf("expected textarea to contain existing description, got %q", updated.TextArea.Value())
+	}
+}
+
+func TestSaveDetailEditReturnsSavedMessage(t *testing.T) {
+	mockUpdateIssueBodyLastBody = ""
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "Old body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailEdit, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+
+	updated, cmd := SaveDetailEdit(stateModel, SaveDetailEditMsg{Description: "New body\nline two"})
+
+	if updated.Model.View.Mode != state.ModeDetail {
+		t.Fatalf("expected mode to return to %q, got %q", state.ModeDetail, updated.Model.View.Mode)
+	}
+	if cmd == nil {
+		t.Fatalf("expected save command")
+	}
+	msg := cmd()
+	saved, ok := msg.(DetailEditSavedMsg)
+	if !ok {
+		t.Fatalf("expected DetailEditSavedMsg, got %T", msg)
+	}
+	if saved.Description != "New body\nline two" {
+		t.Fatalf("expected saved description to round-trip, got %q", saved.Description)
+	}
+	if mockUpdateIssueBodyLastBody != "New body\nline two" {
+		t.Fatalf("expected client to receive updated body, got %q", mockUpdateIssueBodyLastBody)
+	}
+}
+
+func TestSaveDetailCommentReturnsSuccessMessage(t *testing.T) {
+	mockAddIssueCommentLastBody = ""
+	items := []state.Item{{ID: "item1", Title: "Test", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailComment, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+
+	updated, cmd := SaveDetailComment(stateModel, SaveDetailCommentMsg{Body: "First line\nSecond line"})
+
+	if updated.Model.View.Mode != state.ModeDetail {
+		t.Fatalf("expected mode to return to %q, got %q", state.ModeDetail, updated.Model.View.Mode)
+	}
+	if cmd == nil {
+		t.Fatalf("expected comment command")
+	}
+	msg := cmd()
+	if _, ok := msg.(DetailCommentAddedMsg); !ok {
+		t.Fatalf("expected DetailCommentAddedMsg, got %T", msg)
+	}
+	if mockAddIssueCommentLastBody != "First line\nSecond line" {
+		t.Fatalf("expected client to receive comment body, got %q", mockAddIssueCommentLastBody)
+	}
 }
 
 func TestEnterCreateIssueMode_UsesFocusedRepository(t *testing.T) {

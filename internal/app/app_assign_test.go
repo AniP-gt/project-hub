@@ -39,6 +39,12 @@ func (n *noopClient) UpdateAssignees(ctx context.Context, projectID string, owne
 func (n *noopClient) UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error) {
 	return item, nil
 }
+func (n *noopClient) UpdateIssueBody(ctx context.Context, repo string, number int, body string) error {
+	return nil
+}
+func (n *noopClient) AddIssueComment(ctx context.Context, repo string, number int, body string) error {
+	return nil
+}
 func (n *noopClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
 	return "", nil
 }

@@ -29,6 +29,8 @@ type Client interface {
 	UpdateMilestone(ctx context.Context, projectID string, owner string, itemID string, milestone string) (state.Item, error)
 	UpdateAssignees(ctx context.Context, projectID string, owner string, itemID string, itemType string, repo string, number int, userLogins []string) (state.Item, error)
 	UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error)
+	UpdateIssueBody(ctx context.Context, repo string, number int, body string) error
+	AddIssueComment(ctx context.Context, repo string, number int, body string) error
 	FetchIssueDetail(ctx context.Context, repo string, number int) (string, error)
 }
 
@@ -336,6 +338,27 @@ func (c *CLIClient) UpdateItem(ctx context.Context, projectID string, owner stri
 	return updatedItem, nil
 }
 
+func (c *CLIClient) UpdateIssueBody(ctx context.Context, repo string, number int, body string) error {
+	repo = strings.TrimSpace(repo)
+	if repo == "" || number <= 0 {
+		return fmt.Errorf("cannot edit issue body: missing repository or issue number")
+	}
+
+	return c.runGhWithStdin(ctx, body, "issue", "edit", strconv.Itoa(number), "--repo", repo, "--body-file", "-")
+}
+
+func (c *CLIClient) AddIssueComment(ctx context.Context, repo string, number int, body string) error {
+	repo = strings.TrimSpace(repo)
+	if repo == "" || number <= 0 {
+		return fmt.Errorf("cannot add issue comment: missing repository or issue number")
+	}
+	if strings.TrimSpace(body) == "" {
+		return fmt.Errorf("comment body is required")
+	}
+
+	return c.runGhWithStdin(ctx, body, "issue", "comment", strconv.Itoa(number), "--repo", repo, "--body-file", "-")
+}
+
 func (c *CLIClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
 	args := []string{"issue", "view", strconv.Itoa(number), "--repo", repo, "--json", "body"}
 	out, err := c.runGh(ctx, args...)
@@ -360,4 +383,14 @@ func (c *CLIClient) runGh(ctx context.Context, args ...string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return out, nil
+}
+
+func (c *CLIClient) runGhWithStdin(ctx context.Context, stdin string, args ...string) error {
+	cmd := exec.CommandContext(ctx, c.GhPath, args...)
+	cmd.Stdin = strings.NewReader(stdin)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }

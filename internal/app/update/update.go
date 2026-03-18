@@ -39,6 +39,9 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		s.Model.Width = m.Width
 		s.Model.Height = m.Height
+		if s.Model.View.Mode == state.ModeDetailEdit || s.Model.View.Mode == state.ModeDetailComment {
+			prepareDetailTextArea(&s, s.TextArea.Value(), s.TextArea.Placeholder)
+		}
 		if s.Model.View.CurrentView == state.ViewBoard {
 			var model tea.Model
 			model, cmd = s.BoardModel.Update(msg)
@@ -122,6 +125,27 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 			s.Model.Notifications = append(s.Model.Notifications, notif)
 			cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
 		}
+	case DetailEditSavedMsg:
+		if m.Index >= 0 && m.Index < len(s.Model.Items) {
+			s.Model.Items[m.Index].Description = m.Description
+		}
+		if s.DetailItem.ID == m.ItemID || s.DetailItem.ID == "" {
+			s.DetailItem.Description = m.Description
+		}
+		s.DetailPanel = components.NewDetailPanelModel(s.DetailItem, s.Model.Width, s.Model.Height)
+		s.Model.View.Mode = state.ModeDetail
+		if !s.Model.SuppressHints {
+			notif := state.Notification{Message: "Item updated successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			s.Model.Notifications = append(s.Model.Notifications, notif)
+			cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
+		}
+	case DetailCommentAddedMsg:
+		s.Model.View.Mode = state.ModeDetail
+		if !s.Model.SuppressHints {
+			notif := state.Notification{Message: "Comment added successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			s.Model.Notifications = append(s.Model.Notifications, notif)
+			cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
+		}
 	case core.IssueCreatedMsg:
 		s.Model.View.Mode = state.ModeNormal
 		if !s.Model.SuppressHints {
@@ -131,9 +155,10 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 		}
 		cmds = append(cmds, core.FetchProjectCmd(s.Github, s.Model.Project.ID, s.Model.Project.Owner, s.ItemLimit, s.Model.View.Filter.Iterations))
 	case core.DetailReadyMsg:
+		s.DetailItem = m.Item
 		s.DetailPanel = components.NewDetailPanelModel(m.Item, s.Model.Width, s.Model.Height)
 		if !s.Model.SuppressHints {
-			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, esc/q to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
+			detailNotif := state.Notification{Message: "Detail mode: j/k to scroll, i=edit body, a=comment, esc/q to close", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}
 			s.Model.Notifications = append(s.Model.Notifications, detailNotif)
 			cmds = append(cmds, tea.Batch(s.DetailPanel.Init(), core.DismissNotificationCmd(len(s.Model.Notifications)-1, detailNotif.DismissAfter)))
 		} else {

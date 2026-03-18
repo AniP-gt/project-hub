@@ -96,7 +96,7 @@ project-hub --project 12345 --iteration @current "Iteration 1" "Iteration 2"
 | Reload items | `R` / `Ctrl+r` | Refresh project data |
 | Edit title | `i` / `Enter` | `Enter` to save, `Esc` to cancel |
 | Assign user | `a` | Type assignee, `Enter` save, `Esc` cancel |
-| Open detail panel | `o` | `j/k` scroll, `Esc`/`q` close |
+| Open detail panel | `o` | `j/k` scroll, `i` edit body, `a` add comment, `Esc`/`q` close |
 | Change status | `w` | `j/k` select, `Enter` confirm, `Esc` cancel |
 | Open in browser | `O` | Uses OS opener; fallback is URL notification |
 | Copy URL | `y` | Uses clipboard command; fallback is URL notification |
@@ -112,6 +112,17 @@ Default view is a kanban-style board.
 | Move between cards | `j` / `k` | Navigate focused card |
 | Open filter input | `/` | `Enter` apply, `Esc` clear |
 | Toggle card fields | `f` | In toggle mode: `m` Milestone, `r` Repository, `l` Labels, `s` Sub-issues, `p` Parent, `Esc` exit |
+
+### Detail mode
+
+After pressing `o` on an item:
+
+| Function | Keys | Behavior |
+| --- | --- | --- |
+| Scroll detail | `j` / `k` | Scroll detail body |
+| Edit issue body | `i` | Opens multiline editor; `Enter` inserts newline, `Ctrl+s` saves, `Esc` cancels |
+| Add comment | `a` | Opens multiline editor; `Enter` inserts newline, `Ctrl+s` saves, `Esc` cancels |
+| Close detail | `Esc` / `q` | Return to board/table |
 
 ### Table view
 

@@ -50,6 +50,14 @@ func (m *mockClient) UpdateItem(ctx context.Context, projectID string, owner str
 	return state.Item{}, nil
 }
 
+func (m *mockClient) UpdateIssueBody(ctx context.Context, repo string, number int, body string) error {
+	return nil
+}
+
+func (m *mockClient) AddIssueComment(ctx context.Context, repo string, number int, body string) error {
+	return nil
+}
+
 func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
 	return "", nil
 }

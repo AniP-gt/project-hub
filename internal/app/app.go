@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -22,10 +23,12 @@ type App struct {
 	itemLimit        int
 	boardModel       boardPkg.BoardModel
 	textInput        textinput.Model
+	textArea         textarea.Model
 	statusSelector   components.StatusSelectorModel
 	fieldSelector    components.FieldSelectorModel
 	settingsModel    settings.SettingsModel
 	detailPanel      components.DetailPanelModel
+	detailItem       state.Item
 	tableViewport    *viewport.Model
 	createIssueRepo  string
 	createIssueTitle string
@@ -68,10 +71,12 @@ func (a App) toUpdateState() update.State {
 		ItemLimit:        a.itemLimit,
 		BoardModel:       a.boardModel,
 		TextInput:        a.textInput,
+		TextArea:         a.textArea,
 		StatusSelector:   a.statusSelector,
 		FieldSelector:    a.fieldSelector,
 		SettingsModel:    a.settingsModel,
 		DetailPanel:      a.detailPanel,
+		DetailItem:       a.detailItem,
 		TableViewport:    a.tableViewport,
 		CreateIssueRepo:  a.createIssueRepo,
 		CreateIssueTitle: a.createIssueTitle,
@@ -85,10 +90,12 @@ func (a App) applyUpdateState(s update.State) App {
 	a.itemLimit = s.ItemLimit
 	a.boardModel = s.BoardModel
 	a.textInput = s.TextInput
+	a.textArea = s.TextArea
 	a.statusSelector = s.StatusSelector
 	a.fieldSelector = s.FieldSelector
 	a.settingsModel = s.SettingsModel
 	a.detailPanel = s.DetailPanel
+	a.detailItem = s.DetailItem
 	a.tableViewport = s.TableViewport
 	a.createIssueRepo = s.CreateIssueRepo
 	a.createIssueTitle = s.CreateIssueTitle
@@ -103,10 +110,12 @@ func fromUpdateState(s update.State) App {
 		itemLimit:        s.ItemLimit,
 		boardModel:       s.BoardModel,
 		textInput:        s.TextInput,
+		textArea:         s.TextArea,
 		statusSelector:   s.StatusSelector,
 		fieldSelector:    s.FieldSelector,
 		settingsModel:    s.SettingsModel,
 		detailPanel:      s.DetailPanel,
+		detailItem:       s.DetailItem,
 		tableViewport:    s.TableViewport,
 		createIssueRepo:  s.CreateIssueRepo,
 		createIssueTitle: s.CreateIssueTitle,

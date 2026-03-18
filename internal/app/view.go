@@ -148,6 +148,17 @@ func (a App) View() string {
 		)
 	}
 
+	if a.state.View.Mode == state.ModeDetailEdit || a.state.View.Mode == state.ModeDetailComment {
+		inputView := components.FrameStyle.Width(frameWidth).Render(a.textArea.View())
+		framed = lipgloss.Place(
+			frameWidth,
+			bodyHeight,
+			lipgloss.Center,
+			lipgloss.Center,
+			inputView,
+		)
+	}
+
 	if a.state.View.Mode == state.ModeCreateIssueRepo || a.state.View.Mode == state.ModeCreateIssueTitle || a.state.View.Mode == state.ModeCreateIssueBody || a.state.View.Mode == state.ModeEdit || a.state.View.Mode == state.ViewMode("assign") || a.state.View.Mode == state.ViewMode("labelsInput") || a.state.View.Mode == state.ViewMode("milestoneInput") || a.state.View.Mode == state.ModeFiltering {
 		inputView := components.FrameStyle.Width(frameWidth).Render(a.textInput.View())
 		framed = lipgloss.Place(
