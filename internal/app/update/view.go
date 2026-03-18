@@ -9,7 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"project-hub/internal/app/core"
-	"project-hub/internal/config"
 	"project-hub/internal/state"
 	boardPkg "project-hub/internal/ui/board"
 	"project-hub/internal/ui/components"
@@ -111,27 +110,11 @@ func FieldToggle(s State, key string) (State, tea.Cmd) {
 	s.BoardModel = boardPkg.NewBoardModel(s.Model.Items, s.Model.Project.Fields, s.Model.View.Filter, s.Model.View.FocusedItemID, s.Model.View.CardFieldVisibility)
 	s = syncTableColumnIndex(s)
 
-	configPath, err := config.ResolvePath()
-	if err == nil {
-		existingCfg, loadErr := config.Load(configPath)
-		if loadErr == nil {
-			cfg := config.Config{
-				DefaultProjectID:   existingCfg.DefaultProjectID,
-				DefaultOwner:       existingCfg.DefaultOwner,
-				SuppressHints:      existingCfg.SuppressHints,
-				DefaultItemLimit:   existingCfg.DefaultItemLimit,
-				DefaultExcludeDone: existingCfg.DefaultExcludeDone,
-				CardFieldVisibility: config.CardFieldVisibility{
-					ShowMilestone:        vis.ShowMilestone,
-					ShowRepository:       vis.ShowRepository,
-					ShowSubIssueProgress: vis.ShowSubIssueProgress,
-					ShowParentIssue:      vis.ShowParentIssue,
-					ShowLabels:           vis.ShowLabels,
-				},
-			}
-			config.Save(configPath, cfg)
-		}
-	}
+	// Persist card field visibility preference to config.
+	// Use board/table helper to centralize config writing logic.
+	// Best-effort only: ignore errors to avoid breaking UI flow.
+	// Persist using board package helper (best-effort)
+	_ = boardPkg.SaveCardFieldVisibility(s.Model.View.CardFieldVisibility)
 
 	if !s.Model.SuppressHints {
 		notif := state.Notification{
