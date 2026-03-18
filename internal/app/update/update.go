@@ -30,9 +30,12 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 	}
 
 	if s.Model.View.Mode == state.ModeDetail {
-		updated, detailCmd := DetailMode(s, msg)
-		cmds = append(cmds, detailCmd)
-		return updated, tea.Batch(cmds...)
+		switch msg.(type) {
+		case tea.KeyMsg, components.DetailCloseMsg:
+			updated, detailCmd := DetailMode(s, msg)
+			cmds = append(cmds, detailCmd)
+			return updated, tea.Batch(cmds...)
+		}
 	}
 
 	switch m := msg.(type) {
@@ -140,6 +143,8 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 			cmds = append(cmds, core.DismissNotificationCmd(len(s.Model.Notifications)-1, notif.DismissAfter))
 		}
 	case DetailCommentAddedMsg:
+		s.DetailItem = m.Item
+		s.DetailPanel = components.NewDetailPanelModel(m.Item, s.Model.Width, s.Model.Height)
 		s.Model.View.Mode = state.ModeDetail
 		if !s.Model.SuppressHints {
 			notif := state.Notification{Message: "Comment added successfully", Level: "info", At: time.Now(), DismissAfter: 3 * time.Second}

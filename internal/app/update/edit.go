@@ -121,7 +121,9 @@ type DetailEditSavedMsg struct {
 	Description string
 }
 
-type DetailCommentAddedMsg struct{}
+type DetailCommentAddedMsg struct {
+	Item state.Item
+}
 
 func EnterEditMode(s State, _ EnterEditModeMsg) (State, tea.Cmd) {
 	idx := s.Model.View.FocusedIndex
@@ -497,7 +499,13 @@ func SaveDetailComment(s State, msg SaveDetailCommentMsg) (State, tea.Cmd) {
 		if err != nil {
 			return core.NewErrMsg(err)
 		}
-		return DetailCommentAddedMsg{}
+		detail, err := s.Github.FetchIssueDetail(context.Background(), item.Repository, item.Number)
+		if err != nil {
+			return core.NewErrMsg(err)
+		}
+		item.Description = detail.Description
+		item.Comments = append([]state.Comment(nil), detail.Comments...)
+		return DetailCommentAddedMsg{Item: item}
 	}
 
 	s.Model.View.Mode = state.ModeDetail

@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"project-hub/internal/github/parse"
 	"project-hub/internal/state"
@@ -31,7 +32,7 @@ type Client interface {
 	UpdateItem(ctx context.Context, projectID string, owner string, item state.Item, title string, description string) (state.Item, error)
 	UpdateIssueBody(ctx context.Context, repo string, number int, body string) error
 	AddIssueComment(ctx context.Context, repo string, number int, body string) error
-	FetchIssueDetail(ctx context.Context, repo string, number int) (string, error)
+	FetchIssueDetail(ctx context.Context, repo string, number int) (state.Item, error)
 }
 
 type CLIClient struct {
@@ -359,21 +360,71 @@ func (c *CLIClient) AddIssueComment(ctx context.Context, repo string, number int
 	return c.runGhWithStdin(ctx, body, "issue", "comment", strconv.Itoa(number), "--repo", repo, "--body-file", "-")
 }
 
-func (c *CLIClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
-	args := []string{"issue", "view", strconv.Itoa(number), "--repo", repo, "--json", "body"}
+func (c *CLIClient) FetchIssueDetail(ctx context.Context, repo string, number int) (state.Item, error) {
+	args := []string{"issue", "view", strconv.Itoa(number), "--repo", repo, "--json", "body,comments"}
 	out, err := c.runGh(ctx, args...)
 	if err != nil {
-		return "", fmt.Errorf("gh issue view failed: %w", err)
+		return state.Item{}, fmt.Errorf("gh issue view failed: %w", err)
 	}
 
 	var result struct {
-		Body string `json:"body"`
+		Body     string          `json:"body"`
+		Comments json.RawMessage `json:"comments"`
 	}
 	if err := json.Unmarshal(out, &result); err != nil {
-		return "", fmt.Errorf("parse gh issue view json: %w", err)
+		return state.Item{}, fmt.Errorf("parse gh issue view json: %w", err)
 	}
 
-	return result.Body, nil
+	comments, err := parseIssueComments(result.Comments)
+	if err != nil {
+		return state.Item{}, fmt.Errorf("parse gh issue comments json: %w", err)
+	}
+
+	return state.Item{Description: result.Body, Comments: comments}, nil
+}
+
+func parseIssueComments(raw json.RawMessage) ([]state.Comment, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+
+	type rawComment struct {
+		Author struct {
+			Login string `json:"login"`
+		} `json:"author"`
+		Body      string     `json:"body"`
+		CreatedAt *time.Time `json:"createdAt"`
+	}
+
+	toStateComments := func(rawComments []rawComment) []state.Comment {
+		comments := make([]state.Comment, 0, len(rawComments))
+		for _, comment := range rawComments {
+			author := strings.TrimSpace(comment.Author.Login)
+			if author == "" {
+				author = "unknown"
+			}
+			comments = append(comments, state.Comment{
+				Author:    author,
+				Body:      comment.Body,
+				CreatedAt: comment.CreatedAt,
+			})
+		}
+		return comments
+	}
+
+	var flat []rawComment
+	if err := json.Unmarshal(raw, &flat); err == nil {
+		return toStateComments(flat), nil
+	}
+
+	var nested struct {
+		Nodes []rawComment `json:"nodes"`
+	}
+	if err := json.Unmarshal(raw, &nested); err == nil {
+		return toStateComments(nested.Nodes), nil
+	}
+
+	return nil, fmt.Errorf("unsupported comments shape")
 }
 
 func (c *CLIClient) runGh(ctx context.Context, args ...string) ([]byte, error) {

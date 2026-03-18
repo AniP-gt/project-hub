@@ -667,3 +667,45 @@ func TestIsUnknownFlagError(t *testing.T) {
 		})
 	}
 }
+
+func TestParseIssueComments(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantLen int
+		want    string
+	}{
+		{
+			name:    "flat array shape",
+			raw:     `[{"author":{"login":"alice"},"body":"hello","createdAt":"2026-03-18T00:00:00Z"}]`,
+			wantLen: 1,
+			want:    "alice",
+		},
+		{
+			name:    "nested nodes shape",
+			raw:     `{"nodes":[{"author":{"login":"bob"},"body":"hi","createdAt":"2026-03-18T00:00:00Z"}]}`,
+			wantLen: 1,
+			want:    "bob",
+		},
+		{
+			name:    "null comments",
+			raw:     `null`,
+			wantLen: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			comments, err := parseIssueComments([]byte(tt.raw))
+			if err != nil {
+				t.Fatalf("parseIssueComments() error = %v", err)
+			}
+			if len(comments) != tt.wantLen {
+				t.Fatalf("parseIssueComments() len = %d, want %d", len(comments), tt.wantLen)
+			}
+			if tt.wantLen > 0 && comments[0].Author != tt.want {
+				t.Fatalf("parseIssueComments() author = %q, want %q", comments[0].Author, tt.want)
+			}
+		})
+	}
+}

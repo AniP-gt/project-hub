@@ -26,27 +26,34 @@ func EnterDetailMode(s State) (State, tea.Cmd) {
 	focusedItem := s.Model.Items[idx]
 	s.DetailItem = focusedItem
 
-	if focusedItem.Repository != "" && focusedItem.Number > 0 {
+	if focusedItem.Type == "Issue" && focusedItem.Repository != "" && focusedItem.Number > 0 {
 		s.DetailPanel = components.NewDetailPanelModel(focusedItem, s.Model.Width, s.Model.Height)
 		fetchDescCmd := func() tea.Msg {
-			body, err := s.Github.FetchIssueDetail(context.Background(), focusedItem.Repository, focusedItem.Number)
+			detail, err := s.Github.FetchIssueDetail(context.Background(), focusedItem.Repository, focusedItem.Number)
 			if err != nil {
 				return core.NewErrMsg(err)
 			}
+			detailItem := focusedItem
+			detailItem.Description = detail.Description
+			detailItem.Comments = append([]state.Comment(nil), detail.Comments...)
 			return core.DetailReadyMsg{Item: state.Item{
-				Title:            focusedItem.Title,
-				Description:      body,
-				Number:           focusedItem.Number,
-				Repository:       focusedItem.Repository,
-				Status:           focusedItem.Status,
-				Assignees:        focusedItem.Assignees,
-				Labels:           focusedItem.Labels,
-				Priority:         focusedItem.Priority,
-				Milestone:        focusedItem.Milestone,
-				URL:              focusedItem.URL,
-				SubIssueProgress: focusedItem.SubIssueProgress,
-				SubIssueTitles:   append([]string(nil), focusedItem.SubIssueTitles...),
-				ParentIssue:      focusedItem.ParentIssue,
+				ID:               detailItem.ID,
+				ContentID:        detailItem.ContentID,
+				Type:             detailItem.Type,
+				Title:            detailItem.Title,
+				Description:      detailItem.Description,
+				Status:           detailItem.Status,
+				Repository:       detailItem.Repository,
+				Number:           detailItem.Number,
+				URL:              detailItem.URL,
+				Assignees:        append([]string(nil), detailItem.Assignees...),
+				Labels:           append([]string(nil), detailItem.Labels...),
+				Milestone:        detailItem.Milestone,
+				Priority:         detailItem.Priority,
+				SubIssueProgress: detailItem.SubIssueProgress,
+				SubIssueTitles:   append([]string(nil), detailItem.SubIssueTitles...),
+				ParentIssue:      detailItem.ParentIssue,
+				Comments:         append([]state.Comment(nil), detailItem.Comments...),
 			}}
 		}
 		s.Model.View.Mode = state.ModeDetail

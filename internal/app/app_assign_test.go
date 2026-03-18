@@ -45,8 +45,8 @@ func (n *noopClient) UpdateIssueBody(ctx context.Context, repo string, number in
 func (n *noopClient) AddIssueComment(ctx context.Context, repo string, number int, body string) error {
 	return nil
 }
-func (n *noopClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
-	return "", nil
+func (n *noopClient) FetchIssueDetail(ctx context.Context, repo string, number int) (state.Item, error) {
+	return state.Item{}, nil
 }
 
 func TestAssignUpdateDoesNotRemapCards(t *testing.T) {

@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+type Comment struct {
+	Author    string
+	Body      string
+	CreatedAt *time.Time
+}
+
 type CreateIssueRepoMode string
 
 const (
@@ -95,6 +101,7 @@ type Item struct {
 	SubIssueProgress      string // e.g., "2/5" showing completed/total sub-issues
 	SubIssueTitles        []string
 	ParentIssue           string // Parent issue title or reference
+	Comments              []Comment
 	FieldValues           map[string][]string
 }
 

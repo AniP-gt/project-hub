@@ -7,6 +7,7 @@ import (
 
 	"project-hub/internal/app/core"
 	"project-hub/internal/state"
+	"project-hub/internal/ui/components"
 )
 
 type mockClient struct{}
@@ -15,6 +16,7 @@ var mockCreateIssueLastTitle string
 var mockCreateIssueLastBody string
 var mockUpdateIssueBodyLastBody string
 var mockAddIssueCommentLastBody string
+var mockFetchIssueDetailResult state.Item
 
 func (m *mockClient) FetchProject(ctx context.Context, projectID string, owner string, filter string, limit int) (state.Project, []state.Item, error) {
 	return state.Project{}, nil, nil
@@ -64,8 +66,8 @@ func (m *mockClient) AddIssueComment(ctx context.Context, repo string, number in
 	return nil
 }
 
-func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
-	return "", nil
+func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (state.Item, error) {
+	return mockFetchIssueDetailResult, nil
 }
 
 func TestEnterDetailEditMode_PrefillsDescription(t *testing.T) {
@@ -120,6 +122,7 @@ func TestSaveDetailEditReturnsSavedMessage(t *testing.T) {
 
 func TestSaveDetailCommentReturnsSuccessMessage(t *testing.T) {
 	mockAddIssueCommentLastBody = ""
+	mockFetchIssueDetailResult = state.Item{Description: "Issue body", Comments: []state.Comment{{Author: "alice", Body: "First line\nSecond line"}}}
 	items := []state.Item{{ID: "item1", Title: "Test", Repository: "owner/repo", Number: 12, Type: "Issue"}}
 	project := state.Project{ID: "1", Owner: "owner"}
 	viewContext := state.ViewContext{Mode: state.ModeDetailComment, FocusedIndex: 0, FocusedItemID: "item1"}
@@ -137,11 +140,46 @@ func TestSaveDetailCommentReturnsSuccessMessage(t *testing.T) {
 		t.Fatalf("expected comment command")
 	}
 	msg := cmd()
-	if _, ok := msg.(DetailCommentAddedMsg); !ok {
+	added, ok := msg.(DetailCommentAddedMsg)
+	if !ok {
 		t.Fatalf("expected DetailCommentAddedMsg, got %T", msg)
+	}
+	if len(added.Item.Comments) != 1 || added.Item.Comments[0].Author != "alice" {
+		t.Fatalf("expected refreshed comment data, got %#v", added.Item.Comments)
 	}
 	if mockAddIssueCommentLastBody != "First line\nSecond line" {
 		t.Fatalf("expected client to receive comment body, got %q", mockAddIssueCommentLastBody)
+	}
+}
+
+func TestUpdateAppliesDetailReadyMsgWhileInDetailMode(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "Old body", Repository: "owner/repo", Number: 46, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetail, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40, SuppressHints: true}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+	stateModel.DetailPanel = components.NewDetailPanelModel(items[0], 100, 40)
+
+	updated, _ := Update(stateModel, core.DetailReadyMsg{Item: state.Item{
+		ID:          "item1",
+		Type:        "Issue",
+		Title:       "Test",
+		Description: "New body",
+		Repository:  "owner/repo",
+		Number:      46,
+		Comments:    []state.Comment{{Author: "alice", Body: "Visible comment"}},
+	}})
+
+	if updated.DetailItem.Description != "New body" {
+		t.Fatalf("expected detail description to update, got %q", updated.DetailItem.Description)
+	}
+	if len(updated.DetailItem.Comments) != 1 || updated.DetailItem.Comments[0].Body != "Visible comment" {
+		t.Fatalf("expected comments to update, got %#v", updated.DetailItem.Comments)
+	}
+	if view := updated.DetailPanel.View(); !strings.Contains(view, "Visible comment") {
+		t.Fatalf("expected detail panel view to contain refreshed comment, got %q", view)
 	}
 }
 

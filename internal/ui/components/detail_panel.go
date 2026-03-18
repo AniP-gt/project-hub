@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,6 +25,26 @@ var DetailLabelStyle = lipgloss.NewStyle().
 
 var DetailValueStyle = lipgloss.NewStyle().
 	Foreground(ColorGray300)
+
+var DetailSectionTitleStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(ColorGray200)
+
+var DetailCommentMetaStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(ColorBlue300)
+
+var DetailCommentTimeStyle = lipgloss.NewStyle().
+	Foreground(ColorGray500)
+
+var DetailCommentBodyStyle = lipgloss.NewStyle().
+	Foreground(ColorGray200)
+
+var DetailCommentBoxStyle = lipgloss.NewStyle().
+	Border(lipgloss.RoundedBorder()).
+	BorderForeground(ColorGray700).
+	Background(ColorGray900).
+	Padding(0, 1)
 
 type DetailPanelModel struct {
 	item     state.Item
@@ -81,6 +102,10 @@ func (m DetailPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *DetailPanelModel) updateContent() {
 	var s strings.Builder
+	contentWidth := m.viewport.Width
+	if contentWidth <= 0 {
+		contentWidth = 60
+	}
 
 	if m.item.Title == "" {
 		m.item.Title = "(No title)"
@@ -156,12 +181,27 @@ func (m *DetailPanelModel) updateContent() {
 	s.WriteString(strings.Repeat("─", 40))
 	s.WriteString("\n\n")
 
-	s.WriteString(DetailLabelStyle.Render("Description"))
+	s.WriteString(DetailSectionTitleStyle.Render("Description"))
 	s.WriteString("\n")
 	if m.item.Description != "" {
-		s.WriteString(DetailValueStyle.Render(m.item.Description))
+		descriptionStyle := DetailValueStyle.Copy().Width(contentWidth).MaxWidth(contentWidth)
+		s.WriteString(descriptionStyle.Render(m.item.Description))
 	} else {
 		s.WriteString(DetailValueStyle.Render("(no description)"))
+	}
+
+	s.WriteString("\n\n")
+	s.WriteString(DetailSectionTitleStyle.Render(fmt.Sprintf("Comments (%d)", len(m.item.Comments))))
+	s.WriteString("\n")
+	if len(m.item.Comments) == 0 {
+		s.WriteString(DetailValueStyle.Render("(no comments)"))
+	} else {
+		for i, comment := range m.item.Comments {
+			if i > 0 {
+				s.WriteString("\n\n")
+			}
+			s.WriteString(renderDetailComment(comment, contentWidth))
+		}
 	}
 
 	m.viewport.SetContent(s.String())
@@ -182,10 +222,38 @@ func (m DetailPanelModel) View() string {
 
 	m.viewport.Width = panelWidth - 4
 	m.viewport.Height = panelHeight - 2
+	m.updateContent()
 
 	content := m.viewport.View()
 	styled := DetailPanelStyle.Width(panelWidth).Height(panelHeight).Render(content)
 	return styled
+}
+
+func renderDetailComment(comment state.Comment, width int) string {
+	boxWidth := width
+	if boxWidth < 20 {
+		boxWidth = 20
+	}
+	innerWidth := boxWidth - DetailCommentBoxStyle.GetHorizontalFrameSize()
+	if innerWidth < 10 {
+		innerWidth = 10
+	}
+
+	author := strings.TrimSpace(comment.Author)
+	if author == "" {
+		author = "unknown"
+	}
+	meta := DetailCommentMetaStyle.Render("@" + author)
+	if comment.CreatedAt != nil {
+		meta = lipgloss.JoinHorizontal(lipgloss.Left, meta, DetailCommentTimeStyle.Render("  "+comment.CreatedAt.In(time.Local).Format("2006-01-02 15:04")))
+	}
+	body := strings.TrimSpace(comment.Body)
+	if body == "" {
+		body = "(empty comment)"
+	}
+	bodyView := DetailCommentBodyStyle.Copy().Width(innerWidth).MaxWidth(innerWidth).Render(body)
+
+	return DetailCommentBoxStyle.Copy().Width(boxWidth).MaxWidth(boxWidth).Render(lipgloss.JoinVertical(lipgloss.Left, meta, "", bodyView))
 }
 
 type DetailCloseMsg struct{}

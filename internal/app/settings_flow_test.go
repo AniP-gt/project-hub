@@ -58,8 +58,8 @@ func (m *mockClient) AddIssueComment(ctx context.Context, repo string, number in
 	return nil
 }
 
-func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (string, error) {
-	return "", nil
+func (m *mockClient) FetchIssueDetail(ctx context.Context, repo string, number int) (state.Item, error) {
+	return state.Item{}, nil
 }
 
 func TestSwitchToSettingsView(t *testing.T) {
