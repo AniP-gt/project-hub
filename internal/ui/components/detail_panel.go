@@ -245,7 +245,8 @@ func renderDetailComment(comment state.Comment, width int) string {
 	}
 	meta := DetailCommentMetaStyle.Render("@" + author)
 	if comment.CreatedAt != nil {
-		meta = lipgloss.JoinHorizontal(lipgloss.Left, meta, DetailCommentTimeStyle.Render("  "+comment.CreatedAt.In(time.Local).Format("2006-01-02 15:04")))
+		rel := formatRelativeTime(comment.CreatedAt.In(time.Local))
+		meta = lipgloss.JoinHorizontal(lipgloss.Left, meta, DetailCommentTimeStyle.Render("  "+rel))
 	}
 	body := strings.TrimSpace(comment.Body)
 	if body == "" {
@@ -254,6 +255,34 @@ func renderDetailComment(comment state.Comment, width int) string {
 	bodyView := DetailCommentBodyStyle.Copy().Width(innerWidth).MaxWidth(innerWidth).Render(body)
 
 	return DetailCommentBoxStyle.Copy().Width(boxWidth).MaxWidth(boxWidth).Render(lipgloss.JoinVertical(lipgloss.Left, meta, "", bodyView))
+}
+
+// formatRelativeTime returns a short human-friendly relative time string like
+// "2h ago", "5m ago", or "3d ago". It handles future times by returning
+// "just now".
+func formatRelativeTime(t time.Time) string {
+	now := time.Now()
+	d := now.Sub(t)
+	if d < 0 {
+		// Future time — treat as just now to avoid negative labels
+		return "just now"
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%ds ago", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	}
+	if d < 30*24*time.Hour {
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	}
+	if d < 365*24*time.Hour {
+		return fmt.Sprintf("%dmo ago", int(d.Hours()/(24*30)))
+	}
+	return fmt.Sprintf("%dy ago", int(d.Hours()/(24*365)))
 }
 
 type DetailCloseMsg struct{}
