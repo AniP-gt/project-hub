@@ -130,6 +130,11 @@ func FieldSelectMode(s State, msg tea.Msg) (State, tea.Cmd) {
 func DetailMode(s State, msg tea.Msg) (State, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
+		case "O":
+			if s.DetailItem.URL != "" {
+				return s, core.OpenBrowserCmd(s.DetailItem.URL)
+			}
+			return s, nil
 		case "i":
 			return EnterDetailEditMode(s)
 		case "a":

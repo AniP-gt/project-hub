@@ -96,6 +96,14 @@ func (m DetailPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.ScrollUp(3)
 		case "down", "j":
 			m.viewport.ScrollDown(3)
+		case "g":
+			m.viewport.GotoTop()
+		case "G":
+			m.viewport.GotoBottom()
+		case "ctrl+u":
+			m.viewport.ScrollUp(5)
+		case "ctrl+d":
+			m.viewport.ScrollDown(5)
 		}
 	}
 	return m, nil
