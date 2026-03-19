@@ -138,14 +138,8 @@ func (a App) View() string {
 	}
 
 	if a.state.View.Mode == state.ModeDetail {
-		detailView := a.detailPanel.View()
-		framed = lipgloss.Place(
-			frameWidth,
-			bodyHeight,
-			lipgloss.Center,
-			lipgloss.Center,
-			detailView,
-		)
+		a.detailPanel.SetSize(frameWidth, bodyHeight)
+		framed = a.detailPanel.View()
 	}
 
 	if a.state.View.Mode == state.ModeDetailEdit || a.state.View.Mode == state.ModeDetailComment {
