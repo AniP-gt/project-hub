@@ -45,6 +45,9 @@ func Update(s State, msg tea.Msg) (State, tea.Cmd) {
 		if s.Model.View.Mode == state.ModeDetailEdit || s.Model.View.Mode == state.ModeDetailComment {
 			prepareDetailTextArea(&s, s.TextArea.Value(), s.TextArea.Placeholder)
 		}
+		if s.Model.View.Mode == state.ModeDetail {
+			s.DetailPanel.SetSize(m.Width, m.Height)
+		}
 		if s.Model.View.CurrentView == state.ViewBoard {
 			var model tea.Model
 			model, cmd = s.BoardModel.Update(msg)

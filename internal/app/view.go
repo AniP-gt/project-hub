@@ -138,7 +138,6 @@ func (a App) View() string {
 	}
 
 	if a.state.View.Mode == state.ModeDetail {
-		a.detailPanel.SetSize(frameWidth, bodyHeight)
 		framed = a.detailPanel.View()
 	}
 

@@ -80,8 +80,22 @@ func (m DetailPanelModel) Init() tea.Cmd {
 }
 
 func (m *DetailPanelModel) SetSize(width, height int) {
+	if m.width == width && m.height == height {
+		return
+	}
 	m.width = width
 	m.height = height
+	vpWidth := width
+	if vpWidth < 1 {
+		vpWidth = 1
+	}
+	vpHeight := height
+	if vpHeight < 1 {
+		vpHeight = 1
+	}
+	m.viewport.Width = vpWidth
+	m.viewport.Height = vpHeight
+	m.updateContent()
 }
 
 func (m DetailPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -217,19 +231,6 @@ func (m *DetailPanelModel) updateContent() {
 }
 
 func (m DetailPanelModel) View() string {
-	vpWidth := m.width
-	if vpWidth < 1 {
-		vpWidth = 1
-	}
-	vpHeight := m.height
-	if vpHeight < 1 {
-		vpHeight = 1
-	}
-
-	m.viewport.Width = vpWidth
-	m.viewport.Height = vpHeight
-	m.updateContent()
-
 	return m.viewport.View()
 }
 
