@@ -120,9 +120,32 @@ After pressing `o` on an item:
 | Function | Keys | Behavior |
 | --- | --- | --- |
 | Scroll detail | `j` / `k` | Scroll detail body |
-| Edit issue body | `i` | Opens multiline editor; `Enter` inserts newline, `Ctrl+s` saves, `Esc` cancels |
-| Add comment | `a` | Opens multiline editor; `Enter` inserts newline, `Ctrl+s` saves, `Esc` cancels |
+| Open editor (body) | `i` | Opens multiline editor in vim-like modal mode (see below) |
+| Add comment | `a` | Opens multiline editor for comments in vim-like modal mode |
 | Close detail | `Esc` / `q` | Return to board/table |
+
+Vim-like modal editing (Detail body and Comments)
+
+When the multiline editor is opened from the detail view it uses a vim-like modal interface:
+
+- Normal mode (default when editor opens)
+  - Movement: `h`/`j`/`k`/`l` move left/down/up/right within the text
+  - Page movement: `Ctrl+u` (page up 5 lines), `Ctrl+d` (page down 5 lines)
+  - Jump: `g` (go to top), `G` (go to bottom)
+  - Enter insert mode: `i` (insert before cursor), `a` (append after cursor)
+  - `o`: insert a newline below the current line and switch to insert mode
+  - `Ctrl+s`: save (commits the edit or comment)
+  - `Esc`: exit editor and return to detail view (cancels unsaved changes)
+
+- Insert mode
+  - Type normally to edit text
+  - `Enter`: inserts a newline at the cursor
+  - `Ctrl+s`: save
+  - `Esc`: return to Normal mode
+
+Notes:
+- `o` and `Enter` were implemented to work even when existing text is present (they directly insert a newline and place the cursor in the correct position).
+- The editor still supports standard `Ctrl+s` to save and `Esc` to cancel/return.
 
 ### Table view
 
