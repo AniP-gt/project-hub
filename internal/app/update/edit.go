@@ -433,6 +433,7 @@ func EnterDetailEditMode(s State) (State, tea.Cmd) {
 	}
 
 	prepareDetailTextArea(&s, item.Description, "Edit issue description...")
+	s.TextAreaVimMode = "normal"
 	s.Model.View.Mode = state.ModeDetailEdit
 	return s, s.TextArea.Focus()
 }
@@ -455,6 +456,7 @@ func SaveDetailEdit(s State, msg SaveDetailEditMsg) (State, tea.Cmd) {
 
 	s.DetailItem.Description = msg.Description
 	s.DetailPanel = components.NewDetailPanelModel(s.DetailItem, s.Model.Width, s.Model.Height)
+	s.TextAreaVimMode = ""
 	s.Model.View.Mode = state.ModeDetail
 	return s, tea.Batch(cmd)
 }
@@ -462,6 +464,7 @@ func SaveDetailEdit(s State, msg SaveDetailEditMsg) (State, tea.Cmd) {
 func CancelDetailEdit(s State) (State, tea.Cmd) {
 	if s.Model.View.Mode == state.ModeDetailEdit {
 		s.TextArea.Blur()
+		s.TextAreaVimMode = ""
 		s.Model.View.Mode = state.ModeDetail
 	}
 	return s, nil
@@ -476,6 +479,7 @@ func EnterDetailCommentMode(s State) (State, tea.Cmd) {
 	}
 
 	prepareDetailTextArea(&s, "", "Add comment...")
+	s.TextAreaVimMode = "normal"
 	s.Model.View.Mode = state.ModeDetailComment
 	return s, s.TextArea.Focus()
 }
@@ -509,12 +513,14 @@ func SaveDetailComment(s State, msg SaveDetailCommentMsg) (State, tea.Cmd) {
 	}
 
 	s.Model.View.Mode = state.ModeDetail
+	s.TextAreaVimMode = ""
 	return s, tea.Batch(cmd)
 }
 
 func CancelDetailComment(s State) (State, tea.Cmd) {
 	if s.Model.View.Mode == state.ModeDetailComment {
 		s.TextArea.Blur()
+		s.TextAreaVimMode = ""
 		s.Model.View.Mode = state.ModeDetail
 	}
 	return s, nil

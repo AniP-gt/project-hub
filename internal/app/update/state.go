@@ -31,6 +31,7 @@ type State struct {
 	CreateIssueRepo  string
 	CreateIssueTitle string
 	CreateIssueBody  string
+	TextAreaVimMode  string
 }
 
 func NewState(initial state.Model, client github.Client, itemLimit int) State {

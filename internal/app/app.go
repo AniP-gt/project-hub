@@ -33,6 +33,7 @@ type App struct {
 	createIssueRepo  string
 	createIssueTitle string
 	createIssueBody  string
+	textAreaVimMode  string
 }
 
 func New(initial state.Model, client github.Client, itemLimit int) App {
@@ -81,6 +82,7 @@ func (a App) toUpdateState() update.State {
 		CreateIssueRepo:  a.createIssueRepo,
 		CreateIssueTitle: a.createIssueTitle,
 		CreateIssueBody:  a.createIssueBody,
+		TextAreaVimMode:  a.textAreaVimMode,
 	}
 }
 
@@ -100,6 +102,7 @@ func (a App) applyUpdateState(s update.State) App {
 	a.createIssueRepo = s.CreateIssueRepo
 	a.createIssueTitle = s.CreateIssueTitle
 	a.createIssueBody = s.CreateIssueBody
+	a.textAreaVimMode = s.TextAreaVimMode
 	return a
 }
 
@@ -120,5 +123,6 @@ func fromUpdateState(s update.State) App {
 		createIssueRepo:  s.CreateIssueRepo,
 		createIssueTitle: s.CreateIssueTitle,
 		createIssueBody:  s.CreateIssueBody,
+		textAreaVimMode:  s.TextAreaVimMode,
 	}
 }

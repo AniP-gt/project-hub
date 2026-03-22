@@ -21,6 +21,26 @@ type pendingKeyTimeout struct {
 func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 	// Support vim-style navigation: 'g' -> go to top, 'G' (shift+g) -> go to bottom.
 	if s.Model.View.Mode == state.ModeDetailEdit || s.Model.View.Mode == state.ModeDetailComment {
+		if s.TextAreaVimMode == "insert" {
+			switch k.String() {
+			case "esc":
+				s.TextAreaVimMode = "normal"
+				return s, nil
+			case "enter":
+				s.TextArea.InsertRune('\n')
+				return s, nil
+			case "ctrl+s":
+				if s.Model.View.Mode == state.ModeDetailEdit {
+					return SaveDetailEdit(s, SaveDetailEditMsg{Description: s.TextArea.Value()})
+				}
+				return SaveDetailComment(s, SaveDetailCommentMsg{Body: s.TextArea.Value()})
+			default:
+				var cmd tea.Cmd
+				s.TextArea, cmd = s.TextArea.Update(k)
+				return s, cmd
+			}
+		}
+
 		switch k.String() {
 		case "ctrl+s":
 			if s.Model.View.Mode == state.ModeDetailEdit {
@@ -32,10 +52,48 @@ func HandleKey(s State, k tea.KeyMsg) (State, tea.Cmd) {
 				return CancelDetailEdit(s)
 			}
 			return CancelDetailComment(s)
+		case "i":
+			s.TextAreaVimMode = "insert"
+			return s, nil
+		case "a":
+			s.TextAreaVimMode = "insert"
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyRight})
+			return s, nil
+		case "o":
+			s.TextAreaVimMode = "insert"
+			s.TextArea.CursorEnd()
+			s.TextArea.InsertRune('\n')
+			return s, nil
+		case "g":
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyCtrlHome})
+			return s, nil
+		case "G", "shift+G":
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyCtrlEnd})
+			return s, nil
+		case "j", "down":
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyDown})
+			return s, nil
+		case "k", "up":
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyUp})
+			return s, nil
+		case "h", "left":
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyLeft})
+			return s, nil
+		case "l", "right":
+			s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyRight})
+			return s, nil
+		case "ctrl+u":
+			for i := 0; i < 5; i++ {
+				s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyUp})
+			}
+			return s, nil
+		case "ctrl+d":
+			for i := 0; i < 5; i++ {
+				s.TextArea, _ = s.TextArea.Update(tea.KeyMsg{Type: tea.KeyDown})
+			}
+			return s, nil
 		default:
-			var cmd tea.Cmd
-			s.TextArea, cmd = s.TextArea.Update(k)
-			return s, cmd
+			return s, nil
 		}
 	}
 

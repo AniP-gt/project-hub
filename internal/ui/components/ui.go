@@ -279,11 +279,7 @@ func renderViewTabs(currentView state.ViewType) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, boardTab, tableTab, settingsTab)
 }
 
-// RenderFooter shows key hints and mode status.
-// RenderFooter shows key hints and mode status.
-// Added vis param to allow dynamic hints for modes like SORT which depend on visible table columns.
 func RenderFooter(mode, view string, width int, editTitle string, visibleCols []int) string {
-	// Mock's footer keybinds: j/k:移動 h/l:列移動 i:編集 /:フィルタ a:アサイン 1-3:ビュー切替 q:終了
 	keybinds := FooterKeybindsStyle.Render("j/k:move g/G:top/bottom i:edit c:create /:filter a:assign m:group o:detail O:open y:copy f:fields 1-3:view q:quit")
 	var modeLabel string
 	modeStyle := FooterModeStyle
@@ -347,11 +343,17 @@ func RenderFooter(mode, view string, width int, editTitle string, visibleCols []
 	case "detail":
 		modeLabel = "DETAIL MODE (i:edit body a:comment esc/q:close)"
 	case "detailedit":
-		modeLabel = "DETAIL EDIT MODE (enter:newline ctrl+s:save esc:cancel)"
+		modeLabel = "DETAIL EDIT -- NORMAL -- (i/a:insert o:newline+insert g/G:top/bottom hjkl:move ctrl+u/d:5lines ctrl+s:save esc:cancel)"
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorYellow400)
+	case "detailedit:insert":
+		modeLabel = "DETAIL EDIT -- INSERT -- (esc:normal ctrl+s:save)"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorGreen500)
 	case "detailcomment":
-		modeLabel = "DETAIL COMMENT MODE (enter:newline ctrl+s:save esc:cancel)"
+		modeLabel = "DETAIL COMMENT -- NORMAL -- (i/a:insert o:newline+insert g/G:top/bottom hjkl:move ctrl+u/d:5lines ctrl+s:save esc:cancel)"
 		modeStyle = FooterModeStyle.Copy().Foreground(ColorCyan400)
+	case "detailcomment:insert":
+		modeLabel = "DETAIL COMMENT -- INSERT -- (esc:normal ctrl+s:save)"
+		modeStyle = FooterModeStyle.Copy().Foreground(ColorGreen500)
 	case "fieldtoggle":
 		modeLabel = "FIELD TOGGLE MODE (m:milestone r:repository l:labels s:sub-issue p:parent esc:cancel)"
 	case "sort":

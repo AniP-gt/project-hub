@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"project-hub/internal/app/core"
 	"project-hub/internal/state"
 	"project-hub/internal/ui/components"
@@ -708,5 +710,153 @@ func TestEnterStatusSelectMode_NegativeFocusedIndex(t *testing.T) {
 
 	if len(updated.Model.Notifications) != 0 {
 		t.Errorf("expected 0 notifications for negative index, got %d", len(updated.Model.Notifications))
+	}
+}
+
+func TestDetailEditVimMode_EnterNormalOnOpen(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetail, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+
+	updated, _ := EnterDetailEditMode(stateModel)
+
+	if updated.TextAreaVimMode != "normal" {
+		t.Fatalf("expected vim mode 'normal' on enter, got %q", updated.TextAreaVimMode)
+	}
+	if updated.Model.View.Mode != state.ModeDetailEdit {
+		t.Fatalf("expected mode %q, got %q", state.ModeDetailEdit, updated.Model.View.Mode)
+	}
+}
+
+func TestDetailEditVimMode_IKeyEntersInsert(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailEdit, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+	stateModel.TextAreaVimMode = "normal"
+
+	updated, _ := HandleKey(stateModel, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+
+	if updated.TextAreaVimMode != "insert" {
+		t.Fatalf("expected vim mode 'insert' after i key, got %q", updated.TextAreaVimMode)
+	}
+}
+
+func TestDetailEditVimMode_EscInInsertReturnsToNormal(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailEdit, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+	stateModel.TextAreaVimMode = "insert"
+
+	updated, _ := HandleKey(stateModel, tea.KeyMsg{Type: tea.KeyEsc})
+
+	if updated.TextAreaVimMode != "normal" {
+		t.Fatalf("expected vim mode 'normal' after esc, got %q", updated.TextAreaVimMode)
+	}
+	if updated.Model.View.Mode != state.ModeDetailEdit {
+		t.Fatalf("expected to stay in %q after esc from insert, got %q", state.ModeDetailEdit, updated.Model.View.Mode)
+	}
+}
+
+func TestDetailEditVimMode_EscInNormalCancelsEdit(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailEdit, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+	stateModel.TextAreaVimMode = "normal"
+
+	updated, _ := HandleKey(stateModel, tea.KeyMsg{Type: tea.KeyEsc})
+
+	if updated.Model.View.Mode != state.ModeDetail {
+		t.Fatalf("expected to return to %q after esc from normal, got %q", state.ModeDetail, updated.Model.View.Mode)
+	}
+	if updated.TextAreaVimMode != "" {
+		t.Fatalf("expected vim mode cleared after cancel, got %q", updated.TextAreaVimMode)
+	}
+}
+
+func TestDetailEditVimMode_SaveResetsVimMode(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "body", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailEdit, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+	stateModel.TextAreaVimMode = "insert"
+
+	updated, _ := SaveDetailEdit(stateModel, SaveDetailEditMsg{Description: "new body"})
+
+	if updated.TextAreaVimMode != "" {
+		t.Fatalf("expected vim mode cleared after save, got %q", updated.TextAreaVimMode)
+	}
+}
+
+func TestDetailEditVimMode_OKeyAddsNewlineAndEntersInsert(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "line one", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetailEdit, FocusedIndex: 0, FocusedItemID: "item1"}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+	// simulate EnterDetailEditMode
+	stateModel, _ = EnterDetailEditMode(stateModel)
+
+	updated, _ := HandleKey(stateModel, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+
+	if updated.TextAreaVimMode != "insert" {
+		t.Fatalf("expected vim mode 'insert' after o key, got %q", updated.TextAreaVimMode)
+	}
+	val := updated.TextArea.Value()
+	t.Logf("TextArea value after o: %q", val)
+	if !strings.Contains(val, "\n") {
+		t.Fatalf("expected newline in textarea after o key, got %q", val)
+	}
+}
+
+func TestDetailEditVimMode_OKeyViaUpdate(t *testing.T) {
+	items := []state.Item{{ID: "item1", Title: "Test", Description: "line one", Repository: "owner/repo", Number: 12, Type: "Issue"}}
+	project := state.Project{ID: "1", Owner: "owner"}
+	viewContext := state.ViewContext{Mode: state.ModeDetail, FocusedIndex: 0, FocusedItemID: "item1", CurrentView: state.ViewBoard}
+	initialState := state.Model{Project: project, Items: items, View: viewContext, Width: 100, Height: 40}
+
+	stateModel := NewState(initialState, &mockClient{}, 100)
+	stateModel.DetailItem = items[0]
+
+	// Enter detail edit mode via 'i' key (simulating DetailMode handler)
+	stateModel, _ = Update(stateModel, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
+	t.Logf("After i: mode=%q vimMode=%q", stateModel.Model.View.Mode, stateModel.TextAreaVimMode)
+
+	if stateModel.Model.View.Mode != state.ModeDetailEdit {
+		t.Fatalf("expected ModeDetailEdit after i, got %q", stateModel.Model.View.Mode)
+	}
+	if stateModel.TextAreaVimMode != "normal" {
+		t.Fatalf("expected vim normal after entering edit, got %q", stateModel.TextAreaVimMode)
+	}
+
+	// Now press 'o' in normal mode
+	stateModel, _ = Update(stateModel, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	t.Logf("After o: mode=%q vimMode=%q taValue=%q", stateModel.Model.View.Mode, stateModel.TextAreaVimMode, stateModel.TextArea.Value())
+
+	if stateModel.TextAreaVimMode != "insert" {
+		t.Fatalf("expected vim insert after o, got %q", stateModel.TextAreaVimMode)
+	}
+	if !strings.Contains(stateModel.TextArea.Value(), "\n") {
+		t.Fatalf("expected newline after o, got %q", stateModel.TextArea.Value())
 	}
 }

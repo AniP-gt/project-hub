@@ -37,7 +37,11 @@ func (a App) View() string {
 	}
 	// Build visible columns list from CardFieldVisibility so footer can show relevant sort keys
 	visibleCols := tableVisibleColumns(a.state.View.CardFieldVisibility)
-	footer := components.RenderFooter(string(a.state.View.Mode), string(a.state.View.CurrentView), width, editTitle, visibleCols)
+	footerMode := string(a.state.View.Mode)
+	if (a.state.View.Mode == state.ModeDetailEdit || a.state.View.Mode == state.ModeDetailComment) && a.textAreaVimMode == "insert" {
+		footerMode = string(a.state.View.Mode) + ":insert"
+	}
+	footer := components.RenderFooter(footerMode, string(a.state.View.CurrentView), width, editTitle, visibleCols)
 	notif := components.RenderNotifications(a.state.Notifications)
 
 	body := ""
